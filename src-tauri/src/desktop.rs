@@ -30,7 +30,7 @@ fn window_theme(theme: &str) -> Option<tauri::Theme> {
 }
 fn window_background(theme: tauri::Theme) -> tauri::window::Color {
     match theme {
-        tauri::Theme::Light => tauri::window::Color(0xf7, 0xf8, 0xf5, 0xff),
+        tauri::Theme::Light => tauri::window::Color(0xf3, 0xf5, 0xf1, 0xff),
         _ => tauri::window::Color(0x12, 0x14, 0x14, 0xff),
     }
 }

@@ -15,10 +15,19 @@
  --line:rgba(232,236,231,.08);
  --line-strong:rgba(232,236,231,.14);
 
- /* Text (contrast on --bg: 15:1 / 8:1 / 5:1). */
+ /* Interaction fills and layers (semantic; each theme maps them to its own surfaces). */
+ --hover:#1c2220;
+ --selected:#272f2a;
+ --field-line:transparent;
+ --bg-drawer:#0f1211;
+ --scrim-soft:rgba(4,6,6,.34);
+
+ /* Text (contrast on --bg: 15:1 / 8:1 / 5.6:1; --text-3 stays ≥4.5:1 on --hover). */
  --text:#e8ece7;
  --text-2:#a9b3aa;
- --text-3:#848f86;
+ --text-3:#8d988f;
+ --lyric-dim:.42;
+ --lyric-past:.3;
 
  /* One brand accent, used for playback, progress, selection and the primary action. */
  --accent:#b9d69b;
@@ -87,9 +96,9 @@
  --art-from:#2a332e;
  --art-to:#1d2421;
  --art-icon:#6f7d72;
- --glow:rgba(185,214,155,.07);
- --ambient-a:.38;
- --ambient-b:.14;
+ --glow:rgba(185,214,155,.06);
+ --ambient-a:.32;
+ --ambient-b:.12;
 
  --shadow-pop:0 12px 32px rgba(0,0,0,.5),0 0 0 1px var(--line-strong);
  --shadow-card:0 6px 20px rgba(0,0,0,.35);
@@ -100,55 +109,65 @@
  --shadow-tooltip:0 4px 14px rgba(0,0,0,.45);
 }
 
-/* Light theme: same components, only the palette changes (contrast on --bg: 14:1 / 5.9:1 / 4.8:1). */
+/* Light theme: soft warm grey-green, no large pure-white areas; only the palette changes.
+   Contrast (WCAG): --text 11.8:1, --text-2 6.6:1, --text-3 5.6:1 on --bg; --text-3 stays ≥4.5:1 on
+   --bg-sidebar and --hover; --accent 5.0:1 on --bg and 5.5:1 against --accent-ink. */
 :root[data-theme=light]{
  color-scheme:light;
- --bg:#f7f8f5;
- --bg-sidebar:#eef1ea;
- --bg-player:#eef1ea;
- --surface:#ffffff;
- --surface-hover:#e8ede6;
- --surface-active:#dde4da;
- --surface-overlay:#ffffff;
- --scrim:rgba(30,37,32,.32);
- --line:rgba(30,37,32,.09);
- --line-strong:rgba(30,37,32,.16);
+ --bg:#f3f5f1;
+ --bg-sidebar:#e9ede7;
+ --bg-player:#e9ede7;
+ --surface:#fafbf8;
+ --surface-hover:#e2e8e0;
+ --surface-active:#d7dfd4;
+ --surface-overlay:#fafbf8;
+ --scrim:rgba(41,52,44,.26);
+ --line:rgba(41,52,44,.08);
+ --line-strong:rgba(41,52,44,.14);
 
- --text:#1e2520;
- --text-2:#58655b;
- --text-3:#647068;
+ --hover:rgba(41,52,44,.05);
+ --selected:rgba(41,52,44,.085);
+ --field-line:rgba(41,52,44,.12);
+ --bg-drawer:#f7f8f5;
+ --scrim-soft:rgba(41,52,44,.1);
 
- --accent:#547744;
- --accent-hover:#476638;
+ --text:#29342c;
+ --text-2:#4e5a51;
+ --text-3:#57635a;
+ --lyric-dim:.5;
+ --lyric-past:.38;
+
+ --accent:#52705a;
+ --accent-hover:#46624e;
  --accent-ink:#ffffff;
- --accent-soft:rgba(84,119,68,.13);
- --accent-line:rgba(84,119,68,.45);
- --focus:#3f6331;
+ --accent-soft:rgba(82,112,90,.12);
+ --accent-line:rgba(82,112,90,.42);
+ --focus:#3e5c46;
 
- --danger:#b3392c;
- --danger-bg:#c4473a;
- --danger-bg-hover:#ad3b2f;
- --danger-soft:rgba(179,57,44,.1);
+ --danger:#a93d31;
+ --danger-bg:#b4473b;
+ --danger-bg-hover:#a23f34;
+ --danger-soft:rgba(169,61,49,.09);
 
- --ink:30 37 32;
- --play-hover:#000;
- --tooltip-bg:#1e2520;
- --tooltip-text:#f7f8f5;
- --toast-bg:#ffffff;
- --toast-error-bg:#fbe9e6;
- --toast-error-text:#8f2d23;
- --art-from:#e3e8e0;
- --art-to:#d3dbcf;
- --art-icon:#7d897f;
- --glow:rgba(84,119,68,.08);
- --ambient-a:.24;
- --ambient-b:.1;
+ --ink:41 52 44;
+ --play-hover:#1d2620;
+ --tooltip-bg:#29342c;
+ --tooltip-text:#f3f5f1;
+ --toast-bg:#fafbf8;
+ --toast-error-bg:#f7e6e2;
+ --toast-error-text:#8a3027;
+ --art-from:#e1e7de;
+ --art-to:#d3dbd0;
+ --art-icon:#76837a;
+ --glow:rgba(82,112,90,.06);
+ --ambient-a:.2;
+ --ambient-b:.08;
 
- --shadow-pop:0 12px 32px rgba(30,37,32,.16),0 0 0 1px var(--line-strong);
- --shadow-card:0 4px 14px rgba(30,37,32,.12);
- --shadow-dialog:0 24px 64px rgba(30,37,32,.22),0 0 0 1px var(--line-strong);
- --shadow-art:0 20px 48px rgba(30,37,32,.22);
- --shadow-drawer:-12px 0 32px rgba(30,37,32,.14);
- --shadow-control:0 6px 16px rgba(30,37,32,.22);
- --shadow-tooltip:0 4px 14px rgba(30,37,32,.2);
+ --shadow-pop:0 8px 24px rgba(41,52,44,.12),0 0 0 1px var(--line);
+ --shadow-card:0 1px 2px rgba(41,52,44,.06),0 4px 12px rgba(41,52,44,.06);
+ --shadow-dialog:0 16px 48px rgba(41,52,44,.16),0 0 0 1px var(--line);
+ --shadow-art:0 16px 40px rgba(41,52,44,.18);
+ --shadow-drawer:-8px 0 24px rgba(41,52,44,.08);
+ --shadow-control:0 4px 12px rgba(41,52,44,.16);
+ --shadow-tooltip:0 4px 12px rgba(41,52,44,.16);
 }

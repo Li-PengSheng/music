@@ -70,7 +70,7 @@ test('both themes share one set of tokens and components',()=>{
  const names=block=>new Set([...block.matchAll(/(--[\w-]+):/g)].map(m=>m[1]));
  const darkNames=names(dark);
  for(const name of names(light))assert.ok(darkNames.has(name),`${name} overrides an existing token`);
- for(const [name,value] of [['--bg','#f7f8f5'],['--bg-sidebar','#eef1ea'],['--surface','#ffffff'],['--surface-hover','#e8ede6'],['--text','#1e2520'],['--text-2','#58655b'],['--accent','#547744']])
+ for(const [name,value] of [['--bg','#f3f5f1'],['--bg-sidebar','#e9ede7'],['--surface','#fafbf8'],['--surface-hover','#e2e8e0'],['--text','#29342c'],['--accent','#52705a']])
   assert.match(light,new RegExp(`${name}:${value};`,'i'));
  const css=read('src/app.css').replace(/\/\*[\s\S]*?\*\//g,'');
  const colours=[...css.matchAll(/#[0-9a-f]{3,8}\b|rgba?\((?!var\()[^)]*\)/gi)].map(m=>m[0]);

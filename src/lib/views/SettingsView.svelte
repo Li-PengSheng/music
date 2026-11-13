@@ -1,0 +1,86 @@
+<script lang="ts">
+ import {onMount} from 'svelte';
+ import {FolderPlus,Database,X} from 'lucide-svelte';
+ import Select from '../Select.svelte';
+ import {shortcutHelp} from '../shortcuts';
+ import {desktopAvailable,mediaStatus,desktopPreferences,cancelScan} from '../services/music';
+ import {player} from '../stores/player.svelte';
+ import {library} from '../stores/library.svelte';
+ import {ui,notify,notifyError} from '../stores/ui.svelte';
+ import {importFolder,importLegacyDatabase} from '../actions';
+ import {setReduceMotion} from '../stores/preferences';
+
+ let media=$state('尚未连接桌面');
+ let closeToTray=$state(false);let desktopReady=$state(false);let saving=$state(false);let importing=$state(false);
+
+ onMount(()=>{
+  if(!desktopAvailable)return;
+  void mediaStatus().then(s=>media=s).catch(notifyError);
+  void desktopPreferences().then(p=>{closeToTray=p.close_to_tray;desktopReady=true;}).catch(notifyError);
+ });
+
+ async function changeClose(value:string){
+  saving=true;
+  try{const enabled=value==='tray';const p=await desktopPreferences(enabled);closeToTray=p.close_to_tray;if(enabled)notify('关闭窗口后音乐继续播放；右键托盘图标选择“退出”可结束程序。');}
+  catch(e){notifyError(e);}finally{saving=false;}
+ }
+ async function legacy(){importing=true;try{await importLegacyDatabase();}finally{importing=false;}}
+ let scanning=$derived(!!library.progress?.running);
+</script>
+
+<header class="page-header"><div><h2 class="page-title">设置</h2><p class="page-meta">Music Mine v0.1.0 · 本地离线运行</p></div></header>
+
+<div class="settings">
+ <section class="settings-card" aria-labelledby="set-library">
+  <h3 id="set-library">音乐库</h3>
+  <p class="settings-note">Music Mine 只读取音乐文件和标签，从不修改、移动或删除它们。</p>
+  {#if library.summary.folders.length}
+   <ul class="folder-list">{#each library.summary.folders as folder (folder)}<li class="mono" title={folder}>{folder}</li>{/each}</ul>
+  {:else}<p class="settings-note">尚未添加音乐文件夹。</p>{/if}
+  <div class="settings-actions">
+   <button type="button" class="btn btn-primary" onclick={importFolder} disabled={scanning||!desktopAvailable}><FolderPlus size={16}/>添加或重新扫描文件夹</button>
+  </div>
+  {#if library.progress&&(library.progress.running||library.progress.visited||library.progress.errors.length)}
+   {@const p=library.progress}
+   <div class="scan-status" aria-live="polite">
+    <div class="scan-line"><strong>{p.running?'正在扫描':p.cancelled?'扫描已取消，已导入的歌曲会保留':'扫描完成'}</strong><span>已检查 {p.visited} · 已导入或更新 {p.imported}</span>
+     {#if p.running}<button type="button" class="btn btn-ghost btn-sm" onclick={()=>cancelScan().catch(notifyError)}><X size={14}/>取消</button>{/if}</div>
+    {#if p.current}<small class="mono">{p.current}</small>{/if}
+    {#if p.errors.length}<details><summary>{p.errors.length} 条错误</summary>{#each p.errors as e,i (i)}<p class="mono">{e}</p>{/each}</details>{/if}
+   </div>
+  {/if}
+ </section>
+
+ <section class="settings-card" aria-labelledby="set-playback">
+  <h3 id="set-playback">播放</h3>
+  <dl class="settings-list">
+   <div><dt>音频输出</dt><dd>{player.snapshot?.output_device_id??'尚未打开音频输出设备'}</dd></div>
+   <div><dt>Windows 媒体控制</dt><dd>{media}</dd></div>
+  </dl>
+  <p class="settings-note">播放队列、进度、音量和播放模式会自动保存，重新启动后保持暂停。</p>
+ </section>
+
+ <section class="settings-card" aria-labelledby="set-window">
+  <h3 id="set-window">窗口与外观</h3>
+  <div class="settings-row">
+   <div><strong>关闭主窗口时</strong><p>选择托盘后，左键托盘图标恢复窗口，右键可控制播放或退出。</p></div>
+   <Select label="关闭主窗口时" value={closeToTray?'tray':'exit'} disabled={!desktopReady||saving} onchange={changeClose} options={[{value:'exit',label:'退出程序'},{value:'tray',label:'最小化到系统托盘'}]}/>
+  </div>
+  <div class="settings-row">
+   <div><strong>减少动态效果</strong><p>关闭过渡动画与正在播放页面的氛围光晕。系统已开启“减少动画”时自动生效。</p></div>
+   <label class="switch"><input type="checkbox" role="switch" checked={ui.reduceMotion} onchange={(e)=>setReduceMotion(e.currentTarget.checked)}/><span aria-hidden="true"></span><span class="sr-only">减少动态效果</span></label>
+  </div>
+ </section>
+
+ <section class="settings-card" aria-labelledby="set-keys">
+  <h3 id="set-keys">键盘快捷键</h3>
+  <dl class="shortcut-list">{#each shortcutHelp as [key,label] (key)}<div><dt><kbd>{key}</kbd></dt><dd>{label}</dd></div>{/each}</dl>
+  <p class="settings-note">仅在窗口内生效，不占用其他应用的全局快捷键。输入文字时保留编辑操作。</p>
+ </section>
+
+ <section class="settings-card" aria-labelledby="set-legacy">
+  <h3 id="set-legacy">从旧版迁移</h3>
+  <p class="settings-note">选择旧版数据库，制作一致性副本后导入。仅支持空音乐库；旧数据库与音乐文件保持只读。</p>
+  <div class="settings-actions"><button type="button" class="btn btn-secondary" onclick={legacy} disabled={importing||scanning||!desktopAvailable}><Database size={16}/>{importing?'正在备份与校验…':'导入旧版数据库'}</button></div>
+ </section>
+</div>

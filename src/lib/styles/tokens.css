@@ -1,0 +1,70 @@
+/* Music Mine design tokens. Components read only these variables; no colour is hard-coded elsewhere. */
+:root{
+ color-scheme:dark;
+
+ /* Neutral surfaces: hierarchy comes from lightness, not borders. */
+ --bg:#121414;
+ --bg-sidebar:#090b0c;
+ --bg-player:#0d0f0f;
+ --surface:#1c2220;
+ --surface-hover:#272f2a;
+ --surface-active:#2f3933;
+ --surface-overlay:#1a1f1d;
+ --scrim:rgba(4,6,6,.62);
+ --line:rgba(232,236,231,.08);
+ --line-strong:rgba(232,236,231,.14);
+
+ /* Text (contrast on --bg: 15:1 / 8:1 / 5:1). */
+ --text:#e8ece7;
+ --text-2:#a9b3aa;
+ --text-3:#848f86;
+
+ /* One brand accent, used for playback, progress, selection and the primary action. */
+ --accent:#b9d69b;
+ --accent-hover:#cde5b4;
+ --accent-ink:#142011;
+ --accent-soft:rgba(185,214,155,.13);
+ --accent-line:rgba(185,214,155,.42);
+ --focus:#cfe7b5;
+
+ --danger:#f0998e;
+ --danger-bg:#c4473a;
+ --danger-bg-hover:#d4574a;
+ --danger-soft:rgba(240,153,142,.12);
+
+ /* Typography: Windows system fonts only; CJK fallbacks for zh/ja/ko. */
+ --font-sans:"Segoe UI Variable Text","Segoe UI","Microsoft YaHei UI","Microsoft YaHei","Malgun Gothic","Yu Gothic UI","Meiryo UI",system-ui,sans-serif;
+ --font-display:"Segoe UI Variable Display","Segoe UI","Microsoft YaHei UI","Microsoft YaHei","Malgun Gothic","Yu Gothic UI",system-ui,sans-serif;
+ --font-mono:"Cascadia Mono",Consolas,"Microsoft YaHei UI",monospace;
+ --fs-page:26px;
+ --fs-section:18px;
+ --fs-body:14px;
+ --fs-meta:13px;
+ --fs-small:12px;
+ --fw-semibold:600;
+
+ /* Shape and spacing (4px grid). */
+ --radius-xs:4px;
+ --radius-sm:6px;
+ --radius:8px;
+ --radius-lg:12px;
+ --radius-xl:16px;
+ --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:20px;--space-6:24px;--space-8:32px;
+
+ /* Layout. */
+ --sidebar-w:220px;
+ --player-h:88px;
+ --topbar-h:56px;
+ --queue-w:340px;
+ --row-h:56px;
+ --control-h:32px;
+ --page-x:clamp(16px,2.4vw,32px);
+
+ /* Motion. */
+ --dur-fast:140ms;
+ --dur:180ms;
+ --ease:cubic-bezier(.2,0,0,1);
+
+ --shadow-pop:0 12px 32px rgba(0,0,0,.5),0 0 0 1px var(--line-strong);
+ --shadow-card:0 6px 20px rgba(0,0,0,.35);
+}

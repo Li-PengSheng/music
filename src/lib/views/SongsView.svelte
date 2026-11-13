@@ -1,5 +1,5 @@
 <script lang="ts">
- import {Play,Shuffle,ListEnd,Ellipsis,Heart,Search,Music2,FolderPlus,ListMusic} from 'lucide-svelte';
+ import {Play,Shuffle,ListEnd,Ellipsis,Search,Music2,FolderPlus,ListMusic} from 'lucide-svelte';
  import TrackList from '../components/TrackList.svelte';
  import EmptyState from '../components/EmptyState.svelte';
  import Select from '../Select.svelte';
@@ -11,6 +11,7 @@
  import {control} from '../stores/player.svelte';
  import {setMode,desktopAvailable,type LibraryQuery} from '../services/music';
  import {playCollection,playlistMenu,albumMenu,artistMenu,importFolder} from '../actions';
+ import {LOCAL_COLLECTION,localQuery} from '../utils/collections';
 
  let route=$derived(nav.route);
  let key=$derived(routeKey(route));
@@ -18,7 +19,6 @@
  let search=$state(ui.query);
  $effect(()=>{const q=ui.query;if(q===search)return;const t=setTimeout(()=>search=q,180);return ()=>clearTimeout(t);});
 
- let favoritesOnly=$state(false);
  let sorts=$state<Record<string,string>>({});
  let sort=$derived(sorts[key]??memory.get(key)?.sort??(route.view==='artist'?'album':'added'));
  function changeSort(next:string){sorts[key]=next;memory.set(key,{scroll:0,...memory.get(key),sort:next});}
@@ -33,14 +33,15 @@
    case 'artist':return {artist:route.name,sort};
    case 'playlist':return {playlist:route.id};
    case 'recent':return {sort:'added'};
-   default:return {sort,favorite:favoritesOnly};
+   case 'local':return localQuery(sort,'');
+   default:return {sort};
   }
  });
  let query=$derived<LibraryQuery>({...base,search:search.trim()});
- let sortable=$derived(route.view==='songs'||route.view==='artist');
+ let sortable=$derived(route.view==='songs'||route.view==='local'||route.view==='artist');
 
  let total=$state(0);let loaded=$state(false);
- let title=$derived(route.view==='songs'?'歌曲':route.view==='recent'?'最近添加':album?.name??artist?.name??playlist?.name??'');
+ let title=$derived(route.view==='songs'?'歌曲':route.view==='recent'?'最近添加':route.view==='local'?LOCAL_COLLECTION.name:album?.name??artist?.name??playlist?.name??'');
 
  async function shufflePlay(){await control(()=>setMode('shuffle'));await playCollection(base);}
  function headerMenu(e:MouseEvent){
@@ -77,6 +78,7 @@
 {:else}
  <header class="page-header">
   <div>
+   {#if route.view==='local'}<span class="hero-kind">系统歌单 · 自动包含音乐库中的全部歌曲</span>{/if}
    <h2 class="page-title">{title}</h2>
    <p class="page-meta">{loaded?`${total} 首歌曲`:'正在读取…'}{#if search.trim()} · 搜索“{search.trim()}”{/if}</p>
   </div>
@@ -85,9 +87,8 @@
    <button type="button" class="btn btn-secondary" disabled={!total} onclick={shufflePlay}><Shuffle size={16}/>随机播放</button>
   </div>
  </header>
- {#if route.view==='songs'}
+ {#if route.view==='songs'||route.view==='local'}
   <div class="toolbar">
-   <button type="button" class="chip" class:active={favoritesOnly} aria-pressed={favoritesOnly} onclick={()=>favoritesOnly=!favoritesOnly}><Heart size={14} fill={favoritesOnly?'currentColor':'none'}/>仅显示收藏</button>
    <span class="toolbar-spacer"></span>
    <span class="toolbar-label">排序</span><Select label="歌曲排序" value={sort} options={sortOptions} onchange={changeSort}/>
   </div>
@@ -109,7 +110,6 @@
  {/key}
  {#if loaded&&!total}
   {#if search.trim()}<EmptyState icon={Search} title="没有找到匹配的歌曲" message={`没有与“${search.trim()}”匹配的歌曲。试试歌曲名、艺术家或专辑的其他关键词。`}><button type="button" class="btn btn-ghost" onclick={()=>ui.query=''}>清除搜索</button></EmptyState>
-  {:else if favoritesOnly}<EmptyState icon={Heart} title="还没有收藏的歌曲" message="点击歌曲行上的心形按钮即可收藏。"/>
   {:else if route.view==='playlist'}<EmptyState icon={ListMusic} title="歌单还是空的" message="在任意歌曲上点右键，选择“添加到歌单”。"><button type="button" class="btn btn-ghost" onclick={()=>go({view:'songs'})}>浏览歌曲</button></EmptyState>
   {:else}<EmptyState icon={Music2} title="这里还没有歌曲"/>{/if}
  {/if}

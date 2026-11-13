@@ -21,8 +21,9 @@ export interface LibraryTrack extends Track {id:number;album_artist:string;genre
 export interface Group {key:string;name:string;artist:string;count:number;cover_id:number}
 export interface Playlist {id:number;name:string;count:number}
 export interface LibrarySummary {tracks:number;albums:Group[];artists:Group[];folders:string[];playlists:Playlist[]}
-export interface LibraryQuery {search?:string;sort?:string;offset?:number;limit?:number;favorite?:boolean;playlist?:number|null;album?:string|null;artist?:string|null}
-export interface LibraryPage {tracks:LibraryTrack[];total:number;favorites:number[]}
+export interface LibraryQuery {search?:string;sort?:string;offset?:number;limit?:number;playlist?:number|null;album?:string|null;artist?:string|null}
+// Rust still returns stored favourite IDs for database compatibility; the UI no longer reads them.
+export interface LibraryPage {tracks:LibraryTrack[];total:number}
 export interface ScanProgress {running:boolean;visited:number;imported:number;current:string;cancelled:boolean;errors:string[]}
 export const queryLibrary=(query:LibraryQuery)=>invoke<LibraryPage>('library_query',{query});
 export const librarySummary=()=>invoke<LibrarySummary>('library_summary');
@@ -55,14 +56,13 @@ export function trackThumb(id:number,px:number){
 }
 export const homeData=()=>invoke<{recent:LibraryTrack[];artists:[string,number][]}>('library_home');
 export const playTrack=(id:number)=>invoke<PlayerSnapshot>('library_play',{id});
-export const favoriteTrack=(id:number,on:boolean)=>invoke<void>('library_favorite',{id,on});
 export const createPlaylist=(name:string)=>invoke<number|null>('library_playlist',{name,playlistId:null,trackId:null}).then(id=>{if(id==null)throw new Error('创建歌单失败');return id;});
 export const addToPlaylist=(playlistId:number,trackId:number)=>invoke<number|null>('library_playlist',{name:null,playlistId,trackId}).then(()=>{});
 // Playlist edits address rows by ID only; library tracks and audio files are never touched.
 export const renamePlaylist=(playlistId:number,name:string)=>invoke<void>('library_playlist_edit',{action:'rename',playlistId,name,trackId:null});
 export const deletePlaylist=(playlistId:number)=>invoke<void>('library_playlist_edit',{action:'delete',playlistId,name:null,trackId:null});
 export const removeFromPlaylist=(playlistId:number,trackId:number)=>invoke<void>('library_playlist_edit',{action:'remove_track',playlistId,name:null,trackId});
-export const importLegacy=()=>invoke<{tracks:number;favorites:number;playlists:number;entries:number;warnings:string[]}|null>('library_import');
+export const importLegacy=()=>invoke<{tracks:number;playlists:number;entries:number;warnings:string[]}|null>('library_import');
 export const queueAction=(action:'add'|'play_next'|'remove'|'next'|'previous'|'clear',id:number|null=null,path:string|null=null)=>invoke<PlayerSnapshot>('library_queue',{action,id,path});
 export const queueTracks=(ids:number[],replace:boolean)=>invoke<PlayerSnapshot>('library_queue_tracks',{ids,replace});
 export async function collectTrackIds(query:LibraryQuery):Promise<number[]>{

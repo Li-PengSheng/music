@@ -51,6 +51,7 @@ kbd{font-family:var(--font-sans);font-size:11px;color:var(--text-3);border:1px s
 .nav-item.active>svg{color:var(--accent)}
 .nav-item-muted{color:var(--text-3)}
 .nav-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nav-tag{flex-shrink:0;padding:0 6px;border-radius:999px;background:var(--surface-hover);color:var(--text-3);font-size:11px;line-height:18px}
 .nav-count{flex-shrink:0;color:var(--text-3);font-size:var(--fs-small);font-weight:400;font-variant-numeric:tabular-nums}
 /* Only the playlist list scrolls; brand, library groups and settings stay put. */
 .nav-playlists{flex:1 1 auto;min-height:72px;overflow-y:auto;overflow-x:hidden;margin-right:-4px;padding-right:4px;padding-bottom:var(--space-2);flex-shrink:1;mask-image:linear-gradient(to bottom,#000 calc(100% - 16px),transparent)}
@@ -227,7 +228,7 @@ kbd{font-family:var(--font-sans);font-size:11px;color:var(--text-3);border:1px s
 .empty-actions{display:flex;gap:8px;margin-top:8px}
 
 /* ============================================================ track table (virtualised) */
-.track-table{container-type:inline-size;--cols:44px minmax(0,4fr) minmax(0,2.4fr) minmax(0,2.6fr) 56px 72px}
+.track-table{container-type:inline-size;--cols:44px minmax(0,4fr) minmax(0,2.4fr) minmax(0,2.6fr) 56px 40px}
 .track-head,.track-row{display:grid;grid-template-columns:var(--cols);align-items:center;column-gap:var(--space-3);padding:0 var(--space-2)}
 /* Sticky offsets are measured inside the scroller's padding; cancel .main's top padding so rows cannot show above the header. */
 .track-head{position:sticky;top:calc(var(--page-top) * -1);z-index:var(--z-sticky);height:36px;margin:0 calc(var(--space-2) * -1) var(--space-1);padding-inline:calc(var(--space-2) * 2);background:var(--bg);border-bottom:1px solid var(--line);color:var(--text-3);font-size:var(--fs-small)}
@@ -255,12 +256,11 @@ kbd{font-family:var(--font-sans);font-size:11px;color:var(--text-3);border:1px s
 .col-actions{display:flex;justify-content:flex-end;gap:2px}
 .row-action{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;color:var(--text-3);opacity:0;transition:opacity var(--dur-fast),color var(--dur-fast),background-color var(--dur-fast)}
 .row-action:hover{color:var(--text);background:var(--surface-active)}
-.row-action.on{color:var(--accent);opacity:1}
 .track-row:hover .row-action,.track-row.selected .row-action,.track-row:focus-within .row-action{opacity:1}
 .track-row.loading .col-title .skeleton-text{flex:1}
 .list-error{display:flex;align-items:center;gap:8px;padding:16px;color:var(--danger);font-size:var(--fs-meta)}
-@container (max-width:760px){.track-table{--cols:40px minmax(0,3fr) minmax(0,2fr) 52px 68px}.col-album{display:none}}
-@container (max-width:520px){.track-table{--cols:36px minmax(0,1fr) 48px 64px}.col-artist{display:none}}
+@container (max-width:760px){.track-table{--cols:40px minmax(0,3fr) minmax(0,2fr) 52px 40px}.col-album{display:none}}
+@container (max-width:520px){.track-table{--cols:36px minmax(0,1fr) 48px 40px}.col-artist{display:none}}
 
 /* Animated “now playing” bars; static while paused. */
 .eq{display:inline-flex;align-items:flex-end;gap:2px;height:14px}

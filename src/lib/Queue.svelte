@@ -76,7 +76,7 @@
   const ok=await confirmAction({
    title:'清空播放队列？',
    message:currentIndex<0?`将从播放队列移除全部 ${removing} 首歌曲。`:`将从播放队列移除其他 ${removing} 首歌曲，正在播放的歌曲会保留并继续播放。`,
-   detail:'只影响播放队列，不会修改歌单、收藏或任何音乐文件。',
+   detail:'只影响播放队列，不会修改歌单或任何音乐文件。',
    confirmLabel:'清空队列',danger:true,
   });
   if(ok&&await control(()=>queueAction('clear')))notify('播放队列已清空');

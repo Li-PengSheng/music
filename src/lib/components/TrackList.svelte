@@ -1,6 +1,6 @@
 <script lang="ts">
  import {getContext,onMount,tick,untrack} from 'svelte';
- import {Heart,Ellipsis,Play,Clock3} from 'lucide-svelte';
+ import {Ellipsis,Play,Clock3} from 'lucide-svelte';
  import Cover from '../Cover.svelte';
  import {tooltip} from './tooltip';
  import {queryLibrary,playTrack,type LibraryQuery,type LibraryTrack} from '../services/music';
@@ -8,7 +8,7 @@
  import {library} from '../stores/library.svelte';
  import {openMenu,notifyError} from '../stores/ui.svelte';
  import {memory} from '../stores/nav.svelte';
- import {songMenu,setFavorite,openDetails} from '../actions';
+ import {songMenu,openDetails} from '../actions';
  import {visibleRange,pagesFor,scrollToRow} from '../utils/virtual-range';
  import {duration} from '../utils/format';
 
@@ -22,7 +22,6 @@
 
  let total=$state(0);let loaded=$state(false);let failed=$state(false);
  let pages=$state<Record<number,LibraryTrack[]>>({});
- let favorites=$state(new Set<number>());
  let range=$state({start:0,end:0});
  let selected=$state(-1);
  let host=$state<HTMLDivElement>();
@@ -36,7 +35,7 @@
   try{
    const result=await queryLibrary({...query,offset:page*PAGE,limit:PAGE});
    if(gen!==generation)return;
-   pages[page]=result.tracks;total=result.total;favorites=new Set(result.favorites);
+   pages[page]=result.tracks;total=result.total;
    if(!loaded){loaded=true;ontotal?.(total,true);void tick().then(restore);}
    else ontotal?.(total,true);
   }catch(e){if(gen===generation){failed=true;notifyError(e);}}
@@ -87,12 +86,7 @@
  async function start(t:LibraryTrack){await perform(()=>playTrack(t.id));}
  function menu(e:MouseEvent|HTMLElement,t:LibraryTrack,i:number){
   selected=i;
-  openMenu(e,songMenu(t,{favorite:favorites.has(t.id),playlistId,onDetails:()=>openDetails(t)}),t.title+' 操作');
- }
- async function like(t:LibraryTrack){
-  const on=!favorites.has(t.id);
-  const next=new Set(favorites);if(on)next.add(t.id);else next.delete(t.id);favorites=next;
-  await setFavorite(t,on);
+  openMenu(e,songMenu(t,{playlistId,onDetails:()=>openDetails(t)}),t.title+' 操作');
  }
 
  async function focusRow(i:number){
@@ -140,7 +134,6 @@
   <div class="track-window" style:transform={`translateY(${range.start*ROW}px)`}>
    {#each rows as {index,track:t} (t?t.id:'loading-'+index)}
     {@const current=!!t&&t.path===currentPath}
-    {@const fav=!!t&&favorites.has(t.id)}
     <div class="track-row" role="row" aria-rowindex={index+2} aria-selected={selected===index} data-index={index}
      tabindex={selected===index||(selected<0&&index===range.start)?0:-1}
      class:selected={selected===index} class:current class:loading={!t}
@@ -162,7 +155,6 @@
       <span role="gridcell" class="col-album"><span class="row-text" use:tooltip={{text:t.album,overflow:true}}>{t.album||'—'}</span></span>
       <span role="gridcell" class="col-duration">{duration(t.duration_ms)}</span>
       <span role="gridcell" class="col-actions">
-       <button type="button" class="row-action" class:on={fav} tabindex="-1" aria-pressed={fav} aria-label={(fav?'取消收藏 ':'收藏 ')+t.title} use:tooltip={fav?'取消收藏':'收藏'} onclick={(e)=>{e.stopPropagation();void like(t);}}><Heart size={16} fill={fav?'currentColor':'none'}/></button>
        <button type="button" class="row-action" tabindex="-1" aria-haspopup="menu" aria-label={'更多操作：'+t.title} use:tooltip={'更多操作'} onclick={(e)=>{e.stopPropagation();menu(e.currentTarget as HTMLElement,t,index);}}><Ellipsis size={16}/></button>
       </span>
      {:else}

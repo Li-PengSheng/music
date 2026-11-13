@@ -9,6 +9,8 @@ export type Route =
  | {view:'album';key:string}
  | {view:'artist';name:string}
  | {view:'playlist';id:number}
+ /** Built-in “本地” collection: the whole library. */
+ | {view:'local'}
  | {view:'settings'};
 
 const history=createHistory<Route>({view:'home'});

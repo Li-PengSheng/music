@@ -6,6 +6,7 @@
  import {ui} from '../stores/ui.svelte';
  import IconButton from '../components/IconButton.svelte';
  import {tooltip} from '../components/tooltip';
+ import {LOCAL_COLLECTION} from '../utils/collections';
 
  let {searchInput=$bindable()}:{searchInput?:HTMLInputElement}=$props();
 
@@ -20,6 +21,7 @@
    case 'album':return {parent:'专辑',title:library.summary.albums.find(a=>a.key===r.key)?.name??'专辑'};
    case 'artist':return {parent:'艺术家',title:r.name||'未知艺术家'};
    case 'playlist':return {parent:'我的歌单',title:library.summary.playlists.find(p=>p.id===r.id)?.name??'歌单'};
+   case 'local':return {parent:'我的歌单',title:LOCAL_COLLECTION.name};
    case 'settings':return {parent:null,title:'设置'};
   }
  });

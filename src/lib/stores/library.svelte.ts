@@ -4,7 +4,7 @@ import {notifyError} from './ui.svelte';
 export const library=$state({
  summary:{tracks:0,albums:[],artists:[],folders:[],playlists:[]} as LibrarySummary,
  loaded:false,
- /** Bumped after any change to tracks, favourites or playlists so open lists reload. */
+ /** Bumped after any change to tracks or playlists so open lists (including the built-in “本地”) reload. */
  revision:0,
  progress:null as ScanProgress|null,
 });
@@ -14,8 +14,6 @@ export async function refreshSummary(){
  try{library.summary=await librarySummary();library.loaded=true;library.revision++;}
  catch(e){notifyError(e);}
 }
-
-export function changed(){library.revision++;}
 
 /** Polls scan progress and refreshes the library when a scan finishes. */
 export function watchScans(){

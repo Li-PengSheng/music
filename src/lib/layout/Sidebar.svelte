@@ -1,10 +1,11 @@
 <script lang="ts">
- import {House,Clock3,Music2,Disc3,MicVocal,ListMusic,Plus,Settings2} from 'lucide-svelte';
+ import {House,Clock3,Music2,Disc3,MicVocal,ListMusic,Plus,Settings2,HardDrive} from 'lucide-svelte';
  import {nav,go} from '../stores/nav.svelte';
  import {library} from '../stores/library.svelte';
  import {openMenu} from '../stores/ui.svelte';
- import {playlistMenu,newPlaylist} from '../actions';
+ import {playlistMenu,localMenu,newPlaylist} from '../actions';
  import {tooltip} from '../components/tooltip';
+ import {LOCAL_COLLECTION,shadowsBuiltIn} from '../utils/collections';
 
  let active=$derived(nav.route.view);
  let libraryActive=$derived(active==='songs'||active==='albums'||active==='artists'||active==='album'||active==='artist');
@@ -46,16 +47,24 @@
    <button type="button" class="icon-btn icon-btn-sm" aria-label="新建歌单" use:tooltip={'新建歌单'} onclick={()=>newPlaylist()}><Plus size={16}/></button>
   </div>
   <ul class="nav-group nav-playlists" aria-label="我的歌单">
+   <li><button type="button" class="nav-item" class:active={active==='local'} aria-current={active==='local'?'page':undefined}
+    onclick={()=>go({view:'local'})} oncontextmenu={(e)=>openMenu(e,localMenu(),'系统歌单「'+LOCAL_COLLECTION.name+'」操作')}
+    use:tooltip={'系统歌单：自动包含音乐库中的全部歌曲'}>
+    <HardDrive size={18}/><span class="nav-label">{LOCAL_COLLECTION.name}</span>{#if library.loaded}<span class="nav-count">{library.summary.tracks}</span>{/if}
+   </button></li>
    {#each library.summary.playlists as list (list.id)}
     {@const selected=nav.route.view==='playlist'&&nav.route.id===list.id}
     <li><button type="button" class="nav-item" class:active={selected} aria-current={selected?'page':undefined}
      onclick={()=>go({view:'playlist',id:list.id})}
      oncontextmenu={(e)=>openMenu(e,playlistMenu(list),'歌单「'+list.name+'」操作')}>
-     <ListMusic size={18}/><span class="nav-label" use:tooltip={{text:list.name,overflow:true}}>{list.name}</span><span class="nav-count">{list.count}</span>
+     <ListMusic size={18}/><span class="nav-label" use:tooltip={{text:list.name,overflow:true}}>{list.name}</span>
+     {#if shadowsBuiltIn(list.name)}<span class="nav-tag" use:tooltip={'你创建的同名普通歌单，内容与系统歌单无关'}>自建</span>{/if}
+     <span class="nav-count">{list.count}</span>
     </button></li>
-   {:else}
-    <li><button type="button" class="nav-item nav-item-muted" onclick={()=>newPlaylist()}><Plus size={18}/><span class="nav-label">新建歌单</span></button></li>
    {/each}
+   {#if library.loaded&&!library.summary.playlists.length}
+    <li><button type="button" class="nav-item nav-item-muted" onclick={()=>newPlaylist()}><Plus size={18}/><span class="nav-label">新建歌单</span></button></li>
+   {/if}
   </ul>
  </nav>
 

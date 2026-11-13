@@ -1,21 +1,20 @@
 <script lang="ts">
  import {onMount} from 'svelte';
- import {X,Copy,Heart,Play,ListEnd,ListPlus} from 'lucide-svelte';
+ import {X,Copy,Play,ListEnd,ListPlus} from 'lucide-svelte';
  import Artwork from './Artwork.svelte';
  import Select from './Select.svelte';
  import IconButton from './components/IconButton.svelte';
  import Modal from './components/Modal.svelte';
- import {trackCover,audioInfo,favoriteTrack,playTrack,queueAction,addToPlaylist,queryLibrary,type LibraryTrack,type AudioInfo} from './services/music';
+ import {trackCover,audioInfo,playTrack,queueAction,addToPlaylist,type LibraryTrack,type AudioInfo} from './services/music';
  import {perform} from './stores/player.svelte';
- import {library,refreshSummary,changed} from './stores/library.svelte';
+ import {library,refreshSummary} from './stores/library.svelte';
  import {errorText,duration} from './utils/format';
  let {track,onclose}:{track:LibraryTrack;onclose:()=>void}=$props();
- let cover=$state<string|null>(null);let audio=$state<AudioInfo|null>(null);let audioError=$state(false);let busy=$state(false);let feedback=$state('');let playlist=$state('');let favorite=$state(false);
+ let cover=$state<string|null>(null);let audio=$state<AudioInfo|null>(null);let audioError=$state(false);let busy=$state(false);let feedback=$state('');let playlist=$state('');
  onMount(()=>{
   let disposed=false;
   void trackCover(track.id).then(v=>{if(!disposed)cover=v;}).catch(()=>{});
   void audioInfo(track.id).then(v=>{if(!disposed)audio=v;}).catch(()=>{if(!disposed)audioError=true;});
-  void queryLibrary({limit:1}).then(p=>{if(!disposed)favorite=p.favorites.includes(track.id);}).catch(()=>{});
   return()=>{disposed=true;};
  });
  async function run(action:()=>Promise<void>){if(busy)return;busy=true;feedback='';try{await action();}catch(e){feedback=errorText(e);}finally{busy=false;}}
@@ -31,9 +30,7 @@
   </div>
   <div class="details-actions">
    <button type="button" class="btn btn-primary" disabled={busy} onclick={()=>run(async()=>{await perform(()=>playTrack(track.id));})}><Play size={16} fill="currentColor"/>播放</button>
-   <button type="button" class="btn btn-secondary" disabled={busy} onclick={()=>run(async()=>{if(await perform(()=>queueAction('add',track.id)))feedback='已加入播放队列';})}><ListEnd size={16}/>加入队列</button>
-   <button type="button" class="btn btn-ghost" class:is-on={favorite} aria-pressed={favorite} disabled={busy} onclick={()=>run(async()=>{await favoriteTrack(track.id,!favorite);favorite=!favorite;changed();feedback=favorite?'已收藏':'已取消收藏';})}><Heart size={16} fill={favorite?'currentColor':'none'}/>{favorite?'已收藏':'收藏'}</button>
-  </div>
+   <button type="button" class="btn btn-secondary" disabled={busy} onclick={()=>run(async()=>{if(await perform(()=>queueAction('add',track.id)))feedback='已加入播放队列';})}><ListEnd size={16}/>加入队列</button>  </div>
   <section class="details-section">
    <h4>歌曲信息</h4>
    <dl class="info-grid">

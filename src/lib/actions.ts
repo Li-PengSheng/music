@@ -1,14 +1,15 @@
-import {Play,ListEnd,ListStart,Heart,Info,Pencil,Trash2,ListPlus,Disc3,MicVocal,ListMinus} from 'lucide-svelte';
+import {Play,ListEnd,ListStart,Info,Pencil,Trash2,ListPlus,Disc3,MicVocal,ListMinus,Shuffle} from 'lucide-svelte';
 import {
- playTrack,queueAction,queueTracks,collectTrackIds,favoriteTrack,addToPlaylist,removeFromPlaylist,
+ playTrack,queueAction,queueTracks,collectTrackIds,addToPlaylist,removeFromPlaylist,setMode,
  createPlaylist,renamePlaylist,deletePlaylist,trackDetails,scanFolder,scanProgress,importLegacy,desktopAvailable,
  type LibraryTrack,type LibraryQuery,type Playlist,type Group,
 } from './services/music';
-import {perform} from './stores/player.svelte';
-import {library,refreshSummary,changed} from './stores/library.svelte';
+import {perform,control} from './stores/player.svelte';
+import {library,refreshSummary} from './stores/library.svelte';
 import {go,forgetPlaylist} from './stores/nav.svelte';
 import {ui,confirmAction,promptText,notify,notifyError,type MenuItem} from './stores/ui.svelte';
 import {playlistNameError,suggestPlaylistName} from './utils/playlist-name';
+import {LOCAL_COLLECTION,localQuery} from './utils/collections';
 
 export async function playCollection(query:LibraryQuery,replace=true,label=''){
  try{
@@ -27,7 +28,7 @@ export async function importFolder(){
 export async function importLegacyDatabase(){
  try{
   const r=await importLegacy();
-  if(r){notify(`已安全导入 ${r.tracks} 首歌曲、${r.favorites} 首收藏、${r.playlists} 个歌单。${r.warnings.join(' ')}`);await refreshSummary();}
+  if(r){notify(`已安全导入 ${r.tracks} 首歌曲、${r.playlists} 个歌单。${r.warnings.join(' ')}`);await refreshSummary();}
  }catch(e){notifyError(e);}
 }
 
@@ -35,25 +36,19 @@ export async function openDetails(track:LibraryTrack){
  try{ui.details=await trackDetails(track.id);}catch(e){notifyError(e);}
 }
 
-export async function setFavorite(track:LibraryTrack,on:boolean){
- try{await favoriteTrack(track.id,on);changed();notify(on?'已收藏':'已取消收藏');}
- catch(e){notifyError(e);}
-}
-
 async function addTo(playlist:Playlist,track:LibraryTrack){
  try{await addToPlaylist(playlist.id,track.id);await refreshSummary();notify(`已加入「${playlist.name}」`);}
  catch(e){notifyError(e);}
 }
 
-export function songMenu(track:LibraryTrack,options:{favorite:boolean;playlistId?:number|null;onDetails:()=>void}):MenuItem[]{
+export function songMenu(track:LibraryTrack,options:{playlistId?:number|null;onDetails:()=>void}):MenuItem[]{
  const items:MenuItem[]=[
   {label:'播放',icon:Play,action:()=>perform(()=>playTrack(track.id))},
   {label:'下一首播放',icon:ListStart,action:()=>perform(()=>queueAction('play_next',track.id),'将在当前歌曲之后播放')},
   {label:'加入播放队列',icon:ListEnd,action:()=>perform(()=>queueAction('add',track.id),'已加入播放队列')},
-  {kind:'separator'},
-  {label:options.favorite?'取消收藏':'收藏',icon:Heart,checked:options.favorite,action:()=>setFavorite(track,!options.favorite)},
  ];
  const targets=library.summary.playlists.filter(p=>p.id!==options.playlistId);
+ items.push({kind:'separator'});
  if(targets.length){items.push({kind:'heading',label:'添加到歌单'});for(const p of targets.slice(0,12))items.push({label:p.name,icon:ListPlus,action:()=>addTo(p,track)});}
  items.push({label:'新建歌单并添加…',icon:ListPlus,action:()=>newPlaylist(track)});
  if(options.playlistId!=null){
@@ -91,6 +86,16 @@ export function playlistMenu(playlist:Playlist):MenuItem[]{
   {kind:'separator'},
   {label:'重命名…',icon:Pencil,action:()=>renamePlaylistDialog(playlist)},
   {label:'删除歌单…',icon:Trash2,danger:true,action:()=>deletePlaylistDialog(playlist)},
+ ];
+}
+
+/** The built-in collection can be played but never renamed or deleted: it owns no rows and no files. */
+export function localMenu():MenuItem[]{
+ const query=localQuery('added','');
+ return [
+  {label:'播放全部',icon:Play,disabled:!library.summary.tracks,action:()=>playCollection(query)},
+  {label:'随机播放',icon:Shuffle,disabled:!library.summary.tracks,action:async()=>{if(await control(()=>setMode('shuffle')))await playCollection(query);}},
+  {label:'加入播放队列',icon:ListEnd,disabled:!library.summary.tracks,action:()=>playCollection(query,false,LOCAL_COLLECTION.name)},
  ];
 }
 

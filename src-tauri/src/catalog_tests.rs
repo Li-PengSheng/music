@@ -114,6 +114,69 @@ fn nested_scan_reports_corrupt_files_and_preserves_audio_bytes() {
     assert_eq!(std::fs::read(audio).unwrap(), expected);
     std::fs::remove_dir_all(dir).unwrap();
 }
+/// The built-in “本地” collection is the unfiltered library query: it follows imports and removals
+/// and stays independent of a user playlist that has the same name.
+#[test]
+fn local_collection_tracks_the_library_and_leaves_user_playlists_alone() {
+    let dir = std::env::temp_dir().join(format!("mm-local-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let state = Catalog::new(dir.join("library.db"));
+    let local = || {
+        state
+            .query(Query {
+                sort: "added".into(),
+                ..Default::default()
+            })
+            .unwrap()
+            .total
+    };
+    assert_eq!(local(), 0);
+    let conn = state.connection().unwrap();
+    let user = collections::create_playlist(&conn, "本地").unwrap();
+    let other = collections::create_playlist(&conn, "夜晚").unwrap();
+    drop(conn);
+    let folder = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
+    state.scan(folder.clone()).unwrap();
+    assert_eq!(local(), 3, "new imports appear without copying rows");
+    let conn = state.connection().unwrap();
+    let first = db::load_tracks(&conn).unwrap()[0].id;
+    collections::add_to_playlist(&conn, other, first).unwrap();
+    let in_playlist = |id| {
+        state
+            .query(Query {
+                playlist: Some(id),
+                ..Default::default()
+            })
+            .unwrap()
+            .total
+    };
+    assert_eq!(
+        in_playlist(user),
+        0,
+        "same-name user playlist keeps its own (empty) membership"
+    );
+    assert_eq!(in_playlist(other), 1);
+    let rows: i64 = conn
+        .query_row("SELECT COUNT(*) FROM playlist_tracks", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(
+        rows, 1,
+        "no membership rows are written for the built-in collection"
+    );
+    collections::delete_playlist(&conn, user).unwrap();
+    assert_eq!(
+        local(),
+        3,
+        "deleting a playlist never removes library tracks"
+    );
+    db::remove_folder(&conn, &folder.to_string_lossy()).unwrap();
+    drop(conn);
+    assert_eq!(local(), 0, "removed library files leave the collection");
+    assert_eq!(in_playlist(other), 0);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
 #[test]
 fn listening_history_is_real_bounded_and_persistent() {
     let dir = std::env::temp_dir().join(format!("mm-home-{}", std::process::id()));

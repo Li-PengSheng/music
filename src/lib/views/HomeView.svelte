@@ -9,19 +9,20 @@
  import {library} from '../stores/library.svelte';
  import {ui,openMenu,notifyError} from '../stores/ui.svelte';
  import {go} from '../stores/nav.svelte';
- import {songMenu,playlistMenu,artistMenu,openDetails,importFolder,playCollection} from '../actions';
+ import {songMenu,playlistMenu,localMenu,artistMenu,openDetails,importFolder,playCollection} from '../actions';
+ import {LOCAL_COLLECTION,localQuery} from '../utils/collections';
  import {duration,initial,nameHue} from '../utils/format';
 
  let {artwork}:{artwork:string|null}=$props();
 
  let recent=$state<LibraryTrack[]>([]);let added=$state<LibraryTrack[]>([]);let artists=$state<[string,number][]>([]);
- let loading=$state(true);let favorites=$state(new Set<number>());
+ let loading=$state(true);
 
  async function load(){
   if(!desktopAvailable){loading=false;return;}
   try{
    const [h,a]=await Promise.all([homeData(),queryLibrary({limit:12,sort:'added'})]);
-   recent=h.recent;artists=h.artists;added=a.tracks;favorites=new Set(a.favorites);
+   recent=h.recent;artists=h.artists;added=a.tracks;
   }catch(e){notifyError(e);}
   finally{loading=false;}
  }
@@ -36,7 +37,7 @@
  const hour=new Date().getHours();
  const greeting=hour<5?'夜深了':hour<11?'早上好':hour<13?'中午好':hour<18?'下午好':'晚上好';
 
- function trackMenu(e:MouseEvent,t:LibraryTrack){openMenu(e,songMenu(t,{favorite:favorites.has(t.id),onDetails:()=>openDetails(t)}),t.title+' 操作');}
+ function trackMenu(e:MouseEvent,t:LibraryTrack){openMenu(e,songMenu(t,{onDetails:()=>openDetails(t)}),t.title+' 操作');}
  function artistGroup(name:string){return library.summary.artists.find(a=>a.name===name)??{key:name,name,artist:'',count:0,cover_id:0};}
 </script>
 
@@ -110,8 +111,14 @@
 
   <section class="home-section" aria-labelledby="home-playlists">
    <div class="section-head"><h3 id="home-playlists" class="section-title">我的歌单</h3></div>
-   {#if library.summary.playlists.length}
-    <div class="playlist-row">
+   <div class="playlist-row">
+    <div class="playlist-tile" role="group" aria-label={LOCAL_COLLECTION.name} oncontextmenu={(e)=>openMenu(e,localMenu(),'系统歌单「'+LOCAL_COLLECTION.name+'」操作')}>
+     <button type="button" class="playlist-tile-main" onclick={()=>go({view:'local'})}>
+      <span class="playlist-tile-art"><Artwork kind="playlist" alt=""/></span>
+      <span class="playlist-tile-text"><strong>{LOCAL_COLLECTION.name}</strong><small>系统歌单 · {library.summary.tracks} 首歌曲</small></span>
+     </button>
+     <button type="button" class="icon-btn icon-btn-sm playlist-tile-play" aria-label={'播放歌单 '+LOCAL_COLLECTION.name} disabled={!library.summary.tracks} onclick={()=>playCollection(localQuery('added',''))}><Play size={15} fill="currentColor"/></button>
+    </div>
      {#each library.summary.playlists as p (p.id)}
       <div class="playlist-tile" role="group" aria-label={p.name} oncontextmenu={(e)=>openMenu(e,playlistMenu(p),'歌单「'+p.name+'」操作')}>
        <button type="button" class="playlist-tile-main" onclick={()=>go({view:'playlist',id:p.id})}>
@@ -121,8 +128,8 @@
        <button type="button" class="icon-btn icon-btn-sm playlist-tile-play" aria-label={'播放歌单 '+p.name} disabled={!p.count} onclick={()=>playCollection({playlist:p.id})}><Play size={15} fill="currentColor"/></button>
       </div>
      {/each}
-    </div>
-   {:else}<p class="hint">在侧边栏“我的歌单”旁点击 + 创建第一个歌单。</p>{/if}
+   </div>
+   {#if !library.summary.playlists.length}<p class="hint">在侧边栏“我的歌单”旁点击 + 创建自己的歌单。</p>{/if}
   </section>
  {/if}
 {/if}

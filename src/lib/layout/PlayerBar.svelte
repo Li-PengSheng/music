@@ -4,10 +4,14 @@
  import Slider from '../components/Slider.svelte';
  import IconButton from '../components/IconButton.svelte';
  import {tooltip} from '../components/tooltip';
- import {player,control} from '../stores/player.svelte';
+ import {player,control,accept} from '../stores/player.svelte';
  import {ui} from '../stores/ui.svelte';
  import {play,pause,seek,setVolume,setMode,queueAction,type PlaybackMode} from '../services/music';
  import {duration} from '../utils/format';
+ import {DEFAULT_PERCENT,toPercent,toGain,muteTarget,latest} from '../utils/volume';
+ import {notifyError} from '../stores/ui.svelte';
+
+ const UNMUTE_KEY='music-mine-unmute-volume';
 
  let {artwork,ontogglequeue,queueTrigger=$bindable()}:{artwork:string|null;ontogglequeue:()=>void;queueTrigger?:HTMLButtonElement}=$props();
 
@@ -24,13 +28,21 @@
  let total=$derived(s?.duration_ms??0);
  let canSeek=$derived(!!total&&s?.playback_state!=='idle');
 
+ // The draft only covers the gap until Rust's snapshot confirms the last value sent.
  let volumeDraft=$state<number|null>(null);
- let volume=$derived(volumeDraft??(s?Math.round(s.volume*100):70));
- let lastAudible=70;
- $effect(()=>{if(s&&s.volume>0)lastAudible=Math.round(s.volume*100);});
+ let volume=$derived(volumeDraft??(s?toPercent(s.volume):DEFAULT_PERCENT));
+ let lastAudible=$state(loadUnmuteLevel());
+ $effect(()=>{if(s&&s.volume>0)lastAudible=toPercent(s.volume);});
+ const volumeSync=latest((percent:number)=>setVolume(toGain(percent)),{result:accept,error:notifyError,settled:()=>{volumeDraft=null;}});
 
- async function commitVolume(value:number){await control(()=>setVolume(value/100));volumeDraft=null;}
- function toggleMute(){void commitVolume(volume>0?0:lastAudible||70);}
+ function changeVolume(value:number){volumeDraft=value;volumeSync.push(value);}
+ function toggleMute(){
+  const target=muteTarget(volume,lastAudible);
+  if(target===0)saveUnmuteLevel(volume);
+  changeVolume(target);
+ }
+ function loadUnmuteLevel(){try{return Number(localStorage.getItem(UNMUTE_KEY))||DEFAULT_PERCENT;}catch{return DEFAULT_PERCENT;}}
+ function saveUnmuteLevel(value:number){try{localStorage.setItem(UNMUTE_KEY,String(value));}catch{/* in-memory only */}}
  async function commitSeek(value:number){await control(()=>seek(value));dragging=null;}
 
  const repeatNext:Record<PlaybackMode,PlaybackMode>={sequential:'repeat_all',shuffle:'repeat_all',repeat_all:'repeat_one',repeat_one:'sequential'};
@@ -74,11 +86,12 @@
   <IconButton label="正在播放与歌词 (Ctrl+L)" active={ui.immersive} disabled={!track} onclick={()=>ui.immersive=!ui.immersive}><Maximize2 size={17}/></IconButton>
   <IconButton label="播放队列" active={ui.queueOpen} aria-expanded={ui.queueOpen} aria-controls="playback-queue" bind:element={queueTrigger} onclick={ontogglequeue}><ListMusic size={18}/></IconButton>
   <div class="pb-volume">
-   <IconButton label={volume>0?'静音':'取消静音'} disabled={!s||player.busy} onclick={toggleMute}>
+   <IconButton label={volume>0?`静音（当前音量 ${volume}%）`:`取消静音（恢复到 ${lastAudible}%）`} disabled={!s} onclick={toggleMute}>
     {#if volume===0}<VolumeX size={18}/>{:else if volume<50}<Volume1 size={18}/>{:else}<Volume2 size={18}/>{/if}
    </IconButton>
-   <Slider class="pb-volume-slider" label="音量" value={volume} valuetext={volume+'%'} disabled={!s||player.busy}
-    oninput={(v)=>volumeDraft=v} onchange={commitVolume}/>
+   <Slider class="pb-volume-slider" label="音量" value={volume} valuetext={volume===0?'0%，已静音':volume+'%'} disabled={!s}
+    oninput={changeVolume} onchange={changeVolume}/>
+   <span class="pb-volume-value" aria-hidden="true">{volume}%</span>
   </div>
  </div>
 </footer>

@@ -46,6 +46,7 @@ const handlers={
  player_configure:()=>snapshot,
  player_play:()=>snapshot,
  player_pause:()=>snapshot,
+ player_set_volume:async a=>{await new Promise(r=>setTimeout(r,40));snapshot={...snapshot,volume:Math.min(1,Math.max(0,a.volume)),revision:snapshot.revision+1};return snapshot;},
 };
 let callbackId=0;
 window.isTauri=true;
@@ -58,6 +59,6 @@ window.__TAURI_INTERNALS__={
   const h=handlers[cmd];
   if(cmd.startsWith('plugin:'))return null;
   if(!h)throw `mock: unhandled command ${cmd}`;
-  return structuredClone(h(args));
+  return structuredClone(await h(args));
  },
 };

@@ -116,8 +116,9 @@ kbd{font-family:var(--font-sans);font-size:11px;color:var(--text-3);border:1px s
 /* Range slider shared by progress, volume and lyric size. --fill is set inline. */
 .slider{-webkit-appearance:none;appearance:none;width:100%;height:16px;margin:0;background:transparent;cursor:pointer;--fill:0%}
 .slider::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:linear-gradient(to right,var(--accent) var(--fill),rgb(var(--ink) / .18) var(--fill))}
-.slider::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;margin-top:-4px;border-radius:50%;background:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.5);opacity:0;transition:opacity var(--dur-fast)}
+.slider::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;margin-top:-4px;border-radius:50%;background:var(--text);box-shadow:var(--shadow-thumb);opacity:0;transition:opacity var(--dur-fast),transform var(--dur-fast) var(--ease)}
 .slider:hover::-webkit-slider-thumb,.slider:focus-visible::-webkit-slider-thumb,.slider:active::-webkit-slider-thumb{opacity:1}
+.slider:active::-webkit-slider-thumb{transform:scale(1.25)}
 .slider:hover::-webkit-slider-runnable-track{background:linear-gradient(to right,var(--accent-hover) var(--fill),rgb(var(--ink) / .24) var(--fill))}
 .slider:focus-visible{outline:none}
 .slider:focus-visible::-webkit-slider-runnable-track{outline:2px solid var(--focus);outline-offset:4px}
@@ -369,6 +370,7 @@ button.pb-title:hover{text-decoration:underline}
 .pb-options{display:flex;align-items:center;justify-content:flex-end;gap:var(--space-1);min-width:0}
 .pb-volume{display:flex;align-items:center;gap:4px;min-width:0}
 .pb-volume .slider{width:clamp(64px,8vw,112px)}
+.pb-volume-value{min-width:4ch;color:var(--text-2);font-size:var(--fs-small);font-variant-numeric:tabular-nums;text-align:right;user-select:none}
 
 /* ============================================================ queue */
 /* The queue is an app-level overlay drawer between the top bar and the player bar; pages keep their width.
@@ -486,7 +488,7 @@ button.pb-title:hover{text-decoration:underline}
  .search kbd{display:none}
  .player-bar{grid-template-columns:minmax(120px,1fr) minmax(280px,1.6fr) auto;gap:var(--space-3);padding:0 var(--space-3)}
  .pb-cover{width:48px;height:48px}
- .pb-volume .slider{display:none}
+ .pb-volume .slider,.pb-volume-value{display:none}
  .crumb-parent,.crumb-sep{display:none}
  .detail-hero{align-items:center}
 }

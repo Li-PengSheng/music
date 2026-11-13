@@ -31,7 +31,6 @@ kbd{font-family:var(--font-sans);font-size:11px;color:var(--text-3);border:1px s
 .app{height:100dvh;display:grid;grid-template-columns:var(--sidebar-w) minmax(0,1fr);grid-template-rows:minmax(0,1fr) var(--player-h);overflow:hidden;background:var(--bg)}
 .workspace{grid-column:2;grid-row:1;min-width:0;min-height:0;display:grid;grid-template-rows:var(--topbar-h) minmax(0,1fr)}
 .content{position:relative;min-height:0;min-width:0;display:grid;grid-template-columns:minmax(0,1fr);overflow:hidden}
-.app.queue-open .content{grid-template-columns:minmax(0,1fr) var(--queue-w)}
 .main{min-height:0;min-width:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;padding:var(--page-top) var(--page-x) var(--space-8);scrollbar-gutter:stable}
 .queue-scrim{display:none}
 
@@ -372,8 +371,15 @@ button.pb-title:hover{text-decoration:underline}
 .pb-volume .slider{width:clamp(64px,8vw,112px)}
 
 /* ============================================================ queue */
-/* The queue is an app-level layer: docked beside the page (which reserves its column) or Now Playing, and a drawer on narrow windows. */
-.queue{position:fixed;top:var(--topbar-h);right:0;bottom:var(--player-h);z-index:var(--z-queue);width:var(--queue-w);min-height:0;display:flex;flex-direction:column;background:var(--bg-sidebar);border-left:1px solid var(--line)}
+/* The queue is an app-level overlay drawer between the top bar and the player bar; pages keep their width.
+   Only transform and opacity animate. Closing delays visibility:hidden until the exit transition ends,
+   and an interrupted toggle simply reverses from the current position. */
+.queue{position:fixed;top:var(--topbar-h);right:0;bottom:var(--player-h);z-index:var(--z-queue);width:var(--queue-w);min-height:0;display:flex;flex-direction:column;background:var(--bg-drawer);border-left:1px solid var(--line);box-shadow:var(--shadow-drawer);
+ transform:translateX(var(--drawer-shift));opacity:0;visibility:hidden;
+ transition:transform var(--dur-drawer-out) var(--ease-exit),opacity var(--dur-drawer-out) var(--ease-exit),visibility 0s linear var(--dur-drawer-out)}
+.app.queue-open .queue{transform:none;opacity:1;visibility:visible;
+ transition:transform var(--dur-drawer-in) var(--ease-enter),opacity var(--dur-drawer-in) var(--ease-enter),visibility 0s}
+@starting-style{.app.queue-open .queue{transform:translateX(var(--drawer-shift));opacity:0}}
 .app.immersive-open .queue{top:0}
 .app.immersive-open.queue-open .immersive-layer{right:var(--queue-w)}
 .queue-header{display:flex;align-items:center;gap:4px;height:64px;padding:0 var(--space-2) 0 var(--space-4);flex-shrink:0;border-bottom:1px solid var(--line)}
@@ -462,12 +468,12 @@ button.pb-title:hover{text-decoration:underline}
  :root{--queue-w:320px}
  .player-bar{grid-template-columns:minmax(160px,1fr) minmax(300px,1.8fr) minmax(150px,1fr)}
 }
-/* Narrow windows: the queue becomes an overlay drawer instead of squeezing the list. */
+/* Narrow windows: Now Playing no longer makes room, so a light scrim marks the drawer as the active layer. */
 @media (max-width:1199px){
- .app.queue-open .content{grid-template-columns:minmax(0,1fr)}
  .app.immersive-open.queue-open .immersive-layer{right:0}
- .queue{width:min(var(--queue-w),calc(100vw - var(--sidebar-w) - 24px));box-shadow:var(--shadow-drawer)}
- .queue-scrim{display:block;position:fixed;top:var(--topbar-h);left:var(--sidebar-w);right:0;bottom:var(--player-h);z-index:var(--z-queue-scrim);background:var(--scrim);cursor:default}
+ .queue{width:min(var(--queue-w),calc(100vw - var(--sidebar-w) - 24px))}
+ .queue-scrim{display:block;position:fixed;top:var(--topbar-h);left:var(--sidebar-w);right:0;bottom:var(--player-h);z-index:var(--z-queue-scrim);background:var(--scrim-soft);cursor:default;opacity:0;pointer-events:none;transition:opacity var(--dur-drawer-out) var(--ease-exit)}
+ .app.queue-open .queue-scrim{opacity:1;pointer-events:auto;transition:opacity var(--dur-drawer-in) var(--ease-enter)}
  .app.immersive-open .queue-scrim{top:0;left:0}
 }
 @media (max-width:1099px){
@@ -505,3 +511,6 @@ button.pb-title:hover{text-decoration:underline}
 }
 .reduce-motion *,.reduce-motion *::before,.reduce-motion *::after,.reduce-motion~*{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
 .reduce-motion .eq i{transform:scaleY(.6)}
+/* Reduced motion: the drawer appears in place, without sliding. */
+@media (prefers-reduced-motion:reduce){.queue{--drawer-shift:0px}}
+.reduce-motion .queue{--drawer-shift:0px}

@@ -1,5 +1,4 @@
 <script lang="ts">
- import {onMount} from 'svelte';
  import {X,ListMusic,GripVertical,Ellipsis,Play,ListStart,ListEnd,ListX,Trash2} from 'lucide-svelte';
  import QueueCover from './QueueCover.svelte';
  import IconButton from './components/IconButton.svelte';
@@ -10,12 +9,16 @@
  import {openMenu,confirmAction,notify,type MenuItem} from './stores/ui.svelte';
  import {duration} from './utils/format';
 
- let {onclose}:{onclose:()=>void}=$props();
+ let {open,onclose}:{open:boolean;onclose:()=>void}=$props();
  let closeButton=$state<HTMLButtonElement>();
  let list=$state<HTMLDivElement>();
- onMount(()=>closeButton?.focus());
+ $effect(()=>{if(open)closeButton?.focus({preventScroll:true});});
 
- let queue=$derived(player.snapshot?.queue??[]);
+ // While closed the panel keeps its last rows instead of re-diffing every player poll.
+ let live=$derived(player.snapshot?.queue??[]);
+ let frozen=$state.raw<Track[]>([]);
+ $effect(()=>{if(open)frozen=live;});
+ let queue=$derived(open?live:frozen);
  let currentIndex=$derived(queue.findIndex(t=>t.path===player.snapshot?.track_id));
  let upcoming=$derived(currentIndex<0?queue.length:queue.length-currentIndex-1);
 
@@ -83,7 +86,7 @@
  }
 </script>
 
-<aside id="playback-queue" class="queue" aria-label="播放队列">
+<aside id="playback-queue" class="queue" aria-label="播放队列" inert={!open}>
  <header class="queue-header">
   <div class="queue-heading">
    <h2>播放队列</h2>

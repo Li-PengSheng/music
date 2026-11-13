@@ -1,6 +1,6 @@
 <script lang="ts">
  import {onMount,tick,setContext} from 'svelte';
- import {fly,fade} from 'svelte/transition';
+ import {fly} from 'svelte/transition';
  import {X} from 'lucide-svelte';
  import {shortcut} from './lib/shortcuts';
  import {diagnostics} from './lib/cover-diagnostics';
@@ -49,6 +49,10 @@
   lastKey=key;
   void tick().then(()=>{if(main)main.scrollTop=memory.get(key)?.scroll??0;});
  });
+
+ // Mounted on first open and kept afterwards: closing only animates it away, so scroll position survives.
+ let queueMounted=$state(false);
+ $effect.pre(()=>{if(ui.queueOpen)queueMounted=true;});
 
  async function toggleQueue(value=!ui.queueOpen){
   ui.queueOpen=value;
@@ -119,9 +123,9 @@
   <div class="immersive-layer" transition:fly={{y:24,duration:motionMs(220)}}><NowPlaying {artwork} onclose={()=>ui.immersive=false}/></div>
  {/if}
  <!-- App-level so it opens over every page, including Now Playing. -->
- {#if ui.queueOpen}
-  <button type="button" class="queue-scrim" aria-label="关闭播放队列" tabindex="-1" onclick={()=>toggleQueue(false)} transition:fade={{duration:motionMs(140)}}></button>
-  <Queue onclose={()=>toggleQueue(false)}/>
+ {#if queueMounted}
+  <button type="button" class="queue-scrim" aria-label="关闭播放队列" tabindex="-1" inert={!ui.queueOpen} onclick={()=>toggleQueue(false)}></button>
+  <Queue open={ui.queueOpen} onclose={()=>toggleQueue(false)}/>
  {/if}
 
  <ContextMenu/>

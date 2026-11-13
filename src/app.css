@@ -31,8 +31,8 @@ kbd{font-family:var(--font-sans);font-size:11px;color:var(--text-3);border:1px s
 .app{height:100dvh;display:grid;grid-template-columns:var(--sidebar-w) minmax(0,1fr);grid-template-rows:minmax(0,1fr) var(--player-h);overflow:hidden;background:var(--bg)}
 .workspace{grid-column:2;grid-row:1;min-width:0;min-height:0;display:grid;grid-template-rows:var(--topbar-h) minmax(0,1fr)}
 .content{position:relative;min-height:0;min-width:0;display:grid;grid-template-columns:minmax(0,1fr);overflow:hidden}
-.content.queue-open{grid-template-columns:minmax(0,1fr) var(--queue-w)}
-.main{min-height:0;min-width:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;padding:var(--space-4) var(--page-x) var(--space-8);scrollbar-gutter:stable}
+.app.queue-open .content{grid-template-columns:minmax(0,1fr) var(--queue-w)}
+.main{min-height:0;min-width:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;padding:var(--page-top) var(--page-x) var(--space-8);scrollbar-gutter:stable}
 .queue-scrim{display:none}
 
 /* ============================================================ sidebar */
@@ -163,11 +163,13 @@ kbd{font-family:var(--font-sans);font-size:11px;color:var(--text-3);border:1px s
 @keyframes pop-in{from{opacity:0;transform:translateY(-3px) scale(.98)}to{opacity:1;transform:none}}
 
 /* ============================================================ dialog & toast */
-.dialog{width:min(440px,calc(100vw - 32px));max-height:calc(100dvh - 48px);padding:0;border:0;border-radius:var(--radius-lg);background:var(--surface-overlay);color:var(--text);box-shadow:0 24px 64px rgba(0,0,0,.6),0 0 0 1px var(--line-strong);overflow:hidden}
+/* Tailwind preflight zeroes every margin; a modal <dialog> needs margin:auto to centre in the top layer. */
+.dialog{position:fixed;inset:0;margin:auto;width:min(440px,calc(100vw - 32px));max-width:none;max-height:calc(100dvh - 48px);padding:0;border:0;border-radius:var(--radius-lg);background:var(--surface-overlay);color:var(--text);box-shadow:0 24px 64px rgba(0,0,0,.6),0 0 0 1px var(--line-strong);overflow:hidden}
 .dialog[open]{display:flex;flex-direction:column;animation:dialog-in var(--dur) var(--ease)}
 .dialog>form{display:flex;flex-direction:column;min-height:0}
 .dialog::backdrop{background:var(--scrim)}
 .dialog-wide{width:min(600px,calc(100vw - 32px))}
+.dialog-wide>.dialog-body{overscroll-behavior:contain}
 .dialog-header{display:flex;align-items:center;gap:12px;padding:20px 20px 8px}
 .dialog-header h2{flex:1;font-size:var(--fs-section);font-weight:var(--fw-semibold);line-height:1.35;overflow-wrap:anywhere}
 .dialog-heading-sm{font-size:15px!important}
@@ -177,7 +179,7 @@ kbd{font-family:var(--font-sans);font-size:11px;color:var(--text-3);border:1px s
 .dialog-detail{margin-top:8px;color:var(--text-3);font-size:var(--fs-meta)}
 .dialog-actions{display:flex;justify-content:flex-end;gap:8px;padding:12px 20px 20px}
 @keyframes dialog-in{from{opacity:0;transform:translateY(6px) scale(.98)}to{opacity:1;transform:none}}
-.toast{position:fixed;left:50%;bottom:calc(var(--player-h) + 16px);z-index:60;display:flex;align-items:center;gap:12px;max-width:min(560px,calc(100vw - 32px));padding:8px 8px 8px 16px;border-radius:var(--radius);background:#2a322e;color:var(--text);font-size:var(--fs-meta);box-shadow:var(--shadow-pop);transform:translateX(-50%)}
+.toast{position:fixed;left:50%;bottom:calc(var(--player-h) + 16px);z-index:var(--z-toast);display:flex;align-items:center;gap:12px;max-width:min(560px,calc(100vw - 32px));padding:8px 8px 8px 16px;border-radius:var(--radius);background:#2a322e;color:var(--text);font-size:var(--fs-meta);box-shadow:var(--shadow-pop);transform:translateX(-50%)}
 .toast.error{background:#3a2522;color:#ffd9d3}
 .toast>span{min-width:0;overflow-wrap:anywhere}
 
@@ -227,7 +229,8 @@ kbd{font-family:var(--font-sans);font-size:11px;color:var(--text-3);border:1px s
 /* ============================================================ track table (virtualised) */
 .track-table{container-type:inline-size;--cols:44px minmax(0,4fr) minmax(0,2.4fr) minmax(0,2.6fr) 56px 72px}
 .track-head,.track-row{display:grid;grid-template-columns:var(--cols);align-items:center;column-gap:var(--space-3);padding:0 var(--space-2)}
-.track-head{position:sticky;top:0;z-index:2;height:36px;margin:0 calc(var(--space-2) * -1) var(--space-1);padding-inline:calc(var(--space-2) * 2);background:var(--bg);border-bottom:1px solid var(--line);color:var(--text-3);font-size:var(--fs-small)}
+/* Sticky offsets are measured inside the scroller's padding; cancel .main's top padding so rows cannot show above the header. */
+.track-head{position:sticky;top:calc(var(--page-top) * -1);z-index:var(--z-sticky);height:36px;margin:0 calc(var(--space-2) * -1) var(--space-1);padding-inline:calc(var(--space-2) * 2);background:var(--bg);border-bottom:1px solid var(--line);color:var(--text-3);font-size:var(--fs-small)}
 .track-head button{display:inline-flex;align-items:center;gap:4px;color:inherit;border-radius:var(--radius-xs);font-size:inherit}
 .track-head button:hover,.track-head button.sorted{color:var(--text)}
 .track-head .col-index,.track-row .col-index{justify-self:center}
@@ -345,7 +348,7 @@ button.card-play{pointer-events:auto}
 .shortcut-list dd{color:var(--text-2);font-size:var(--fs-meta)}
 
 /* ============================================================ player bar */
-.player-bar{grid-column:1/-1;grid-row:2;z-index:30;display:grid;grid-template-columns:minmax(180px,1fr) minmax(320px,2fr) minmax(180px,1fr);align-items:center;gap:var(--space-4);padding:0 var(--space-4);background:var(--bg-player);border-top:1px solid var(--line)}
+.player-bar{grid-column:1/-1;grid-row:2;z-index:var(--z-player);display:grid;grid-template-columns:minmax(180px,1fr) minmax(320px,2fr) minmax(180px,1fr);align-items:center;gap:var(--space-4);padding:0 var(--space-4);background:var(--bg-player);border-top:1px solid var(--line)}
 .pb-track{display:flex;align-items:center;gap:var(--space-3);min-width:0}
 .pb-cover{position:relative;flex-shrink:0;width:56px;height:56px;border-radius:var(--radius-sm);overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.4)}
 .pb-cover:disabled{cursor:default}
@@ -369,7 +372,10 @@ button.pb-title:hover{text-decoration:underline}
 .pb-volume .slider{width:clamp(64px,8vw,112px)}
 
 /* ============================================================ queue */
-.queue{min-width:0;min-height:0;display:flex;flex-direction:column;background:var(--bg-sidebar);border-left:1px solid var(--line);z-index:20}
+/* The queue is an app-level layer: docked beside the page (which reserves its column) or Now Playing, and a drawer on narrow windows. */
+.queue{position:fixed;top:var(--topbar-h);right:0;bottom:var(--player-h);z-index:var(--z-queue);width:var(--queue-w);min-height:0;display:flex;flex-direction:column;background:var(--bg-sidebar);border-left:1px solid var(--line)}
+.app.immersive-open .queue{top:0}
+.app.immersive-open.queue-open .immersive-layer{right:var(--queue-w)}
 .queue-header{display:flex;align-items:center;gap:4px;height:64px;padding:0 var(--space-2) 0 var(--space-4);flex-shrink:0;border-bottom:1px solid var(--line)}
 .queue-heading{flex:1;min-width:0}
 .queue-heading h2{font-size:15px;font-weight:var(--fw-semibold)}
@@ -399,7 +405,7 @@ button.pb-title:hover{text-decoration:underline}
 .queue-item:hover .queue-more,.queue-item:focus-within .queue-more{opacity:1}
 
 /* ============================================================ now playing */
-.immersive-layer{position:fixed;inset:0 0 var(--player-h) 0;z-index:40}
+.immersive-layer{position:fixed;inset:0 0 var(--player-h) 0;z-index:var(--z-immersive)}
 .immersive{position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
 .immersive::before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 70% 80% at 22% 40%,rgba(185,214,155,.07),transparent 70%)}
 .immersive.has-ambient::before{background:radial-gradient(ellipse 75% 85% at 22% 40%,rgb(var(--ambient) / .38),transparent 72%),radial-gradient(ellipse 60% 70% at 85% 80%,rgb(var(--ambient) / .14),transparent 70%)}
@@ -458,9 +464,11 @@ button.pb-title:hover{text-decoration:underline}
 }
 /* Narrow windows: the queue becomes an overlay drawer instead of squeezing the list. */
 @media (max-width:1199px){
- .content.queue-open{grid-template-columns:minmax(0,1fr)}
- .queue{position:absolute;top:0;right:0;bottom:0;width:min(var(--queue-w),92%);box-shadow:-12px 0 32px rgba(0,0,0,.45)}
- .queue-scrim{display:block;position:absolute;inset:0;z-index:19;background:var(--scrim);cursor:default}
+ .app.queue-open .content{grid-template-columns:minmax(0,1fr)}
+ .app.immersive-open.queue-open .immersive-layer{right:0}
+ .queue{width:min(var(--queue-w),calc(100vw - var(--sidebar-w) - 24px));box-shadow:-12px 0 32px rgba(0,0,0,.45)}
+ .queue-scrim{display:block;position:fixed;top:var(--topbar-h);left:var(--sidebar-w);right:0;bottom:var(--player-h);z-index:var(--z-queue-scrim);background:var(--scrim);cursor:default}
+ .app.immersive-open .queue-scrim{top:0;left:0}
 }
 @media (max-width:1099px){
  :root{--sidebar-w:196px}

@@ -59,6 +59,15 @@
  --row-h:56px;
  --control-h:32px;
  --page-x:clamp(16px,2.4vw,32px);
+ --page-top:16px;
+
+ /* Stacking order of fixed app layers. Dialogs, menus and tooltips use the browser top layer above all of these. */
+ --z-sticky:2;
+ --z-player:30;
+ --z-immersive:40;
+ --z-queue-scrim:44;
+ --z-queue:45;
+ --z-toast:60;
 
  /* Motion. */
  --dur-fast:140ms;

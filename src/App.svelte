@@ -11,6 +11,7 @@
  import {ui,dismissToast,notifyError} from './lib/stores/ui.svelte';
  import {loadPreferences,motionMs} from './lib/stores/preferences';
  import {installNativeMenuGuard} from './lib/utils/native-menu';
+ import {escapeLayer} from './lib/utils/layers';
  import Sidebar from './lib/layout/Sidebar.svelte';
  import TopBar from './lib/layout/TopBar.svelte';
  import PlayerBar from './lib/layout/PlayerBar.svelte';
@@ -62,9 +63,10 @@
   if(!action)return;
   if(action==='escape'){
    if(modal)return;
-   if(ui.immersive)ui.immersive=false;
-   else if(ui.queueOpen)void toggleQueue(false);
-   else if(ui.toast)dismissToast();
+   const layer=escapeLayer({queue:ui.queueOpen,immersive:ui.immersive,toast:!!ui.toast});
+   if(layer==='queue')void toggleQueue(false);
+   else if(layer==='immersive')ui.immersive=false;
+   else if(layer==='toast')dismissToast();
    else return;
   }
   else if(action==='search'){ui.immersive=false;void tick().then(()=>{searchInput?.focus();searchInput?.select();});}
@@ -95,11 +97,11 @@
  let route=$derived(nav.route);
 </script>
 
-<div class="app" class:reduce-motion={ui.reduceMotion}>
+<div class="app" class:reduce-motion={ui.reduceMotion} class:queue-open={ui.queueOpen} class:immersive-open={ui.immersive}>
  <Sidebar/>
  <div class="workspace">
   <TopBar bind:searchInput/>
-  <div class="content" class:queue-open={ui.queueOpen}>
+  <div class="content">
    <main class="main" bind:this={main} id="main-content">
     {#if library.progress?.running}
      <div class="scan-banner" role="status"><span class="spinner" aria-hidden="true"></span>正在扫描音乐文件夹 · 已检查 {library.progress.visited} · 已导入 {library.progress.imported}<button type="button" class="btn btn-ghost btn-sm" onclick={()=>cancelScan().catch(notifyError)}>取消</button></div>
@@ -109,15 +111,16 @@
     {:else if route.view==='settings'}<SettingsView/>
     {:else}<SongsView/>{/if}
    </main>
-   {#if ui.queueOpen}
-    <button type="button" class="queue-scrim" aria-label="关闭播放队列" tabindex="-1" onclick={()=>toggleQueue(false)} transition:fade={{duration:motionMs(140)}}></button>
-    <Queue onclose={()=>toggleQueue(false)}/>
-   {/if}
   </div>
  </div>
  <PlayerBar {artwork} ontogglequeue={()=>toggleQueue()} bind:queueTrigger/>
  {#if ui.immersive}
   <div class="immersive-layer" transition:fly={{y:24,duration:motionMs(220)}}><NowPlaying {artwork} onclose={()=>ui.immersive=false}/></div>
+ {/if}
+ <!-- App-level so it opens over every page, including Now Playing. -->
+ {#if ui.queueOpen}
+  <button type="button" class="queue-scrim" aria-label="关闭播放队列" tabindex="-1" onclick={()=>toggleQueue(false)} transition:fade={{duration:motionMs(140)}}></button>
+  <Queue onclose={()=>toggleQueue(false)}/>
  {/if}
 
  <ContextMenu/>

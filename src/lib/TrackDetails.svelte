@@ -4,24 +4,25 @@
  import Artwork from './Artwork.svelte';
  import Select from './Select.svelte';
  import IconButton from './components/IconButton.svelte';
+ import Modal from './components/Modal.svelte';
  import {trackCover,audioInfo,favoriteTrack,playTrack,queueAction,addToPlaylist,queryLibrary,type LibraryTrack,type AudioInfo} from './services/music';
  import {perform} from './stores/player.svelte';
  import {library,refreshSummary,changed} from './stores/library.svelte';
  import {errorText,duration} from './utils/format';
  let {track,onclose}:{track:LibraryTrack;onclose:()=>void}=$props();
- let dialog:HTMLDialogElement;let cover=$state<string|null>(null);let audio=$state<AudioInfo|null>(null);let audioError=$state(false);let busy=$state(false);let feedback=$state('');let playlist=$state('');let favorite=$state(false);
+ let cover=$state<string|null>(null);let audio=$state<AudioInfo|null>(null);let audioError=$state(false);let busy=$state(false);let feedback=$state('');let playlist=$state('');let favorite=$state(false);
  onMount(()=>{
-  const previous=document.activeElement;dialog.showModal();let disposed=false;
+  let disposed=false;
   void trackCover(track.id).then(v=>{if(!disposed)cover=v;}).catch(()=>{});
   void audioInfo(track.id).then(v=>{if(!disposed)audio=v;}).catch(()=>{if(!disposed)audioError=true;});
   void queryLibrary({limit:1}).then(p=>{if(!disposed)favorite=p.favorites.includes(track.id);}).catch(()=>{});
-  return()=>{disposed=true;if(previous instanceof HTMLElement&&previous.isConnected)previous.focus();};
+  return()=>{disposed=true;};
  });
  async function run(action:()=>Promise<void>){if(busy)return;busy=true;feedback='';try{await action();}catch(e){feedback=errorText(e);}finally{busy=false;}}
  async function copy(){await navigator.clipboard.writeText(track.path);feedback='已复制文件路径';}
  const channels=(n:number)=>n===1?'单声道':n===2?'立体声':n+' 声道';
 </script>
-<dialog bind:this={dialog} class="dialog dialog-wide" aria-labelledby="song-detail-title" oncancel={(e)=>{e.preventDefault();onclose();}}>
+<Modal class="dialog-wide" aria-labelledby="song-detail-title" {onclose}>
  <header class="dialog-header"><h2 class="dialog-heading-sm">歌曲详情</h2><IconButton label="关闭歌曲详情" onclick={onclose}><X size={18}/></IconButton></header>
  <div class="dialog-body details-body">
   <div class="details-hero">
@@ -67,4 +68,4 @@
   </section>
   <p class="detail-feedback" role="status">{feedback}</p>
  </div>
-</dialog>
+</Modal>

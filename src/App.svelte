@@ -9,7 +9,7 @@
  import {library,refreshSummary,watchScans} from './lib/stores/library.svelte';
  import {nav,routeKey,memory} from './lib/stores/nav.svelte';
  import {ui,dismissToast,notifyError} from './lib/stores/ui.svelte';
- import {loadPreferences,motionMs} from './lib/stores/preferences';
+ import {loadPreferences,watchSystemTheme,motionMs} from './lib/stores/preferences';
  import {installNativeMenuGuard} from './lib/utils/native-menu';
  import {escapeLayer} from './lib/utils/layers';
  import Sidebar from './lib/layout/Sidebar.svelte';
@@ -79,8 +79,9 @@
 
  onMount(()=>{
   loadPreferences();
+  const stopTheme=watchSystemTheme();
   const removeGuard=installNativeMenuGuard(import.meta.env.DEV);
-  if(!desktopAvailable){player.connection='浏览器预览';return removeGuard;}
+  if(!desktopAvailable){player.connection='浏览器预览';return ()=>{stopTheme();removeGuard();};}
   void desktopPreferences().then(p=>{ui.queueOpen=p.queue_open;}).catch(notifyError);
   void connect();void refreshSummary();
   const stopScans=watchScans();
@@ -91,7 +92,7 @@
    if(!disposed)timer=setTimeout(refresh,200);
   }
   void refresh();
-  return ()=>{disposed=true;clearTimeout(timer);stopScans();removeGuard();};
+  return ()=>{disposed=true;clearTimeout(timer);stopScans();stopTheme();removeGuard();};
  });
 
  let route=$derived(nav.route);

@@ -1,4 +1,6 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import type { Theme, ThemeChoice } from '../utils/theme';
 export interface Track {path:string;title:string;artist:string;album:string;duration_ms:number}
 export interface PlayerSnapshot {revision:number;track_id:string|null;current_track:Track|null;playback_state:'idle'|'playing'|'paused';position_ms:number;duration_ms:number;volume:number;playback_mode:PlaybackMode;lyrics_offset_ms:number;output_device_id:string|null;error:string|null;queue:Track[]}
 interface BridgeReply {nonce:string;backend:string;snapshot:PlayerSnapshot}
@@ -82,8 +84,12 @@ export const reorderQueue=(path:string,target:number)=>configure(null,null,path,
 
 export const playQueued=(path:string)=>configure(null,null,path,null);
 
-export interface DesktopPreferences { close_to_tray:boolean; queue_open:boolean }
-export const desktopPreferences=(closeToTray:boolean|null=null,queueOpen:boolean|null=null)=>invoke<DesktopPreferences>('desktop_preferences',{closeToTray,queueOpen});
+export interface DesktopPreferences { close_to_tray:boolean; queue_open:boolean; theme:string }
+export const desktopPreferences=(closeToTray:boolean|null=null,queueOpen:boolean|null=null,theme:ThemeChoice|null=null)=>invoke<DesktopPreferences>('desktop_preferences',{closeToTray,queueOpen,theme});
+/** Native title bar colour; `system` hands control back to Windows. */
+export const setWindowTheme=(choice:ThemeChoice)=>getCurrentWindow().setTheme(choice==='system'?null:choice);
+export const windowTheme=()=>getCurrentWindow().theme();
+export const onWindowThemeChanged=(handler:(theme:Theme)=>void)=>getCurrentWindow().onThemeChanged(({payload})=>handler(payload));
 
 export const mediaStatus=()=>invoke<string>('media_status');
 

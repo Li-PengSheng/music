@@ -1,4 +1,5 @@
-/* Music Mine design tokens. Components read only these variables; no colour is hard-coded elsewhere. */
+/* Music Mine design tokens. Components read only these variables; no colour is hard-coded elsewhere.
+   :root is the dark theme (default); [data-theme=light] overrides the palette, set before first paint by public/theme-init.js. */
 :root{
  color-scheme:dark;
 
@@ -74,6 +75,80 @@
  --dur:180ms;
  --ease:cubic-bezier(.2,0,0,1);
 
+ /* Foreground ink as an RGB triplet, for translucent text, tracks and scrollbars: rgb(var(--ink) / .2). */
+ --ink:232 236 231;
+ --on-danger:#fff;
+ --play-hover:#fff;
+ --tooltip-bg:#2c3430;
+ --tooltip-text:var(--text);
+ --toast-bg:#2a322e;
+ --toast-error-bg:#3a2522;
+ --toast-error-text:#ffd9d3;
+ --art-from:#2a332e;
+ --art-to:#1d2421;
+ --art-icon:#6f7d72;
+ --glow:rgba(185,214,155,.07);
+ --ambient-a:.38;
+ --ambient-b:.14;
+
  --shadow-pop:0 12px 32px rgba(0,0,0,.5),0 0 0 1px var(--line-strong);
  --shadow-card:0 6px 20px rgba(0,0,0,.35);
+ --shadow-dialog:0 24px 64px rgba(0,0,0,.6),0 0 0 1px var(--line-strong);
+ --shadow-art:0 24px 60px rgba(0,0,0,.5);
+ --shadow-drawer:-12px 0 32px rgba(0,0,0,.45);
+ --shadow-control:0 6px 16px rgba(0,0,0,.45);
+ --shadow-tooltip:0 4px 14px rgba(0,0,0,.45);
+}
+
+/* Light theme: same components, only the palette changes (contrast on --bg: 14:1 / 5.9:1 / 4.8:1). */
+:root[data-theme=light]{
+ color-scheme:light;
+ --bg:#f7f8f5;
+ --bg-sidebar:#eef1ea;
+ --bg-player:#eef1ea;
+ --surface:#ffffff;
+ --surface-hover:#e8ede6;
+ --surface-active:#dde4da;
+ --surface-overlay:#ffffff;
+ --scrim:rgba(30,37,32,.32);
+ --line:rgba(30,37,32,.09);
+ --line-strong:rgba(30,37,32,.16);
+
+ --text:#1e2520;
+ --text-2:#58655b;
+ --text-3:#647068;
+
+ --accent:#547744;
+ --accent-hover:#476638;
+ --accent-ink:#ffffff;
+ --accent-soft:rgba(84,119,68,.13);
+ --accent-line:rgba(84,119,68,.45);
+ --focus:#3f6331;
+
+ --danger:#b3392c;
+ --danger-bg:#c4473a;
+ --danger-bg-hover:#ad3b2f;
+ --danger-soft:rgba(179,57,44,.1);
+
+ --ink:30 37 32;
+ --play-hover:#000;
+ --tooltip-bg:#1e2520;
+ --tooltip-text:#f7f8f5;
+ --toast-bg:#ffffff;
+ --toast-error-bg:#fbe9e6;
+ --toast-error-text:#8f2d23;
+ --art-from:#e3e8e0;
+ --art-to:#d3dbcf;
+ --art-icon:#7d897f;
+ --glow:rgba(84,119,68,.08);
+ --ambient-a:.24;
+ --ambient-b:.1;
+
+ --shadow-pop:0 12px 32px rgba(30,37,32,.16),0 0 0 1px var(--line-strong);
+ --shadow-card:0 4px 14px rgba(30,37,32,.12);
+ --shadow-dialog:0 24px 64px rgba(30,37,32,.22),0 0 0 1px var(--line-strong);
+ --shadow-art:0 20px 48px rgba(30,37,32,.22);
+ --shadow-drawer:-12px 0 32px rgba(30,37,32,.14);
+ --shadow-control:0 6px 16px rgba(30,37,32,.22);
+ --shadow-tooltip:0 4px 14px rgba(30,37,32,.2);
 }

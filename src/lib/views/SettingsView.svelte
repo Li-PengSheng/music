@@ -8,7 +8,8 @@
  import {library} from '../stores/library.svelte';
  import {ui,notify,notifyError} from '../stores/ui.svelte';
  import {importFolder,importLegacyDatabase} from '../actions';
- import {setReduceMotion} from '../stores/preferences';
+ import {setReduceMotion,setTheme} from '../stores/preferences';
+ import {parseTheme} from '../utils/theme';
 
  let media=$state('尚未连接桌面');
  let closeToTray=$state(false);let desktopReady=$state(false);let saving=$state(false);let importing=$state(false);
@@ -60,15 +61,23 @@
   <p class="settings-note">播放队列、进度、音量和播放模式会自动保存，重新启动后保持暂停。</p>
  </section>
 
- <section class="settings-card" aria-labelledby="set-window">
-  <h3 id="set-window">窗口与外观</h3>
+ <section class="settings-card" aria-labelledby="set-appearance">
+  <h3 id="set-appearance">外观</h3>
   <div class="settings-row">
-   <div><strong>关闭主窗口时</strong><p>选择托盘后，左键托盘图标恢复窗口，右键可控制播放或退出。</p></div>
-   <Select label="关闭主窗口时" value={closeToTray?'tray':'exit'} disabled={!desktopReady||saving} onchange={changeClose} options={[{value:'exit',label:'退出程序'},{value:'tray',label:'最小化到系统托盘'}]}/>
+   <div><strong>主题</strong><p>同时应用于窗口标题栏。“跟随系统”会随 Windows 的深色/浅色设置自动切换。</p></div>
+   <Select label="主题" value={ui.theme} onchange={(v)=>setTheme(parseTheme(v))} options={[{value:'dark',label:'深色'},{value:'light',label:'浅色'},{value:'system',label:'跟随系统'}]}/>
   </div>
   <div class="settings-row">
    <div><strong>减少动态效果</strong><p>关闭过渡动画与正在播放页面的氛围光晕。系统已开启“减少动画”时自动生效。</p></div>
    <label class="switch"><input type="checkbox" role="switch" checked={ui.reduceMotion} onchange={(e)=>setReduceMotion(e.currentTarget.checked)}/><span aria-hidden="true"></span><span class="sr-only">减少动态效果</span></label>
+  </div>
+ </section>
+
+ <section class="settings-card" aria-labelledby="set-window">
+  <h3 id="set-window">窗口</h3>
+  <div class="settings-row">
+   <div><strong>关闭主窗口时</strong><p>选择托盘后，左键托盘图标恢复窗口，右键可控制播放或退出。</p></div>
+   <Select label="关闭主窗口时" value={closeToTray?'tray':'exit'} disabled={!desktopReady||saving} onchange={changeClose} options={[{value:'exit',label:'退出程序'},{value:'tray',label:'最小化到系统托盘'}]}/>
   </div>
  </section>
 

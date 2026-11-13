@@ -15,8 +15,24 @@ use tauri::{
 pub struct Preferences {
     pub close_to_tray: bool,
     pub queue_open: bool,
+    /// "dark", "light" or "system"; files written before themes existed read as dark.
+    pub theme: String,
     bounds: Option<(i32, i32, u32, u32)>,
     maximized: bool,
+}
+/// Native title bar theme; `None` lets Windows follow the system setting.
+fn window_theme(theme: &str) -> Option<tauri::Theme> {
+    match theme {
+        "light" => Some(tauri::Theme::Light),
+        "system" => None,
+        _ => Some(tauri::Theme::Dark),
+    }
+}
+fn window_background(theme: tauri::Theme) -> tauri::window::Color {
+    match theme {
+        tauri::Theme::Light => tauri::window::Color(0xf7, 0xf8, 0xf5, 0xff),
+        _ => tauri::window::Color(0x12, 0x14, 0x14, 0xff),
+    }
 }
 pub struct Desktop {
     preferences: Mutex<Preferences>,
@@ -36,6 +52,7 @@ pub fn desktop_preferences(
     app: tauri::AppHandle,
     close_to_tray: Option<bool>,
     queue_open: Option<bool>,
+    theme: Option<String>,
 ) -> Result<Preferences, String> {
     let state = app.state::<Desktop>();
     let mut guard = state.preferences.lock().map_err(|e| e.to_string())?;
@@ -45,6 +62,12 @@ pub fn desktop_preferences(
     }
     if let Some(v) = queue_open {
         next.queue_open = v;
+    }
+    if let Some(v) = theme {
+        if !matches!(v.as_str(), "dark" | "light" | "system") {
+            return Err(format!("未知的外观主题: {v}"));
+        }
+        next.theme = v;
     }
     state.save(&next)?;
     *guard = next.clone();
@@ -186,6 +209,8 @@ pub fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         exiting: AtomicBool::new(false),
     });
     if let Some(w) = app.get_webview_window("main") {
+        w.set_theme(window_theme(&preferences.theme))?;
+        w.set_background_color(Some(window_background(w.theme()?)))?;
         if let Some((x, y, width, height)) = preferences.bounds {
             w.set_size(tauri::PhysicalSize::new(
                 width.clamp(900, 16384),
@@ -340,6 +365,13 @@ mod tests {
         assert!(!p.queue_open);
     }
     #[test]
+    fn existing_users_keep_the_dark_title_bar() {
+        let old: Preferences = serde_json::from_str(r#"{"close_to_tray":true}"#).unwrap();
+        assert_eq!(window_theme(&old.theme), Some(tauri::Theme::Dark));
+        assert_eq!(window_theme("light"), Some(tauri::Theme::Light));
+        assert_eq!(window_theme("system"), None);
+    }
+    #[test]
     fn disconnected_and_negative_monitors() {
         assert!(!fits((1920, 0, 900, 640), (0, 0, 1920, 1080)));
         assert!(fits((-1800, 0, 900, 640), (-1920, 0, 1920, 1080)));
@@ -378,11 +410,13 @@ mod tests {
         let p = Preferences {
             close_to_tray: true,
             queue_open: true,
+            theme: "light".into(),
             bounds: Some((-1200, 30, 1000, 700)),
             maximized: true,
         };
         let q: Preferences = serde_json::from_slice(&serde_json::to_vec(&p).unwrap()).unwrap();
         assert_eq!(p.bounds, q.bounds);
+        assert_eq!(q.theme, "light");
         assert!(q.maximized && q.queue_open && q.close_to_tray);
     }
 }

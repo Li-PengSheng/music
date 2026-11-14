@@ -2,7 +2,9 @@
 
 Windows 本地音乐播放器。技术栈是 Rust、Tauri v2、Svelte 5、TypeScript、Vite 和 Tailwind CSS v4。
 
-当前程序可以扫描本地音乐、管理歌单、播放、显示歌词和队列，并在深色、浅色、跟随系统之间切换主题。播放进度只跟随 Rust 返回的快照，界面不用计时器假装播放在前进。浏览器里打开页面不能代替桌面里的原生命令。
+当前程序的源码包含本地扫描、歌单、播放、歌词、队列，以及深色、浅色、跟随系统。产品版本在 `package.json` 和 `src-tauri/tauri.conf.json` 里是 `0.1.0`。`docs/TASK-*.md` 的 V0.9.x 是历史任务编号，不是安装包版本。
+
+播放进度只显示 Rust 快照里的位置，界面不用计时器推进播放。哪一层检查已经跑过，见 [docs/current-state.md](docs/current-state.md)。源码里有的能力，不等于自动测试、浏览器或 Windows 实机都已通过。
 
 ## 检查
 
@@ -16,7 +18,11 @@ pnpm test:ui
 pnpm build
 ```
 
-`pnpm test` 检查歌词、音量、主题、弹层和队列比较这些不需要窗口的行为。`pnpm test:ui` 用 Playwright 打开 `tests/harness/index.html`。这个页面使用内存里的模拟曲库，覆盖侧边栏、播放栏、队列、菜单、弹窗、主题切换和窗口变窄。基准截图在 `tests/ui/snapshots/`，是 Windows 上 1 倍缩放的 Chromium 画面。模拟曲库不是用户的音乐库。
+三条结果不能混写：
+
+- `pnpm check` 和 `pnpm test` 是自动测试。`pnpm test` 只运行 `tests/*.test.mjs`，检查歌词、音量、主题、弹层和队列比较。
+- `pnpm test:ui` 是浏览器验证。Playwright 打开 `tests/harness/index.html` 的内存曲库，覆盖侧边栏、播放栏、队列、菜单、弹窗、主题切换和窗口变窄。基准截图在 `tests/ui/snapshots/`，是 Windows 上 1 倍缩放的 Chromium 画面。这个夹具会假装桌面环境存在，所以页面上的连接指示不是 Rust 引擎。
+- 构建出的 exe 才是 Windows Tauri 实机。浏览器和 Playwright 都不能代替它。
 
 更新基准截图：
 
@@ -34,4 +40,7 @@ pnpm tauri build --debug --no-bundle
 
 ## 文档
 
-产品范围和技术约束见 [docs/RFC-v2.0.md](docs/RFC-v2.0.md)。[docs/INITIALIZATION.md](docs/INITIALIZATION.md) 只保留最初 Task 02 的交接记录，不描述现在的播放器和曲库。
+- Agent 约束：[AGENTS.md](AGENTS.md)。Claude Code 从 [CLAUDE.md](CLAUDE.md) 引入同一份。
+- 验收记录：[docs/current-state.md](docs/current-state.md)。架构：[docs/architecture.md](docs/architecture.md)。
+- 产品目标：[docs/RFC-v2.0.md](docs/RFC-v2.0.md)。其中「cargo test + Vitest」已经过时，当前前端测试命令以上面的脚本为准。
+- [docs/INITIALIZATION.md](docs/INITIALIZATION.md) 和 `docs/TASK-*.md` 是历史交接，不描述最新行为。

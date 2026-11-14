@@ -4,3 +4,4 @@ src-tauri/target/
 .tools/
 .checkpoints/
 .pnpm-store/
+tests/perf/out/

@@ -8,3 +8,4 @@
 - Preserve the old project. Extract audio code only in a separately authorized migration task.
 - Check pnpm install, pnpm check, pnpm build, cargo fmt, cargo clippy, cargo test and an actual Windows window plus IPC before declaring the foundation validated.
 - Desktop startup tests must use the built executable, not a persistent development server in Craft Anything.
+- after any modification, finish git commit

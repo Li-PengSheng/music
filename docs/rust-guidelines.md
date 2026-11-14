@@ -10,7 +10,7 @@
 - `media.rs`：Windows 媒体集成。`desktop.rs`：窗口、主题、托盘、`desktop-v1.json`。
 - `library.rs`、`catalog.rs`、`catalog_commands.rs`、`collections.rs`：曲库、扫描、歌单。
 - `db.rs`：SQLite 连接、`CREATE TABLE IF NOT EXISTS`、`ensure_column`。
-- `lyrics.rs`、`metadata.rs`：歌词和标签。`logging.rs`：日志。
+- `lyrics.rs`、`metadata.rs`：歌词和标签。`covers.rs`：封面缩略图、内存和磁盘缓存。`logging.rs`：日志。
 
 没有按 RFC 假设尚未存在的模块或 crate。
 
@@ -24,12 +24,13 @@
 
 Windows 上这个路径来自系统已知文件夹。把进程的 `APPDATA` 指到临时目录，不会换掉它。
 
-隔离步骤：
+普通构建不改 `tauri.conf.json`。隔离实验用 CLI 合并一份临时配置，不要把覆盖路径留在提交里：
 
-1. 在 `tauri.conf.json` 的 `app` 中临时加入 `appDirectoriesOverride`，指向空的临时目录。
-2. 执行 `pnpm tauri build --debug --no-bundle`。
-3. 只启动这次构建出的 exe。
-4. 验收后删除该配置，再次构建。覆盖路径不得进入提交。
+`pnpm tauri build --debug --no-bundle --config src-tauri/tauri.portable.conf.json`
+
+上面这条是便携构建，数据目录是 EXE 旁边的 `app-data`。只给某一次实验换目录时，另传一份不提交的 JSON，例如 `{ "app": { "appDirectoriesOverride": "$TEMP/music-mine-isolated" } }`。启动前确认构建出的 exe 含有这次的覆盖路径。
+
+便携版在打开数据库之前检查 `app-data`、缓存和日志目录可写。写失败时提示错误并退出，不改用 Windows 用户目录。封面缓存写失败只跳过缓存文件，不回滚 SQLite。
 
 结构变更在新建的临时库、空库和旧 schema fixture 上验证。多表写入使用事务。禁止用用户正在使用的库做迁移、去重、删除或改标签。缺文件和用户移除曲库要区分，避免删掉歌单关系。
 

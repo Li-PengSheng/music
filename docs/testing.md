@@ -20,6 +20,8 @@ harness 设置 `window.isTauri`，因此壳层会显示连接成功。这只说�
 
 隔离用户数据的步骤在 `docs/rust-guidelines.md`。只改 `APPDATA` 会打开正在使用的曲库和设置。
 
+便携包：`powershell -File scripts/build-portable.ps1`。调试用的同一配置加 `-Debug`，或 `pnpm portable:debug`。产物是 `dist-portable/Music-Mine-Portable-x64.zip`。这份配置只在传入 `--config src-tauri/tauri.portable.conf.json` 时合并，普通 `pnpm tauri dev` 和 `pnpm tauri build` 仍使用系统数据目录。
+
 ## 按改动选择证据
 
 - 纯 CSS：`pnpm check` 或 `pnpm build`，加上受影响页面的浏览器验证。

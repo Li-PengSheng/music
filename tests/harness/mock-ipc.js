@@ -45,6 +45,8 @@ const handlers={
  library_query:a=>page(a.query),
  library_home:()=>({recent:tracks.slice(0,6),artists:groups('artist').slice(0,8).map(g=>[g.name,g.count])}),
  library_cover:()=>null,
+ library_thumb:()=>null,
+ library_queue_thumb:()=>null,
  library_track:a=>tracks[a.id-1],
  library_audio_info:()=>({format:'Flac',sample_rate:44100,channels:2,bitrate:900}),
  library_playlist:a=>{if(a.name){if(playlists.some(p=>p.name===a.name.trim()))throw `已存在名为「${a.name.trim()}」的歌单`;const id=Math.max(...playlists.map(p=>p.id))+1;playlists.push({id,name:a.name.trim(),count:0});members[id]=[];return id;}members[a.playlistId].push(a.trackId);return null;},

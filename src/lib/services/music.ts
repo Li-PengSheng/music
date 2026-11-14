@@ -29,33 +29,29 @@ export interface LibraryPage {tracks:LibraryTrack[];total:number}
 export interface ScanProgress {running:boolean;visited:number;imported:number;current:string;cancelled:boolean;errors:string[]}
 export const queryLibrary=(query:LibraryQuery)=>invoke<LibraryPage>('library_query',{query});
 export const librarySummary=()=>invoke<LibrarySummary>('library_summary');
-export const scanFolder=()=>{coverCache.clear();queueCoverCache.clear();thumbCache.clear();return invoke<void>('library_scan');};
+export const scanFolder=()=>{clearCoverCaches();return invoke<void>('library_scan');};
 export const scanProgress=()=>invoke<ScanProgress>('library_progress');
 export const cancelScan=()=>invoke<void>('library_cancel');
 export const trackDetails=(id:number)=>invoke<LibraryTrack>('library_track',{id});
 export interface AudioInfo {format:string;sample_rate:number|null;channels:number|null;bitrate:number|null}
 export const audioInfo=(id:number)=>invoke<AudioInfo>('library_audio_info',{id});
-const coverCache=new Map<number,Promise<string|null>>();
-export function trackCover(id:number){let value=coverCache.get(id);if(!value){value=invoke<string|null>('library_cover',{id}).catch(e=>{coverCache.delete(id);throw e;});coverCache.set(id,value);if(coverCache.size>100)coverCache.delete(coverCache.keys().next().value!);}return value;}
-// Lists show small covers; decoding the embedded image once and keeping a small JPEG keeps memory bounded.
 const thumbCache=new Map<string,Promise<string|null>>();
-async function downscale(src:string,px:number){
- const img=new Image();img.decoding='async';img.src=src;await img.decode();
- const scale=Math.min(1,px/Math.max(img.naturalWidth,img.naturalHeight));
- if(scale>=1)return src;
- const canvas=document.createElement('canvas');canvas.width=Math.round(img.naturalWidth*scale);canvas.height=Math.round(img.naturalHeight*scale);
- const ctx=canvas.getContext('2d');if(!ctx)return src;
- ctx.imageSmoothingQuality='high';ctx.drawImage(img,0,0,canvas.width,canvas.height);
- return canvas.toDataURL('image/jpeg',.86);
-}
-export function trackThumb(id:number,px:number){
- const key=id+'@'+px;let value=thumbCache.get(key);
- if(value){thumbCache.delete(key);thumbCache.set(key,value);return value;}
- value=trackCover(id).then(src=>src?downscale(src,px).catch(()=>src):null).catch(e=>{thumbCache.delete(key);throw e;});
+function rememberThumb(key:string,value:Promise<string|null>){
  thumbCache.set(key,value);
- if(thumbCache.size>800)thumbCache.delete(thumbCache.keys().next().value!);
+ if(thumbCache.size>400)thumbCache.delete(thumbCache.keys().next().value!);
  return value;
 }
+/** Small and medium covers. Rust resizes; the page does not receive the original image. */
+export function trackThumb(id:number,px:number){
+ const edge=Math.max(32,Math.min(960,Math.round(px)));
+ const key=id+'@'+edge;
+ const cached=thumbCache.get(key);
+ if(cached){thumbCache.delete(key);thumbCache.set(key,cached);return cached;}
+ const value=invoke<string|null>('library_thumb',{id,edge}).catch(e=>{thumbCache.delete(key);throw e;});
+ return rememberThumb(key,value);
+}
+/** Song details use a larger JPEG, still bounded, instead of the embedded original. */
+export function trackCover(id:number){return trackThumb(id,720);}
 export const homeData=()=>invoke<{recent:LibraryTrack[];artists:[string,number][]}>('library_home');
 export const playTrack=(id:number)=>invoke<PlayerSnapshot>('library_play',{id});
 export const createPlaylist=(name:string)=>invoke<number|null>('library_playlist',{name,playlistId:null,trackId:null}).then(id=>{if(id==null)throw new Error('创建歌单失败');return id;});
@@ -93,11 +89,14 @@ export const onWindowThemeChanged=(handler:(theme:Theme)=>void)=>getCurrentWindo
 
 export const mediaStatus=()=>invoke<string>('media_status');
 
-// Resolve the existing library cover by exact file identity, never by display title alone.
+// Exact library path only. The command returns nothing when that path is not a library row.
 const queueCoverCache=new Map<string,Promise<string|null>>();
 export function queueCover(track:Track){
  if(!desktopAvailable)return Promise.resolve(null);
- let cached=queueCoverCache.get(track.path);
- if(!cached){cached=(async()=>{let offset=0;while(true){const page=await queryLibrary({search:track.title,limit:50,offset});const match=page.tracks.find(t=>t.path===track.path);if(match)return trackThumb(match.id,112);offset+=page.tracks.length;if(!page.tracks.length||offset>=page.total)return null;}})().catch(e=>{queueCoverCache.delete(track.path);throw e;});queueCoverCache.set(track.path,cached);if(queueCoverCache.size>100)queueCoverCache.delete(queueCoverCache.keys().next().value!);}
+ const edge=112;
+ const key=track.path+'@'+edge;
+ let cached=queueCoverCache.get(key);
+ if(!cached){cached=invoke<string|null>('library_queue_thumb',{path:track.path,edge}).catch(e=>{queueCoverCache.delete(key);throw e;});queueCoverCache.set(key,cached);if(queueCoverCache.size>200)queueCoverCache.delete(queueCoverCache.keys().next().value!);}
  return cached;
 }
+export function clearCoverCaches(){thumbCache.clear();queueCoverCache.clear();}

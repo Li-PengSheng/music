@@ -3,6 +3,7 @@ mod catalog_commands;
 #[allow(dead_code)]
 mod collections;
 mod controller;
+mod covers;
 #[allow(dead_code)]
 mod db;
 mod desktop;
@@ -122,36 +123,55 @@ async fn player_lyrics(state: tauri::State<'_, Shared>) -> Result<Option<lyrics:
         .map_err(|e| e.to_string())
 }
 #[tauri::command]
-async fn player_artwork(state: tauri::State<'_, Shared>) -> Result<Option<String>, String> {
+async fn player_artwork(
+    state: tauri::State<'_, Shared>,
+    catalog: tauri::State<'_, Arc<catalog::Catalog>>,
+    covers: tauri::State<'_, Arc<covers::Store>>,
+) -> Result<Option<String>, String> {
     let path = state.lock().map_err(|_| "播放器不可用")?.current_path();
+    let Some(path) = path else {
+        return Ok(None);
+    };
+    let path_text = path.to_string_lossy().to_string();
+    let catalog = catalog.inner().clone();
+    let covers = covers.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        use base64::Engine;
-        use lofty::file::TaggedFileExt;
-        let tagged = lofty::read_from_path(path?).ok()?;
-        let picture = tagged.tags().iter().flat_map(|t| t.pictures()).next()?;
-        let mime = picture.mime_type()?.as_str();
-        if !["image/jpeg", "image/png", "image/webp", "image/gif"].contains(&mime)
-            || picture.data().len() > 10 * 1024 * 1024
-        {
-            return None;
+        let edge = 960;
+        if let Some(track) = catalog.track_by_path(&path_text)? {
+            return Ok(covers.for_track(track.id, std::path::Path::new(&track.path), edge));
         }
-        Some(format!(
-            "data:{mime};base64,{}",
-            base64::engine::general_purpose::STANDARD.encode(picture.data())
-        ))
+        Ok(covers.for_playback(&path, edge))
     })
     .await
-    .map_err(|e| e.to_string())
+    .map_err(|e| e.to_string())?
 }
 pub fn run() {
     use tauri::Manager;
-    tauri::Builder::default()
+    let context = tauri::generate_context!();
+    if let Some(root) = portable_root_from(context.config()) {
+        if let Err(error) = ensure_writable(&root)
+            .and_then(|_| ensure_writable(&root.join("caches")))
+            .and_then(|_| ensure_writable(&root.join("logs")))
+        {
+            report_portable_error(&error);
+            std::process::exit(1);
+        }
+    }
+    match tauri::Builder::default()
         .setup(|app| {
             let directory = app.path().app_data_dir()?;
-            std::fs::create_dir_all(&directory)?;
+            let cache = app.path().app_cache_dir()?;
+            let log = app.path().app_log_dir()?;
+            if let Err(error) = ensure_writable(&directory)
+                .and_then(|_| ensure_writable(&cache))
+                .and_then(|_| ensure_writable(&log))
+            {
+                return Err(std::io::Error::other(error).into());
+            }
             app.manage(Arc::new(catalog::Catalog::new(
                 directory.join("library-tauri-v1.sqlite"),
             )));
+            app.manage(Arc::new(covers::Store::new(cache.join("covers"))));
             if let Ok(mut controller) = app.state::<Shared>().lock() {
                 if let Err(error) = controller.attach_session(directory.join("playback-v1.json")) {
                     eprintln!("{error}");
@@ -229,6 +249,8 @@ pub fn run() {
             catalog_commands::library_track,
             catalog_commands::library_audio_info,
             catalog_commands::library_cover,
+            catalog_commands::library_thumb,
+            catalog_commands::library_queue_thumb,
             catalog_commands::library_play,
             catalog_commands::library_favorite,
             catalog_commands::library_playlist,
@@ -237,12 +259,96 @@ pub fn run() {
             catalog_commands::library_queue,
             catalog_commands::library_queue_tracks
         ])
-        .build(tauri::generate_context!())
-        .expect("无法启动 Music Mine 桌面窗口")
-        .run(|app, event| {
+        .build(context)
+    {
+        Ok(built) => built.run(|app, event| {
             if matches!(event, tauri::RunEvent::ExitRequested { .. }) {
                 media::shutdown(app);
                 desktop::shutdown(app);
             }
-        });
+        }),
+        Err(error) => {
+            report_portable_error(&error.to_string());
+            std::process::exit(1);
+        }
+    }
+}
+
+fn report_portable_error(error: &str) {
+    let description = if error.contains("app-data") {
+        format!(
+            "无法写入程序旁边的 app-data 目录，Music Mine 没有启动。\n便携版不会改用 Windows 用户目录中的曲库或设置。\n请把整个文件夹放到可以写入的位置后重试。\n\n{error}"
+        )
+    } else {
+        format!("Music Mine 没有启动。\n\n{error}")
+    };
+    let _ = rfd::MessageDialog::new()
+        .set_title("Music Mine")
+        .set_level(rfd::MessageLevel::Error)
+        .set_description(description)
+        .show();
+}
+
+fn portable_root_from(config: &tauri::Config) -> Option<std::path::PathBuf> {
+    let configured = match config.app.app_directories_override.as_ref() {
+        Some(tauri::utils::config::AppDirectoriesOverride::Root(path)) => path,
+        _ => return None,
+    };
+    let exe = std::env::current_exe().ok()?;
+    exe_relative_root(configured, exe.parent()?)
+}
+
+fn exe_relative_root(
+    configured: &std::path::Path,
+    exe_dir: &std::path::Path,
+) -> Option<std::path::PathBuf> {
+    if configured.is_absolute() {
+        return None;
+    }
+    let text = configured.to_string_lossy();
+    if text.starts_with('$') || text == "." || text == "./" || text == ".\\" {
+        return None;
+    }
+    let relative = text.trim_start_matches("./").trim_start_matches(".\\");
+    if relative.is_empty() {
+        return None;
+    }
+    Some(exe_dir.join(relative))
+}
+
+fn ensure_writable(dir: &std::path::Path) -> Result<(), String> {
+    std::fs::create_dir_all(dir).map_err(|e| format!("无法创建 {}：{e}", dir.display()))?;
+    let probe = dir.join(".write-probe");
+    std::fs::write(&probe, b"1").map_err(|e| format!("无法写入 {}：{e}", dir.display()))?;
+    let _ = std::fs::remove_file(&probe);
+    Ok(())
+}
+
+#[cfg(test)]
+mod portable_dir_tests {
+    use super::{ensure_writable, exe_relative_root};
+    use std::path::{Path, PathBuf};
+
+    #[test]
+    fn writable_probe_leaves_no_marker() {
+        let dir = std::env::temp_dir().join(format!("music-mine-write-{}", std::process::id()));
+        ensure_writable(&dir).expect("temp dir");
+        assert!(!dir.join(".write-probe").exists());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn portable_root_is_beside_the_exe_and_rejects_the_exe_directory() {
+        let exe_dir = Path::new(r"D:\Music Mine");
+        assert_eq!(
+            exe_relative_root(Path::new("./app-data"), exe_dir),
+            Some(PathBuf::from(r"D:\Music Mine\app-data"))
+        );
+        assert_eq!(exe_relative_root(Path::new("."), exe_dir), None);
+        assert_eq!(exe_relative_root(Path::new("./"), exe_dir), None);
+        assert_eq!(
+            exe_relative_root(Path::new(r"E:\absolute\app-data"), exe_dir),
+            None
+        );
+    }
 }

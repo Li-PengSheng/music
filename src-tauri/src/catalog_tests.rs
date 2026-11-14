@@ -198,3 +198,29 @@ fn listening_history_is_real_bounded_and_persistent() {
     assert_eq!(home.artists[0], (track.artist, 2));
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn same_title_resolves_by_exact_path() {
+    let dir = std::env::temp_dir().join(format!("mm-path-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let state = Catalog::new(dir.join("library.db"));
+    let conn = state.connection().unwrap();
+    for (path, album) in [("C:\\one.flac", "Album A"), ("C:\\two.flac", "Album B")] {
+        conn.execute(
+            "INSERT INTO tracks (path,title,artist,album,album_artist,genre,duration_ms,album_source,added_at)
+             VALUES (?1,'Same Song','Same Artist',?2,'','',1000,'tag',1)",
+            [path, album],
+        )
+        .unwrap();
+    }
+    drop(conn);
+    let first = state.track_by_path("C:\\one.flac").unwrap().unwrap();
+    let second = state.track_by_path("C:\\two.flac").unwrap().unwrap();
+    assert_ne!(first.id, second.id);
+    assert_eq!(first.title, second.title);
+    assert_ne!(first.album, second.album);
+    assert!(state.track_by_path("C:\\missing.flac").unwrap().is_none());
+    assert!(state.track_by_path("").unwrap().is_none());
+    let _ = std::fs::remove_dir_all(dir);
+}

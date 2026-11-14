@@ -10,7 +10,9 @@
     "tauri": "tauri",
     "test": "node --experimental-strip-types --test tests/*.test.mjs",
     "test:ui": "playwright test",
-    "test:ui:update": "playwright test --update-snapshots"
+    "test:ui:update": "playwright test --update-snapshots",
+    "portable:debug": "tauri build --debug --no-bundle --config src-tauri/tauri.portable.conf.json",
+    "portable": "tauri build --no-bundle --config src-tauri/tauri.portable.conf.json"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",

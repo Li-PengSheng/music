@@ -1,26 +1,30 @@
 <script lang="ts">
-    import { onMount } from "svelte";
     import Artwork from "./Artwork.svelte";
     import { queueCover, type Track } from "./services/music";
+    import { library } from "./stores/library.svelte";
     let { track }: { track: Track } = $props();
-    let host: HTMLSpanElement;
+    let host = $state<HTMLSpanElement>();
     let src = $state<string | null>(null);
-    onMount(() => {
+    $effect(() => {
+        const requested = track.path;
+        const epoch = library.coverEpoch;
+        const node = host;
+        if (!node) return;
+        src = null;
         let disposed = false;
         const observer = new IntersectionObserver(
             (entries) => {
-                if (entries.some((e) => e.isIntersecting)) {
-                    observer.disconnect();
-                    void queueCover(track)
-                        .then((value) => {
-                            if (!disposed) src = value;
-                        })
-                        .catch(() => {});
-                }
+                if (!entries.some((e) => e.isIntersecting)) return;
+                observer.disconnect();
+                void queueCover(track)
+                    .then((value) => {
+                        if (!disposed && requested === track.path && epoch === library.coverEpoch) src = value;
+                    })
+                    .catch(() => {});
             },
             { rootMargin: "100px" },
         );
-        observer.observe(host);
+        observer.observe(node);
         return () => {
             disposed = true;
             observer.disconnect();

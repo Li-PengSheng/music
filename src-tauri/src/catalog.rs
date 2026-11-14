@@ -198,6 +198,33 @@ impl Catalog {
             )
             .map_err(|e| format!("读取歌曲失败：{e}"))
     }
+    /// A missing row is `Ok(None)`. Database failures stay errors.
+    pub fn track_present(&self, id: i64) -> Result<Option<Track>, String> {
+        match self.connection()?.query_row(
+            &format!("SELECT {FIELDS} FROM tracks t WHERE t.id=?1"),
+            [id],
+            row_track,
+        ) {
+            Ok(track) => Ok(Some(track)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(format!("读取歌曲失败：{e}")),
+        }
+    }
+    /// Exact library path. Titles are never consulted. Unknown paths are `Ok(None)`.
+    pub fn track_by_path(&self, path: &str) -> Result<Option<Track>, String> {
+        if path.is_empty() || path.len() > 1024 {
+            return Ok(None);
+        }
+        match self.connection()?.query_row(
+            &format!("SELECT {FIELDS} FROM tracks t WHERE t.path=?1"),
+            [path],
+            row_track,
+        ) {
+            Ok(track) => Ok(Some(track)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.to_string()),
+        }
+    }
     /// Loads tracks in the given order over one connection, skipping unknown IDs.
     pub fn tracks_by_ids(&self, ids: &[i64]) -> Result<Vec<Track>, String> {
         let conn = self.connection()?;

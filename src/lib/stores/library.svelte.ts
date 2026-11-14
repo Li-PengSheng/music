@@ -1,4 +1,4 @@
-import {desktopAvailable,librarySummary,scanProgress,type LibrarySummary,type ScanProgress} from '../services/music';
+import {desktopAvailable,librarySummary,scanProgress,clearCoverCaches,type LibrarySummary,type ScanProgress} from '../services/music';
 import {notifyError} from './ui.svelte';
 
 export const library=$state({
@@ -7,6 +7,8 @@ export const library=$state({
  /** Bumped after any change to tracks or playlists so open lists (including the built-in “本地”) reload. */
  revision:0,
  progress:null as ScanProgress|null,
+ /** Bumped only when a scan finishes, so visible covers reload without a theme or progress refresh. */
+ coverEpoch:0,
 });
 
 export async function refreshSummary(){
@@ -24,7 +26,7 @@ export function watchScans(){
    const next=await scanProgress();
    const was=library.progress?.running;
    library.progress=next;
-   if(was&&!next.running)await refreshSummary();
+   if(was&&!next.running){clearCoverCaches();library.coverEpoch++;await refreshSummary();}
   }catch(e){if(!disposed)notifyError(e);}
   if(!disposed)timer=setTimeout(poll,library.progress?.running?500:2000);
  }

@@ -27,7 +27,10 @@ pub fn library_cancel(state: State<'_>) {
     state.cancel.store(true, Ordering::Relaxed);
 }
 #[tauri::command]
-pub async fn library_scan(state: State<'_>) -> Result<(), String> {
+pub async fn library_scan(
+    state: State<'_>,
+    covers: tauri::State<'_, Arc<crate::covers::Store>>,
+) -> Result<(), String> {
     let folder = tauri::async_runtime::spawn_blocking(|| rfd::FileDialog::new().pick_folder())
         .await
         .map_err(|e| e.to_string())?;
@@ -35,6 +38,7 @@ pub async fn library_scan(state: State<'_>) -> Result<(), String> {
         return Ok(());
     };
     let catalog = state.inner().clone();
+    let covers = covers.inner().clone();
     {
         let mut p = catalog.progress.lock().unwrap();
         if p.running {
@@ -46,6 +50,7 @@ pub async fn library_scan(state: State<'_>) -> Result<(), String> {
         };
     }
     catalog.cancel.store(false, Ordering::Relaxed);
+    covers.clear_memory();
     tauri::async_runtime::spawn_blocking(move || {
         let result = catalog.scan(folder);
         let mut p = catalog.progress.lock().unwrap();
@@ -128,6 +133,42 @@ pub async fn library_cover(id: i64, state: State<'_>) -> Result<Option<String>, 
         )
     })
     .await
+}
+#[tauri::command]
+pub async fn library_thumb(
+    id: i64,
+    edge: u32,
+    state: State<'_>,
+    covers: tauri::State<'_, Arc<crate::covers::Store>>,
+) -> Result<Option<String>, String> {
+    let catalog = state.inner().clone();
+    let covers = covers.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(track) = catalog.track_present(id)? else {
+            return Ok(None);
+        };
+        Ok(covers.for_track(track.id, std::path::Path::new(&track.path), edge))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+#[tauri::command]
+pub async fn library_queue_thumb(
+    path: String,
+    edge: u32,
+    state: State<'_>,
+    covers: tauri::State<'_, Arc<crate::covers::Store>>,
+) -> Result<Option<String>, String> {
+    let catalog = state.inner().clone();
+    let covers = covers.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(track) = catalog.track_by_path(&path)? else {
+            return Ok(None);
+        };
+        Ok(covers.for_track(track.id, std::path::Path::new(&track.path), edge))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 #[tauri::command]
 pub async fn library_play(

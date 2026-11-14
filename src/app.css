@@ -3042,6 +3042,8 @@ button.pb-title:hover {
       animation-duration: .01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: .01ms !important;
+      /* Initial transition-property is all. A duration on * would transition every element. */
+      transition-property: none !important;
       scroll-behavior: auto !important
    }
 
@@ -3060,6 +3062,8 @@ button.pb-title:hover {
    animation-duration: .01ms !important;
    animation-iteration-count: 1 !important;
    transition-duration: .01ms !important;
+   /* Same as the media query above: duration on * without this starts a transition per element. */
+   transition-property: none !important;
    scroll-behavior: auto !important
 }
 

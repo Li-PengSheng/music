@@ -5,3 +5,6 @@ src-tauri/target/
 .checkpoints/
 .pnpm-store/
 tests/perf/out/
+test-results/
+playwright-report/
+blob-report/

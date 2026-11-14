@@ -8,6 +8,16 @@ const tracks=Array.from({length:TOTAL},(_,i)=>({
 }));
 const playlists=[{id:7,name:'本地',count:0},{id:8,name:'夜晚',count:2}];
 const members={7:[],8:[3,5]};
+function groups(kind){
+ const map=new Map();
+ for(const t of tracks){
+  const name=kind==='album'?t.album:t.artist;
+  const current=map.get(name);
+  if(current)current.count++;
+  else map.set(name,{key:name,name,artist:kind==='album'?t.artist:'',count:1,cover_id:t.id});
+ }
+ return [...map.values()];
+}
 const queue=tracks.slice(0,12).map(({path,title,artist,album,duration_ms})=>({path,title,artist,album,duration_ms}));
 let snapshot={revision:1,track_id:queue[0].path,current_track:queue[0],playback_state:'paused',position_ms:42000,duration_ms:queue[0].duration_ms,
  volume:.7,playback_mode:'sequential',lyrics_offset_ms:0,output_device_id:'Fixture output',error:null,queue};
@@ -20,6 +30,7 @@ function page(q){
  if(q.playlist!=null)list=(members[q.playlist]??[]).map(id=>tracks[id-1]);
  if(q.search){const s=q.search.toLowerCase();list=list.filter(t=>(t.title+t.artist+t.album).toLowerCase().includes(s));}
  if(q.artist)list=list.filter(t=>t.artist===q.artist);
+ if(q.album)list=list.filter(t=>t.album===q.album);
  if(q.sort==='title')list=[...list].sort((a,b)=>a.title.localeCompare(b.title)||a.id-b.id);
  const offset=q.offset??0,limit=q.limit??100;
  return {tracks:list.slice(offset,offset+limit),total:list.length,favorites:[]};
@@ -30,14 +41,19 @@ const handlers={
  desktop_preferences:a=>{if(a.closeToTray!=null)prefs.close_to_tray=a.closeToTray;if(a.queueOpen!=null)prefs.queue_open=a.queueOpen;if(a.theme!==undefined&&a.theme!==null)prefs.theme=a.theme;return {...prefs};},
  media_status:()=>'Fixture',
  library_progress:()=>({running:false,visited:0,imported:0,current:'',cancelled:false,errors:[]}),
- library_summary:()=>({tracks:tracks.length,albums:[],artists:[],folders:['C:\\Fixture'],playlists:playlists.map(p=>({...p,count:members[p.id].length}))}),
+ library_summary:()=>({tracks:tracks.length,albums:groups('album'),artists:groups('artist'),folders:['C:\\Fixture'],playlists:playlists.map(p=>({...p,count:(members[p.id]??[]).length}))}),
  library_query:a=>page(a.query),
- library_home:()=>({recent:tracks.slice(0,6),artists:[]}),
+ library_home:()=>({recent:tracks.slice(0,6),artists:groups('artist').slice(0,8).map(g=>[g.name,g.count])}),
  library_cover:()=>null,
  library_track:a=>tracks[a.id-1],
  library_audio_info:()=>({format:'Flac',sample_rate:44100,channels:2,bitrate:900}),
  library_playlist:a=>{if(a.name){if(playlists.some(p=>p.name===a.name.trim()))throw `已存在名为「${a.name.trim()}」的歌单`;const id=Math.max(...playlists.map(p=>p.id))+1;playlists.push({id,name:a.name.trim(),count:0});members[id]=[];return id;}members[a.playlistId].push(a.trackId);return null;},
- library_playlist_edit:()=>null,
+ library_playlist_edit:a=>{
+  if(a.action==='delete'){const i=playlists.findIndex(p=>p.id===a.playlistId);if(i>=0)playlists.splice(i,1);delete members[a.playlistId];}
+  if(a.action==='rename'){const p=playlists.find(p=>p.id===a.playlistId);if(p&&a.name)p.name=a.name;}
+  if(a.action==='remove_track'&&members[a.playlistId])members[a.playlistId]=members[a.playlistId].filter(id=>id!==a.trackId);
+  return null;
+ },
  library_queue_tracks:()=>snapshot,
  library_play:()=>snapshot,
  library_queue:()=>snapshot,

@@ -28,7 +28,7 @@
         type MenuItem,
     } from "./stores/ui.svelte";
     import { duration } from "./utils/format";
-    import { sameTracks } from "./utils/queue";
+    import { retainQueue } from "./utils/queue";
 
     let { open, onclose }: { open: boolean; onclose: () => void } = $props();
     let closeButton = $state<HTMLButtonElement>();
@@ -39,10 +39,9 @@
 
     // Every player poll delivers a fresh queue array. Keep the rendered one until the tracks really change,
     // so polling, opening and closing never re-diff every row.
-    let rendered: Track[] = [];
+    let rendered: readonly Track[] = [];
     let queue = $derived.by(() => {
-        const next = player.snapshot?.queue ?? [];
-        if (!sameTracks(rendered, next)) rendered = next;
+        rendered = retainQueue(rendered, player.snapshot?.queue ?? []);
         return rendered;
     });
     let currentIndex = $derived(

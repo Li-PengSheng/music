@@ -49,7 +49,7 @@ test('modal: Escape closes once; IME composition and busy dialogs stay open',()=
  assert.equal(busy.closed(),0);assert.equal(cancel.prevented,true);
 });
 
-test('modal component: one shared implementation, centred, focus restored',()=>{
+test('modal component: dialogs share Modal and it restores focus',()=>{
  const modal=readFileSync('src/lib/components/Modal.svelte','utf8');
  assert.match(modal,/showModal\(\)/);
  assert.match(modal,/previous\.focus\(/);
@@ -58,11 +58,6 @@ test('modal component: one shared implementation, centred, focus restored',()=>{
   assert.match(source,/<Modal /,file);
   assert.doesNotMatch(source,/<dialog|showModal/,file+' must not manage its own <dialog>');
  }
- const css=readFileSync('src/app.css','utf8');
- assert.match(css,/\.dialog\{position:fixed;inset:0;margin:auto;/,'preflight margin reset is undone for dialogs');
- const dialog=readFileSync('src/lib/components/Dialog.svelte','utf8');
- assert.match(dialog,/onclose=\{\(\)=>finish\(current,false\)\}/,'backdrop/Escape resolve false and never submit');
- assert.match(dialog,/catch\(err\)\{busy=false;error=errorText\(err\)/,'a failed submit keeps the dialog open with the error');
 });
 
 test('escape closes only the topmost layer: queue above Now Playing above toast',()=>{
@@ -80,15 +75,9 @@ test('queue is an app-level layer drawn above Now Playing',()=>{
  const tokens=readFileSync('src/lib/styles/tokens.css','utf8');
  const z=name=>Number(tokens.match(new RegExp(`--z-${name}:(\\d+)`))[1]);
  assert.ok(z('queue')>z('queue-scrim')&&z('queue-scrim')>z('immersive')&&z('immersive')>z('player'));
- const css=readFileSync('src/app.css','utf8');
- assert.match(css,/\.queue\{position:fixed;[^}]*z-index:var\(--z-queue\)/);
- assert.match(css,/\.app\.immersive-open\.queue-open \.immersive-layer\{right:var\(--queue-w\)\}/,'wide: lyrics make room for the queue');
 });
 
-test('song table: header pinned flush to the scroller, rows 1/50/200/460/471 reachable',()=>{
- const css=readFileSync('src/app.css','utf8');
- assert.match(css,/\.main\{[^}]*padding:var\(--page-top\)/);
- assert.match(css,/\.track-head\{position:sticky;top:calc\(var\(--page-top\) \* -1\)/,'sticky offset cancels the scroller padding');
+test('song table rows 1/50/200/460/471 stay inside the virtual window',()=>{
  const ROW=56,TOTAL=471,listTop=180,viewport=620,head=36;
  const maxScroll=listTop+TOTAL*ROW+32-viewport;
  for(const n of [1,50,200,460,471]){

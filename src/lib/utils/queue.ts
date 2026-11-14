@@ -10,3 +10,8 @@ export function sameTracks(a:readonly Track[],b:readonly Track[]){
  }
  return true;
 }
+
+/** Keep the previous array when a poll did not change the tracks, so Svelte does not re-diff every row. */
+export function retainQueue<T extends Track>(rendered:readonly T[],next:readonly T[]):readonly T[]{
+ return sameTracks(rendered,next)?rendered:next;
+}

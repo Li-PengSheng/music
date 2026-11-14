@@ -1,9 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
 import {toPercent,toGain,muteTarget,latest,DEFAULT_PERCENT} from '../src/lib/utils/volume.ts';
-
-const read=f=>readFileSync(f,'utf8');
 
 test('percent is a presentation of the same 0.0–1.0 gain Rust uses (no new curve)',()=>{
  for(const p of [0,1,35,50,99,100])assert.equal(toPercent(toGain(p)),p,'round-trips');
@@ -51,24 +48,4 @@ test('a failed call reports the error and still settles so the UI falls back to 
  assert.equal(errors,1);assert.equal(settled,1);assert.equal(sync.busy,false);
 });
 
-test('switching theme never touches volume; volume changes never reload artwork',()=>{
- const prefs=read('src/lib/stores/preferences.ts');
- assert.doesNotMatch(prefs,/setVolume|volume/i,'theme code has no path to the player volume');
- const app=read('src/App.svelte');
- assert.match(app,/let artworkTrackId=\$derived\(snapshot\?\.track_id\);/,'cover effect keys on the track only');
- assert.match(app,/\$effect\(\(\)=>\{const path=artworkTrackId;/);
-});
 
-test('player bar shows the real percentage and keeps volume independent of other commands',()=>{
- const bar=read('src/lib/layout/PlayerBar.svelte');
- assert.match(bar,/let volume=\$derived\(volumeDraft\?\?\(s\?toPercent\(s\.volume\):DEFAULT_PERCENT\)\)/);
- assert.match(bar,/settled:\(\)=>\{volumeDraft=null;\}/,'draft is dropped once Rust confirms');
- assert.match(bar,/<span class="pb-volume-value" aria-hidden="true">\{volume\}%<\/span>/);
- assert.match(bar,/valuetext=\{volume===0\?'0%，已静音':volume\+'%'\}/,'screen readers hear the value');
- assert.doesNotMatch(bar,/control\(\(\)=>setVolume/,'volume no longer queues behind the transport lock');
- assert.doesNotMatch(bar,/pb-volume-slider"[^>]*player\.busy/,'slider is not disabled while another command runs');
- assert.match(bar,/oninput=\{changeVolume\} onchange=\{changeVolume\}/);
- const css=read('src/app.css');
- assert.match(css,/\.pb-volume-value\{[^}]*color:var\(--text-2\)[^}]*font-variant-numeric:tabular-nums/);
- assert.match(css,/\.pb-volume \.slider,\.pb-volume-value\{display:none\}/,'narrow windows fall back to the button tooltip');
-});

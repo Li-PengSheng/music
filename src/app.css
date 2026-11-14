@@ -2925,7 +2925,8 @@ button.pb-title:hover {
    }
 }
 
-/* Narrow windows: Now Playing no longer makes room, so a light scrim marks the drawer as the active layer. */
+/* Narrow windows only cap the drawer width. Scrim colour, fade and hit-testing live on .queue-scrim above;
+   repeating them here would drift from the base rule. */
 @media (max-width:1199px) {
    .app.immersive-open.queue-open .immersive-layer {
       right: 0
@@ -2933,32 +2934,6 @@ button.pb-title:hover {
 
    .queue {
       width: min(var(--queue-w), calc(100vw - var(--sidebar-w) - 24px))
-   }
-
-   .queue-scrim {
-      display: block;
-      position: fixed;
-      top: var(--topbar-h);
-      left: var(--sidebar-w);
-      right: 0;
-      bottom: var(--player-h);
-      z-index: var(--z-queue-scrim);
-      background: var(--scrim-soft);
-      cursor: default;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity var(--dur-drawer-out) var(--ease-exit)
-   }
-
-   .app.queue-open .queue-scrim {
-      opacity: 1;
-      pointer-events: auto;
-      transition: opacity var(--dur-drawer-in) var(--ease-enter)
-   }
-
-   .app.immersive-open .queue-scrim {
-      top: 0;
-      left: 0
    }
 }
 
@@ -3029,7 +3004,8 @@ button.pb-title:hover {
    }
 }
 
-@media (max-width:1000px) {
+/* Same width as the player-bar collapse above, so Now Playing and the bar change together. */
+@media (max-width:999px) {
    .immersive-content:not(.cover-only):not(.lyrics-only) {
       grid-template-columns: minmax(0, 1fr);
       grid-template-rows: auto minmax(0, 1fr);
@@ -3072,12 +3048,15 @@ button.pb-title:hover {
    .eq i {
       transform: scaleY(.6)
    }
+
+   .queue {
+      --drawer-shift: 0px
+   }
 }
 
 .reduce-motion *,
 .reduce-motion *::before,
-.reduce-motion *::after,
-.reduce-motion~* {
+.reduce-motion *::after {
    animation-duration: .01ms !important;
    animation-iteration-count: 1 !important;
    transition-duration: .01ms !important;
@@ -3086,13 +3065,6 @@ button.pb-title:hover {
 
 .reduce-motion .eq i {
    transform: scaleY(.6)
-}
-
-/* Reduced motion: the drawer appears in place, without sliding. */
-@media (prefers-reduced-motion:reduce) {
-   .queue {
-      --drawer-shift: 0px
-   }
 }
 
 .reduce-motion .queue {

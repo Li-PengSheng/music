@@ -6,7 +6,10 @@ import {execFileSync} from 'node:child_process';
 
 test('real Svelte effects keep cover stable through progress, pause, volume and reject stale results',()=>{
  const app=readFileSync('src/App.svelte','utf8');
- const declaration=app.slice(app.indexOf('let artwork=$state'),app.indexOf('async function connect')).replace('<string|null>','');
+ const start=app.search(/let artwork\s*=\s*\$state/);
+ const end=app.indexOf('async function connect',start);
+ assert.ok(start>=0&&end>start,'cover effect is present in App');
+ const declaration=app.slice(start,end).replace(/<string\s*\|\s*null>/g,'');
  const code=`import {flushSync} from 'svelte';
  let snapshot=$state(null); const desktopAvailable=true;const diagnostics=null; let pending=[]; let calls=0; const getArtwork=()=>{calls++;return new Promise(r=>pending.push(r));};
  export async function run(){let dispose= $effect.root(()=>{${declaration}

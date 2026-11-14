@@ -73,7 +73,7 @@ test('both themes share one set of tokens and components',()=>{
  for(const [name,value] of [['--bg','#f3f5f1'],['--bg-sidebar','#e9ede7'],['--surface','#fafbf8'],['--surface-hover','#e2e8e0'],['--text','#29342c'],['--accent','#52705a']])
   assert.match(light,new RegExp(`${name}:${value};`,'i'));
  const css=read('src/app.css').replace(/\/\*[\s\S]*?\*\//g,'');
- const colours=[...css.matchAll(/#[0-9a-f]{3,8}\b|rgba?\((?!var\()[^)]*\)/gi)].map(m=>m[0]);
+ const colours=[...css.matchAll(/#[0-9a-f]{3,8}\b|rgba?\((?!var\()[^)]*\)/gi)].map(m=>m[0].replace(/\s+/g,''));
  const allowed=new Set(['#000','rgba(0,0,0,.5)','rgba(0,0,0,.4)']);
  assert.deepEqual(colours.filter(c=>!allowed.has(c)),[],'only masks and shadows over artwork stay literal');
 });

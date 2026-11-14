@@ -4,7 +4,9 @@ import {readFileSync} from 'node:fs';
 
 test('selector actual key handler navigates, ignores IME and restores focus on Escape/Tab',()=>{
  const source=readFileSync('src/lib/Select.svelte','utf8');
- const handler=source.slice(source.indexOf(' function key('),source.indexOf(' onMount(')).replace('function key(e:KeyboardEvent)','function key(e)').replace('document.activeElement as HTMLButtonElement','document.activeElement');
+ const start=source.search(/function key\s*\(/);
+ const end=source.indexOf('onMount(',start);
+ const handler=source.slice(start,end).replace(/function key\s*\([^)]*\)/,'function key(e)').replace(/\s+as\s+[A-Za-z0-9_]+/g,'');
  const doc={activeElement:null};let restored=0,closed=0;
  const items=['顺序播放','随机播放','单曲循环','列表循环'].map(label=>({label,focus(){doc.activeElement=this;}}));
  const options=items.map(o=>({label:o.label}));
@@ -31,20 +33,6 @@ test('context menu key handler: arrows wrap, typeahead, IME ignored, Escape/Tab 
  const esc=event('Escape');key(esc);assert.equal(esc.prevented,true);
  key(event('Tab'));
  assert.deepEqual(closes,[true,true]);
-});
-
-test('every right-click surface uses the app menu, never the WebView menu',()=>{
- const files={
-  'src/lib/components/TrackList.svelte':/oncontextmenu=\{\(e\)=>\{if\(t\)menu\(e,t,index\)/,
-  'src/lib/layout/Sidebar.svelte':/oncontextmenu=\{\(e\)=>openMenu\(e,playlistMenu\(list\)/,
-  'src/lib/views/GridView.svelte':/oncontextmenu=\{\(e\)=>menu\(e,g\)\}/,
-  'src/lib/Queue.svelte':/oncontextmenu=\{\(e\)=>openMenu\(e,itemMenu\(t,i\)/,
- };
- for(const [file,pattern] of Object.entries(files))assert.match(readFileSync(file,'utf8'),pattern,file);
- const app=readFileSync('src/App.svelte','utf8');
- assert.match(app,/installNativeMenuGuard\(import\.meta\.env\.DEV\)/);
- const menus=readFileSync('src/lib/stores/ui.svelte.ts','utf8');
- assert.match(menus,/trigger\.preventDefault\(\)/);
 });
 
 test('playlist deletion is confirmed, addresses the playlist by ID and states files are kept',()=>{

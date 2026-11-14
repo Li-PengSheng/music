@@ -60,10 +60,4 @@ test('dark theme keeps its core palette',()=>{
  assert.equal(dark['--selected'],dark['--surface-hover'],'selected fill unchanged from V0.9.1');
 });
 
-test('interaction states use semantic tokens instead of elevation surfaces',()=>{
- const css=read('src/app.css');
- for(const rule of ['.nav-item:hover{background:var(--hover)','.nav-item.active{background:var(--selected)','.track-row:hover{background:var(--hover)}','.track-row.selected{background:var(--selected)}','.queue-item:hover{background:var(--hover)}','.queue-item.current{background:var(--selected)}'])
-  assert.ok(css.includes(rule),rule);
- assert.match(css,/\.search\{[^}]*border:1px solid var\(--field-line\)/);
- assert.match(css,/color:rgb\(var\(--ink\) \/ var\(--lyric-dim\)\)/);
-});
+

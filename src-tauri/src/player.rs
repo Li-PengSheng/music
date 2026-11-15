@@ -188,6 +188,12 @@ impl Player {
     }
 }
 
+impl Drop for Player {
+    fn drop(&mut self) {
+        let _ = self.shutdown();
+    }
+}
+
 // ---------------------------------------------------------------- shared state
 
 struct Shared {
@@ -244,12 +250,33 @@ impl Shared {
 
 struct Output {
     // The stream stops when dropped, so it must stay alive with the engine.
-    _stream: cpal::Stream,
+    stream: Option<cpal::Stream>,
     shared: Arc<Shared>,
     info: OutputInfo,
 }
 
+/// WASAPI faults (0xc0000005) when several tests open or drop streams at once.
+fn cpal_gate() -> std::sync::MutexGuard<'static, ()> {
+    static GATE: Mutex<()> = Mutex::new(());
+    GATE.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+impl Drop for Output {
+    fn drop(&mut self) {
+        self.shared.active.store(false, Ordering::SeqCst);
+        self.shared.paused.store(true, Ordering::SeqCst);
+        let _gate = cpal_gate();
+        if let Some(stream) = self.stream.take() {
+            let _ = stream.pause();
+            // Let the callback return before the stream is freed.
+            std::thread::sleep(Duration::from_millis(20));
+            drop(stream);
+        }
+    }
+}
+
 fn open_output(logs: &Arc<LogBuffer>, volume: f32) -> Result<Output, String> {
+    let _gate = cpal_gate();
     let host = cpal::default_host();
     let device = host
         .default_output_device()
@@ -320,6 +347,7 @@ fn open_output(logs: &Arc<LogBuffer>, volume: f32) -> Result<Output, String> {
         match built {
             Ok(stream) => {
                 if let Err(e) = stream.play() {
+                    drop(stream);
                     last_err = format!("启动音频流失败: {e}");
                     logs.push(format!("{last_err} ({format:?})"));
                     continue;
@@ -329,7 +357,7 @@ fn open_output(logs: &Arc<LogBuffer>, volume: f32) -> Result<Output, String> {
                     config.sample_rate.0, config.channels
                 ));
                 return Ok(Output {
-                    _stream: stream,
+                    stream: Some(stream),
                     shared,
                     info: OutputInfo {
                         device: device_name,

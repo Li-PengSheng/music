@@ -21,9 +21,9 @@ pwsh -File scripts/check.ps1
 
 `scripts/check.ps1` 在仓库根目录运行 `pnpm check` 和 `pnpm test`，再进入 `src-tauri` 运行 `cargo fmt`、`cargo clippy` 和 `cargo test`。失败时恢复原来的工作目录，并返回失败命令的退出码。它不跑浏览器，也不启动 exe。
 
-统一检查的自动部分由 `.github/workflows/check.yml` 跑。`windows-latest` 只是运行镜像。CI 固定 Node `24.14.0`、Rust `1.99.0`（含 rustfmt 和 clippy）和 pnpm `10.28.2`。仓库不使用 `rust-toolchain.toml`。
+统一检查的自动部分由 `.github/workflows/check.yml` 跑。`windows-latest` 只是运行镜像。CI 和本仓库使用 Node `24.14.0`、Rust `1.99.0`（含 rustfmt 和 clippy）和 pnpm `12.21.0`。仓库不使用 `rust-toolchain.toml`。Node 版本写在 `.node-version`，pnpm 版本写在 `package.json` 的 `packageManager`。
 
-2026-11-15 在这台机器上看到的版本是 Node `v24.14.0`、rustc `1.99.0`、pnpm `10.28.2`。这是当时的环境记录，不是支持基线。本地还需要 Windows 10/11、WebView2 和 Visual Studio 生成工具。依赖升级另开任务。
+本地 Node 用 fnm 安装，当前 default 别名是 `24.14.0`。pnpm 用 Scoop 安装。仓库里的 `npm.cmd` 先看 `NODE_HOME`，再看 PATH 上的 `node`，最后用 `%FNM_DIR%\aliases\default`。pnpm 12 默认不运行依赖的安装脚本；`esbuild` 写在 `pnpm-workspace.yaml` 的 `allowBuilds` 里。本地还需要 Windows 10/11、WebView2 和 Visual Studio 生成工具。依赖升级另开任务。
 
 三条结果不能混写：
 

@@ -3,12 +3,15 @@
 $ErrorActionPreference = "Stop"
 $repo = Resolve-Path (Join-Path $PSScriptRoot "..")
 Set-Location $repo
+. (Join-Path $PSScriptRoot "isolation-lib.ps1")
 
 $profileName = "release"
 $tauriArgs = @("exec", "tauri", "build", "--no-bundle", "--config", "src-tauri/tauri.portable.conf.json")
+$command = "pnpm exec tauri build --no-bundle --config src-tauri/tauri.portable.conf.json"
 if ($Debug) {
     $profileName = "debug"
     $tauriArgs += "--debug"
+    $command += " --debug"
 }
 
 pnpm @tauriArgs
@@ -37,5 +40,11 @@ Copy-Item (Join-Path $repo "portable\README.txt") (Join-Path $stage "README.txt"
 $zip = Join-Path $repo "dist-portable\Music-Mine-Portable-x64.zip"
 if (Test-Path $zip) { Remove-Item $zip -Force }
 Compress-Archive -Path (Join-Path $stage "*") -DestinationPath $zip
+$recorded = $exe
+if (-not (Test-AllowlistedBuildPath $exe $repo)) {
+    $recorded = Join-Path $stage "music-mine-desktop.exe"
+}
+$source = Write-IsolationSource -Repo $repo -BuiltExe $recorded -ConfigPath "src-tauri/tauri.portable.conf.json" -Command $command -DataDirKind "portable-relative" -ExpectedDataDir "./app-data"
 Write-Output "PORTABLE_EXE=$exe"
 Write-Output "PORTABLE_ZIP=$zip"
+Write-Output "ISOLATION_SOURCE=$source"

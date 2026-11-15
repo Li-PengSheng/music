@@ -64,7 +64,14 @@ const handlers={
  player_configure:()=>snapshot,
  player_play:()=>snapshot,
  player_pause:()=>snapshot,
+ player_stop:()=>snapshot,
+ player_open_file:()=>snapshot,
+ player_seek:()=>snapshot,
  player_set_volume:async a=>{await new Promise(r=>setTimeout(r,40));snapshot={...snapshot,volume:Math.min(1,Math.max(0,a.volume)),revision:snapshot.revision+1};return snapshot;},
+ library_scan:()=>null,
+ library_cancel:()=>null,
+ library_cover_stats:()=>({}),
+ library_import:()=>null,
 };
 let callbackId=0;
 window.isTauri=true;

@@ -24,11 +24,7 @@
 
 Windows 上这个路径来自系统已知文件夹。把进程的 `APPDATA` 指到临时目录，不会换掉它。
 
-普通构建不改 `tauri.conf.json`。隔离实验用 CLI 合并一份临时配置，不要把覆盖路径留在提交里：
-
-`pnpm tauri build --debug --no-bundle --config src-tauri/tauri.portable.conf.json`
-
-上面这条是便携构建，数据目录是 EXE 旁边的 `app-data`。只给某一次实验换目录时，另传一份不提交的 JSON，例如 `{ "app": { "appDirectoriesOverride": "$TEMP/music-mine-isolated" } }`。启动前确认构建出的 exe 含有这次的覆盖路径。
+普通构建不改 `tauri.conf.json`。隔离构建和启动只按 `docs/isolation.md`。便携配置是 `src-tauri/tauri.portable.conf.json`，数据目录是 exe 旁的 `app-data`。不要把覆盖路径写进主配置。exe 所在目录不能用来证明它是隔离构建。
 
 便携版在打开数据库之前检查 `app-data`、缓存和日志目录可写。写失败时提示错误并退出，不改用 Windows 用户目录。封面缓存写失败只跳过缓存文件，不回滚 SQLite。
 

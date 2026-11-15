@@ -9,3 +9,10 @@ tests/perf/out/
 test-results/
 playwright-report/
 blob-report/
+build-activity.log
+craft.json
+feed.json
+usage.json
+inbox/
+investigation.cany/
+capture/

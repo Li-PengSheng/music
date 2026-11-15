@@ -46,10 +46,10 @@
 
 ## ADR-008 — Windows 数据目录隔离
 
-- 状态：已采用。
-- 事实：Tauri `app_data_dir()` 使用系统已知文件夹。进程 `APPDATA` 不会重定向它。
-- 决定：实机实验使用临时 `app.appDirectoriesOverride`，验收后删除并重新构建。
-- 原因：未隔离启动会写入用户的 `desktop-v1.json`、播放会话和曲库。
+- 状态：已采用。2026-11-15 修订。替代「临时写入 `tauri.conf.json` 的 `appDirectoriesOverride`，验收后删除并重新构建」。
+- 事实：Tauri `app_data_dir()` 使用系统已知文件夹。进程 `APPDATA` 不会重定向它。`src-tauri/target` 和 `dist-portable` 里都可能有普通构建或旧产物。
+- 决定：不修改 `tauri.conf.json`。隔离操作只维护 `docs/isolation.md`。验收脚本只启动带有 exe 哈希来源记录的构建。绝对路径覆盖和便携相对路径分开核对。
+- 原因：多份说明不一致时，实机可能打开正在使用的曲库。exe 的位置和二进制里的路径字符串都不能证明这次配置已经生效。
 
 ## 新决策模板
 

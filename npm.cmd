@@ -5,6 +5,13 @@ if defined NODE_HOME if exist "%NODE_HOME%\npm.cmd" (
   set "MUSIC_MINE_NODE=%NODE_HOME%"
   goto run
 )
+for /f "delims=" %%P in ('where node 2^>nul') do (
+  echo %%P | findstr /I /C:"WindowsApps" >nul
+  if errorlevel 1 (
+    set "MUSIC_MINE_NODE=%%~dpP"
+    goto run
+  )
+)
 for /d %%D in ("%LOCALAPPDATA%\Zed\node\node-*-win-x64") do (
   if exist "%%~D\node.exe" if exist "%%~D\npm.cmd" (
     set "MUSIC_MINE_NODE=%%~D"

@@ -6,7 +6,7 @@
 |---|---|---|---|
 | 自动测试 | `pnpm check`、`pnpm test`；Rust 侧 `cargo fmt --check`、`cargo clippy --all-targets -- -D warnings`、`cargo test` | 类型、纯函数、从源码抽出的交互函数、Rust fixture | 布局、真实 IPC、Windows DPI |
 | 浏览器验证 | `pnpm test:ui`，必要时 `pnpm test:ui:update` | harness 里的点击、键盘、主题、视口和截图 | Rust 出声、真实数据库、WebView2、DPI |
-| Windows Tauri 实机 | `pnpm tauri build --debug --no-bundle`，再启动 `src-tauri/target/debug/music-mine-desktop.exe` | WebView2、真实 command、窗口尺寸、隔离目录里的持久化 | 未操作的硬件、托盘、DPI 或曲库规模 |
+| Windows Tauri 实机 | 按 `docs/isolation.md` 构建并启动。普通 debug exe 使用系统数据目录 | WebView2、真实 command、窗口尺寸、隔离目录里的持久化 | 未操作的硬件、托盘、DPI 或曲库规模 |
 
 `pnpm test` 是 `node --experimental-strip-types --test tests/*.test.mjs`。它不包含 `tests/ui` 和 `tests/perf`。
 
@@ -18,7 +18,7 @@ harness 设置 `window.isTauri`，因此壳层会显示连接成功。这只说�
 
 使用构建出的 exe。Craft Anything 的持久开发服务器和 `pnpm dev` 只能预览界面。
 
-隔离用户数据的步骤在 `docs/rust-guidelines.md`。只改 `APPDATA` 会打开正在使用的曲库和设置。
+隔离用户数据的步骤只维护在 `docs/isolation.md`。只改 `APPDATA` 会打开正在使用的曲库和设置。
 
 便携包：`powershell -File scripts/build-portable.ps1`。调试用的同一配置加 `-Debug`，或 `pnpm portable:debug`。产物是 `dist-portable/Music-Mine-Portable-x64.zip`。这份配置只在传入 `--config src-tauri/tauri.portable.conf.json` 时合并，普通 `pnpm tauri dev` 和 `pnpm tauri build` 仍使用系统数据目录。
 
@@ -50,3 +50,11 @@ Windows Tauri 实机：PASS / FAIL / NOT RUN（exe 路径、数据目录、操�
 未验证：
 Git：未提交 / 已提交的 SHA
 ```
+
+## 验收来源
+
+新任务在验收开始前运行 `powershell -File scripts/worktree-fingerprint.ps1`。验收命令结束后、写入记录之前再运行一次。两次不同则这次验收无效。
+
+指纹包含已暂存差异、未暂存的受跟踪差异，以及 `git ls-files --others --exclude-standard` 列出的未跟踪文件的相对路径和内容。已忽略的临时产物不计入。即将写入的验收记录可以用 `-Exclude` 排除，避免记录自己把指纹改掉。
+
+09.5.3 和 09.5.5 没有保存指纹。写「未记录，无法重建」。不要用后来的工作区补算后填进这两份记录。

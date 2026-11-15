@@ -1,6 +1,6 @@
 # Music Mine — AI 开发约定
 
-适用于本仓库。这是工程约束，不是产品需求。开工前看 `git status` 和 HEAD。事实优先级：当前代码 > `docs/current-state.md` > `docs/architecture.md` > `docs/tasks/done/` > `docs/RFC-v2.0.md`。RFC 是目标。`docs/tasks/done/` 和 `docs/history/` 是历史交接，不描述最新行为。
+适用于本仓库。这是工程约束，不是产品需求。开工前看 `git status` 和 HEAD。事实优先级：当前代码 > `docs/current-state.md` > `docs/architecture.md`。`docs/tasks/done/` 与 `docs/history/` 仅在任务点名时打开，并标明历史基线。`docs/RFC-v2.0.md` 只描述目标。
 
 技术栈：Rust、Tauri v2、Svelte 5 Runes、TypeScript、Vite、Tailwind CSS v4。Windows 10/11 本地播放器。产品版本以 `package.json` 和 `src-tauri/tauri.conf.json` 的 `0.1.0` 为准。
 

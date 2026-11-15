@@ -31,7 +31,7 @@
 - 状态：方向已记录。包未安装，迁移未开始。
 - 决定：将来的通用交互优先 shadcn-svelte；焦点、键盘和浮层原语用 Bits UI。外观仍用本项目 tokens。播放器业务组件保持自定义。
 - 约束：没有单独的迁移任务时，继续用手写组件。初始化命令不得覆盖 `src/app.css`。
-- 试点顺序：只先做 `src/lib/Select.svelte`。浏览器和 Windows 窗口都通过后再决定下一项。
+- 试点顺序：只先做 `src/lib/components/Select.svelte`。浏览器和 Windows 窗口都通过后再决定下一项。
 
 ## ADR-006 — 一份根约定，按模块展开
 

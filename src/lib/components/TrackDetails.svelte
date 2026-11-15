@@ -3,12 +3,12 @@
  import {X,Copy,Play,ListEnd,ListPlus} from 'lucide-svelte';
  import Artwork from './Artwork.svelte';
  import Select from './Select.svelte';
- import IconButton from './components/IconButton.svelte';
- import Modal from './components/Modal.svelte';
- import {trackCover,audioInfo,playTrack,queueAction,addToPlaylist,type LibraryTrack,type AudioInfo} from './services/music';
- import {perform} from './stores/player.svelte';
- import {library,refreshSummary} from './stores/library.svelte';
- import {errorText,duration} from './utils/format';
+ import IconButton from './IconButton.svelte';
+ import Modal from './Modal.svelte';
+ import {trackCover,audioInfo,playTrack,queueAction,addToPlaylist,type LibraryTrack,type AudioInfo} from '../services/music';
+ import {perform} from '../stores/player.svelte';
+ import {library,refreshSummary} from '../stores/library.svelte';
+ import {errorText,duration} from '../utils/format';
  let {track,onclose}:{track:LibraryTrack;onclose:()=>void}=$props();
  let cover=$state<string|null>(null);let audio=$state<AudioInfo|null>(null);let audioError=$state(false);let busy=$state(false);let feedback=$state('');let playlist=$state('');
  onMount(()=>{

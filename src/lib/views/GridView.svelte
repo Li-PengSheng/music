@@ -1,9 +1,9 @@
 <script lang="ts">
  import {untrack} from 'svelte';
  import {Play,Search,Disc3,MicVocal} from 'lucide-svelte';
- import Cover from '../Cover.svelte';
+ import Cover from '../components/Cover.svelte';
  import EmptyState from '../components/EmptyState.svelte';
- import Select from '../Select.svelte';
+ import Select from '../components/Select.svelte';
  import {tooltip} from '../components/tooltip';
  import {library} from '../stores/library.svelte';
  import {ui,openMenu} from '../stores/ui.svelte';

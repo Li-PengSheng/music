@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {shortcut} from '../src/lib/shortcuts.ts';
+import {shortcut} from '../src/lib/utils/shortcuts.ts';
 const key=(value,overrides={})=>({key:value,ctrlKey:false,altKey:false,metaKey:false,shiftKey:false,repeat:false,isComposing:false,defaultPrevented:false,...overrides});
 test('window actions map to requested keys',()=>{
  for(const [value,action] of [['f','search'],['ArrowLeft','previous'],['ArrowRight','next'],['l','lyrics'],['o','open']])assert.equal(shortcut(key(value,{ctrlKey:true}),false,false,false),action);

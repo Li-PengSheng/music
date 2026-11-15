@@ -9,7 +9,7 @@ use std::collections::HashSet;
 
 use rusqlite::{params, Connection};
 
-use crate::db::now_secs;
+use super::db::now_secs;
 
 // ------------------------------------------------------------------ favourites
 
@@ -307,9 +307,9 @@ fn renumber(conn: &Connection, playlist_id: i64) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+    use super::super::db;
+    use super::super::library::{AlbumSource, Track};
     use super::*;
-    use crate::db;
-    use crate::library::{AlbumSource, Track};
 
     fn seed_tracks(conn: &Connection, count: i64) -> Vec<i64> {
         let mut ids = Vec::new();

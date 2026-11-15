@@ -31,6 +31,6 @@ test('player bar never resets the cover or the seek draft on progress-only snaps
  assert.match(bar,/let trackId=\$derived\(s\?\.track_id\);\s*\$effect\(\(\)=>\{trackId;dragging=null;\}\);/);
  // The bar renders the App-level artwork and does not request covers itself.
  assert.doesNotMatch(bar,/getArtwork|trackCover/);
- const now=readFileSync('src/lib/NowPlaying.svelte','utf8');
+ const now=readFileSync('src/lib/views/NowPlaying.svelte','utf8');
  assert.doesNotMatch(now,/getArtwork\(/,'Now Playing reuses the App cover instead of a second IPC request');
 });

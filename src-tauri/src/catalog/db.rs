@@ -2,7 +2,7 @@ use std::path::Path;
 
 use rusqlite::Connection;
 
-use crate::library::{AlbumSource, Track};
+use super::library::{AlbumSource, Track};
 
 pub fn open(path: &Path) -> Result<Connection, String> {
     if let Some(dir) = path.parent() {
@@ -236,8 +236,8 @@ pub fn set_setting(conn: &Connection, key: &str, value: &str) -> Result<(), Stri
 
 #[cfg(test)]
 mod tests {
+    use super::super::library::Track;
     use super::*;
-    use crate::library::Track;
 
     fn sample_track(path: &str, title: &str) -> Track {
         Track {
@@ -349,8 +349,8 @@ mod migration_tests {
 
 #[cfg(test)]
 mod scan_tests {
-    use crate::library;
-    use crate::metadata;
+    use super::super::library;
+    use super::super::metadata;
 
     #[test]
     fn scans_a_wav_and_reads_its_duration() {

@@ -522,8 +522,8 @@ fn data_url(mime: &str, bytes: &[u8]) -> String {
 }
 
 fn encode_file(path: &Path, edge: u32, stats: &Stats) -> Result<Result<Image, Absent>, CoverError> {
-    use crate::metadata::CoverReadError;
-    match crate::metadata::read_cover_checked(path) {
+    use crate::catalog::metadata::CoverReadError;
+    match crate::catalog::metadata::read_cover_checked(path) {
         Ok(Some(source)) => Ok(encode_source(&source, edge, stats)),
         Ok(None) => Ok(Err(Absent::NoPicture)),
         Err(CoverReadError::Tags) => Ok(Err(Absent::Unsupported)),

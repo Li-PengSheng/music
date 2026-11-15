@@ -1,15 +1,15 @@
 <script lang="ts">
- import Select from './Select.svelte';
- import { getLyrics, setLyricsOffset, seek, type Lyrics } from './services/music';
+ import Select from '../components/Select.svelte';
+ import { getLyrics, setLyricsOffset, seek, type Lyrics } from '../services/music';
  import { tick, onMount } from 'svelte';
- import {groupLines,activeLine,scrollTarget} from './lyrics-view';
- import Artwork from './Artwork.svelte';
- import IconButton from './components/IconButton.svelte';
- import EmptyState from './components/EmptyState.svelte';
+ import {groupLines,activeLine,scrollTarget} from '../utils/lyrics-view';
+ import Artwork from '../components/Artwork.svelte';
+ import IconButton from '../components/IconButton.svelte';
+ import EmptyState from '../components/EmptyState.svelte';
  import { ChevronDown, Music2, LocateFixed } from 'lucide-svelte';
- import {player,control} from './stores/player.svelte';
- import {ui,notifyError} from './stores/ui.svelte';
- import {ambientColor} from './utils/color';
+ import {player,control} from '../stores/player.svelte';
+ import {ui,notifyError} from '../stores/ui.svelte';
+ import {ambientColor} from '../utils/color';
 
  let {artwork,onclose}:{artwork:string|null;onclose:()=>void}=$props();
  let snapshot=$derived(player.snapshot);

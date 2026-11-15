@@ -1,8 +1,8 @@
 <script lang="ts">
  import { untrack } from 'svelte';
  import Artwork from './Artwork.svelte';
- import { desktopAvailable,peekTrackThumb,requestTrackThumb,type CoverStatus,type CoverTicket } from './services/music';
- import { library } from './stores/library.svelte';
+ import { desktopAvailable,peekTrackThumb,requestTrackThumb,type CoverStatus,type CoverTicket } from '../services/music';
+ import { library } from '../stores/library.svelte';
  let {id,alt,kind='album',size=112}:{id:number;alt:string;kind?:'album'|'artist';size?:number}=$props();
  let host=$state<HTMLDivElement>();
  let shown=$state<{key:string;src:string|null;status:CoverStatus|'loading'}|null>(null);

@@ -1,7 +1,7 @@
 <script lang="ts">
  import {Play,Pause,FolderPlus,ChevronRight,Music2} from 'lucide-svelte';
- import Cover from '../Cover.svelte';
- import Artwork from '../Artwork.svelte';
+ import Cover from '../components/Cover.svelte';
+ import Artwork from '../components/Artwork.svelte';
  import EmptyState from '../components/EmptyState.svelte';
  import {tooltip} from '../components/tooltip';
  import {desktopAvailable,homeData,queryLibrary,playTrack,play,pause,type LibraryTrack} from '../services/music';

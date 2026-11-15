@@ -1,4 +1,10 @@
-use crate::{collections, db, library, metadata};
+#[allow(dead_code)]
+pub(crate) mod collections;
+#[allow(dead_code)]
+mod db;
+#[allow(dead_code)]
+pub(crate) mod library;
+pub(crate) mod metadata;
 use library::Track;
 const FIELDS: &str = "t.id,t.path,t.title,t.artist,t.album,t.album_artist,t.genre,t.year,t.track_number,t.duration_ms,t.disc_number,t.album_source,t.added_at";
 fn row_track(r: &rusqlite::Row<'_>) -> rusqlite::Result<Track> {

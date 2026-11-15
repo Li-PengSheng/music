@@ -1,6 +1,6 @@
 <script lang="ts">
  import {Play,Pause,SkipBack,SkipForward,Shuffle,Repeat,Repeat1,Volume2,Volume1,VolumeX,ListMusic,Maximize2} from 'lucide-svelte';
- import Artwork from '../Artwork.svelte';
+ import Artwork from '../components/Artwork.svelte';
  import Slider from '../components/Slider.svelte';
  import IconButton from '../components/IconButton.svelte';
  import {tooltip} from '../components/tooltip';

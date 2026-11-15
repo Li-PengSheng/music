@@ -1,4 +1,4 @@
-use crate::player::{PlaybackEvent, PlaybackState, Player};
+use crate::audio::player::{PlaybackEvent, PlaybackState, Player};
 use lofty::file::{AudioFile, TaggedFileExt};
 use lofty::tag::Accessor;
 use serde::{Deserialize, Serialize};

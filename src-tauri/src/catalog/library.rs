@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::metadata;
+use super::metadata;
 
 /// Where a track's album value came from. Grouping must not treat a folder
 /// guess the same way as a real album tag.

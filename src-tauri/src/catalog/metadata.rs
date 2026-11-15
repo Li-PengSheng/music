@@ -3,7 +3,7 @@ use std::path::Path;
 use lofty::file::{AudioFile, TaggedFileExt};
 use lofty::tag::{Accessor, ItemKey};
 
-use crate::library::{AlbumSource, Track};
+use super::library::{AlbumSource, Track};
 
 fn clean<S: Into<String>>(value: Option<S>) -> Option<String> {
     value

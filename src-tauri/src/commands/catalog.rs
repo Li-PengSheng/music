@@ -1,4 +1,5 @@
-use crate::{catalog::*, collections, execute, metadata, Action, PlayerSnapshot, Shared};
+use crate::catalog::{collections, metadata, *};
+use crate::{execute, Action, PlayerSnapshot, Shared};
 use base64::Engine;
 use std::sync::{atomic::Ordering, Arc};
 type State<'a> = tauri::State<'a, Arc<Catalog>>;
@@ -29,7 +30,7 @@ pub fn library_cancel(state: State<'_>) {
 #[tauri::command]
 pub async fn library_scan(
     state: State<'_>,
-    covers: tauri::State<'_, Arc<crate::covers::Store>>,
+    covers: tauri::State<'_, Arc<crate::artwork::covers::Store>>,
 ) -> Result<(), String> {
     let folder = tauri::async_runtime::spawn_blocking(|| rfd::FileDialog::new().pick_folder())
         .await
@@ -62,7 +63,10 @@ pub async fn library_scan(
     Ok(())
 }
 #[tauri::command]
-pub async fn library_track(id: i64, state: State<'_>) -> Result<crate::library::Track, String> {
+pub async fn library_track(
+    id: i64,
+    state: State<'_>,
+) -> Result<crate::catalog::library::Track, String> {
     work(state.inner().clone(), move |s| s.track(id)).await
 }
 #[derive(serde::Serialize)]
@@ -139,7 +143,7 @@ pub async fn library_thumb(
     id: i64,
     edge: u32,
     state: State<'_>,
-    covers: tauri::State<'_, Arc<crate::covers::Store>>,
+    covers: tauri::State<'_, Arc<crate::artwork::covers::Store>>,
 ) -> Result<Option<String>, String> {
     let catalog = state.inner().clone();
     let covers = covers.inner().clone();
@@ -159,7 +163,7 @@ pub async fn library_queue_thumb(
     path: String,
     edge: u32,
     state: State<'_>,
-    covers: tauri::State<'_, Arc<crate::covers::Store>>,
+    covers: tauri::State<'_, Arc<crate::artwork::covers::Store>>,
 ) -> Result<Option<String>, String> {
     let catalog = state.inner().clone();
     let covers = covers.inner().clone();
@@ -177,7 +181,7 @@ pub async fn library_queue_thumb(
 /// Cover cache counters for diagnostics. Counts and durations only, no paths or image data.
 #[tauri::command]
 pub fn library_cover_stats(
-    covers: tauri::State<'_, Arc<crate::covers::Store>>,
+    covers: tauri::State<'_, Arc<crate::artwork::covers::Store>>,
 ) -> serde_json::Value {
     covers.stats.snapshot()
 }
@@ -219,8 +223,8 @@ pub async fn library_queue(
     };
     execute(player.inner().clone(), action).await
 }
-fn queue_track(t: crate::library::Track) -> crate::controller::Track {
-    crate::controller::Track {
+fn queue_track(t: crate::catalog::library::Track) -> crate::playback::controller::Track {
+    crate::playback::controller::Track {
         path: t.path,
         title: t.title,
         artist: t.artist,

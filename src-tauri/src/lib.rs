@@ -1,22 +1,17 @@
+mod artwork;
+mod audio;
 mod catalog;
-mod catalog_commands;
-#[allow(dead_code)]
-mod collections;
-mod controller;
+mod commands;
+mod infrastructure;
+mod platform;
+mod playback;
 #[cfg(test)]
-mod cover_corpus;
-mod covers;
-#[allow(dead_code)]
-mod db;
-mod desktop;
-#[allow(dead_code)]
-mod library;
-mod logging;
-pub mod lyrics;
-mod media;
-mod metadata;
-pub mod player;
-use controller::{Action, Controller, PlayerSnapshot};
+mod test_support;
+
+pub use audio::player;
+pub use playback::lyrics;
+
+use playback::controller::{Action, Controller, PlayerSnapshot};
 use std::sync::{Arc, Mutex};
 type Shared = Arc<Mutex<Controller>>;
 async fn execute(state: Shared, action: Action) -> Result<PlayerSnapshot, String> {
@@ -128,7 +123,7 @@ async fn player_lyrics(state: tauri::State<'_, Shared>) -> Result<Option<lyrics:
 async fn player_artwork(
     state: tauri::State<'_, Shared>,
     catalog: tauri::State<'_, Arc<catalog::Catalog>>,
-    covers: tauri::State<'_, Arc<covers::Store>>,
+    covers: tauri::State<'_, Arc<artwork::covers::Store>>,
 ) -> Result<Option<String>, String> {
     let path = state.lock().map_err(|_| "播放器不可用")?.current_path();
     let Some(path) = path else {
@@ -174,14 +169,14 @@ pub fn run() {
             app.manage(Arc::new(catalog::Catalog::new(
                 directory.join("library-tauri-v1.sqlite"),
             )));
-            app.manage(Arc::new(covers::Store::new(cache.join("covers"))));
+            app.manage(Arc::new(artwork::covers::Store::new(cache.join("covers"))));
             if let Ok(mut controller) = app.state::<Shared>().lock() {
                 if let Err(error) = controller.attach_session(directory.join("playback-v1.json")) {
                     eprintln!("{error}");
                 }
             }
-            desktop::setup(app)?;
-            media::setup(app);
+            platform::desktop::setup(app)?;
+            platform::media::setup(app);
             let handle = app.handle().clone();
             // Queue progression follows engine EOF on Rust's worker even with the UI hidden.
             let player = app.state::<Shared>().inner().clone();
@@ -191,7 +186,7 @@ pub fn run() {
                     let mut last_path = None;
                     loop {
                         if handle
-                            .state::<desktop::Desktop>()
+                            .state::<platform::desktop::Desktop>()
                             .exiting
                             .load(std::sync::atomic::Ordering::SeqCst)
                         {
@@ -219,19 +214,19 @@ pub fn run() {
                             if snapshot.playback_state == "idle" {
                                 last_path = None;
                             }
-                            desktop::update(&handle, &snapshot);
-                            media::update(&handle, &snapshot);
+                            platform::desktop::update(&handle, &snapshot);
+                            platform::media::update(&handle, &snapshot);
                         }
                         std::thread::sleep(std::time::Duration::from_millis(200));
                     }
                 })?;
             Ok(())
         })
-        .on_window_event(desktop::window_event)
+        .on_window_event(platform::desktop::window_event)
         .manage(Arc::new(Mutex::new(Controller::new())))
         .invoke_handler(tauri::generate_handler![
-            desktop::desktop_preferences,
-            media::media_status,
+            platform::desktop::desktop_preferences,
+            platform::media::media_status,
             player_configure,
             player_lyrics,
             player_artwork,
@@ -243,32 +238,32 @@ pub fn run() {
             player_stop,
             player_seek,
             player_set_volume,
-            catalog_commands::library_query,
-            catalog_commands::library_summary,
-            catalog_commands::library_home,
-            catalog_commands::library_scan,
-            catalog_commands::library_progress,
-            catalog_commands::library_cancel,
-            catalog_commands::library_track,
-            catalog_commands::library_audio_info,
-            catalog_commands::library_cover,
-            catalog_commands::library_thumb,
-            catalog_commands::library_queue_thumb,
-            catalog_commands::library_cover_stats,
-            catalog_commands::library_play,
-            catalog_commands::library_favorite,
-            catalog_commands::library_playlist,
-            catalog_commands::library_playlist_edit,
-            catalog_commands::library_import,
-            catalog_commands::library_queue,
-            catalog_commands::library_queue_tracks
+            commands::catalog::library_query,
+            commands::catalog::library_summary,
+            commands::catalog::library_home,
+            commands::catalog::library_scan,
+            commands::catalog::library_progress,
+            commands::catalog::library_cancel,
+            commands::catalog::library_track,
+            commands::catalog::library_audio_info,
+            commands::catalog::library_cover,
+            commands::catalog::library_thumb,
+            commands::catalog::library_queue_thumb,
+            commands::catalog::library_cover_stats,
+            commands::catalog::library_play,
+            commands::catalog::library_favorite,
+            commands::catalog::library_playlist,
+            commands::catalog::library_playlist_edit,
+            commands::catalog::library_import,
+            commands::catalog::library_queue,
+            commands::catalog::library_queue_tracks
         ])
         .build(context)
     {
         Ok(built) => built.run(|app, event| {
             if matches!(event, tauri::RunEvent::ExitRequested { .. }) {
-                media::shutdown(app);
-                desktop::shutdown(app);
+                platform::media::shutdown(app);
+                platform::desktop::shutdown(app);
             }
         }),
         Err(error) => {

@@ -8,9 +8,9 @@
         type CoverStatus,
         type CoverTicket,
         type Track,
-    } from "./services/music";
-    import { library } from "./stores/library.svelte";
-    import { watchRow, type RowState } from "./utils/row-visibility";
+    } from "../services/music";
+    import { library } from "../stores/library.svelte";
+    import { watchRow, type RowState } from "../utils/row-visibility";
     let { track, current = false }: { track: Track; current?: boolean } = $props();
     let host = $state<HTMLSpanElement>();
     // Depends on the path string, not the track object: snapshots rebuild the queue array.

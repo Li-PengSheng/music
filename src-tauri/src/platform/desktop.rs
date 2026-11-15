@@ -1,4 +1,4 @@
-use crate::{controller::Action, Shared};
+use crate::{playback::controller::Action, Shared};
 use serde::{Deserialize, Serialize};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -235,7 +235,7 @@ pub fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     )?;
     TrayIconBuilder::with_id("music-mine")
         .icon(tauri::image::Image::from_bytes(include_bytes!(
-            "../icons/icon.png"
+            "../../icons/icon.png"
         ))?)
         .tooltip("Music Mine")
         .menu(&menu)
@@ -305,7 +305,7 @@ fn status_error(app: &tauri::AppHandle, error: &str) -> tauri::Result<()> {
         .status
         .set_text(format!("操作失败: {error}"))
 }
-pub fn update(app: &tauri::AppHandle, s: &crate::controller::PlayerSnapshot) {
+pub fn update(app: &tauri::AppHandle, s: &crate::playback::controller::PlayerSnapshot) {
     let items = app.state::<TrayItems>();
     let title = s
         .current_track
@@ -401,7 +401,7 @@ mod tests {
     }
     #[test]
     fn shutdown_acknowledges_resource_release() {
-        let player = crate::player::Player::new(None);
+        let player = crate::audio::player::Player::new(None);
         player.shutdown().unwrap();
         assert!(player.synchronize().is_err());
     }

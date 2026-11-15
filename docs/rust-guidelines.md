@@ -5,12 +5,12 @@
 ## 模块
 
 - `lib.rs`：Tauri 启动、命令、应用数据目录、播放控制线程。
-- `player.rs`：Symphonia 解码、cpal 输出、音频线程。
-- `controller.rs`：播放控制、队列、会话文件。
-- `media.rs`：Windows 媒体集成。`desktop.rs`：窗口、主题、托盘、`desktop-v1.json`。
-- `library.rs`、`catalog.rs`、`catalog_commands.rs`、`collections.rs`：曲库、扫描、歌单。
-- `db.rs`：SQLite 连接、`CREATE TABLE IF NOT EXISTS`、`ensure_column`。
-- `lyrics.rs`、`metadata.rs`：歌词和标签。`covers.rs`：封面缩略图、内存和磁盘缓存。`logging.rs`：日志。
+- `audio/player.rs`：Symphonia 解码、cpal 输出、音频线程。
+- `playback/controller.rs`：播放控制、队列、会话文件。
+- `platform/media.rs`：Windows 媒体集成。`platform/desktop.rs`：窗口、主题、托盘、`desktop-v1.json`。
+- `catalog/library.rs`、`catalog/mod.rs`、`commands/catalog.rs`、`catalog/collections.rs`：曲库、扫描、歌单。
+- `catalog/db.rs`：SQLite 连接、`CREATE TABLE IF NOT EXISTS`、`ensure_column`。
+- `playback/lyrics.rs`、`catalog/metadata.rs`：歌词和标签。`artwork/covers.rs`：封面缩略图、内存和磁盘缓存。`infrastructure/logging.rs`：日志。
 
 没有按 RFC 假设尚未存在的模块或 crate。
 

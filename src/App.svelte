@@ -2,8 +2,8 @@
     import { onMount, tick, setContext } from "svelte";
     import { fly } from "svelte/transition";
     import { X } from "lucide-svelte";
-    import { shortcut } from "./lib/shortcuts";
-    import { diagnostics } from "./lib/cover-diagnostics";
+    import { shortcut } from "./lib/utils/shortcuts";
+    import { diagnostics } from "./lib/utils/cover-diagnostics";
     import {
         desktopAvailable,
         verifyConnection,
@@ -34,9 +34,9 @@
     import Sidebar from "./lib/layout/Sidebar.svelte";
     import TopBar from "./lib/layout/TopBar.svelte";
     import PlayerBar from "./lib/layout/PlayerBar.svelte";
-    import Queue from "./lib/Queue.svelte";
-    import NowPlaying from "./lib/NowPlaying.svelte";
-    import TrackDetails from "./lib/TrackDetails.svelte";
+    import Queue from "./lib/layout/Queue.svelte";
+    import NowPlaying from "./lib/views/NowPlaying.svelte";
+    import TrackDetails from "./lib/components/TrackDetails.svelte";
     import ContextMenu from "./lib/components/ContextMenu.svelte";
     import Dialog from "./lib/components/Dialog.svelte";
     import HomeView from "./lib/views/HomeView.svelte";

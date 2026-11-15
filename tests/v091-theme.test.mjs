@@ -57,7 +57,7 @@ test('choice persists locally and in desktop preferences, and system changes are
  assert.match(services,/getCurrentWindow\(\)\.setTheme\(choice==='system'\?null:choice\)/);
  assert.match(read('src-tauri/capabilities/default.json'),/"core:window:allow-set-theme"/);
  assert.match(read('src-tauri/tauri.conf.json'),/"theme":"Dark","backgroundColor":"#121414"/);
- const desktop=read('src-tauri/src/desktop.rs');
+ const desktop=read('src-tauri/src/platform/desktop.rs');
  assert.match(desktop,/w\.set_theme\(window_theme\(&preferences\.theme\)\)\?/);
  const settings=read('src/lib/views/SettingsView.svelte');
  assert.match(settings,/<h3 id="set-appearance">外观<\/h3>/);

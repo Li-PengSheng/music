@@ -10,25 +10,25 @@
         ListX,
         Trash2,
     } from "lucide-svelte";
-    import QueueCover from "./QueueCover.svelte";
-    import IconButton from "./components/IconButton.svelte";
-    import EmptyState from "./components/EmptyState.svelte";
-    import { tooltip } from "./components/tooltip";
+    import QueueCover from "../components/QueueCover.svelte";
+    import IconButton from "../components/IconButton.svelte";
+    import EmptyState from "../components/EmptyState.svelte";
+    import { tooltip } from "../components/tooltip";
     import {
         reorderQueue,
         playQueued,
         queueAction,
         type Track,
-    } from "./services/music";
-    import { player, control } from "./stores/player.svelte";
+    } from "../services/music";
+    import { player, control } from "../stores/player.svelte";
     import {
         openMenu,
         confirmAction,
         notify,
         type MenuItem,
-    } from "./stores/ui.svelte";
-    import { duration } from "./utils/format";
-    import { retainQueue } from "./utils/queue";
+    } from "../stores/ui.svelte";
+    import { duration } from "../utils/format";
+    import { retainQueue } from "../utils/queue";
 
     let { open, onclose }: { open: boolean; onclose: () => void } = $props();
     let closeButton = $state<HTMLButtonElement>();

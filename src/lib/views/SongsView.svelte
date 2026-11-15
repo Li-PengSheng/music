@@ -2,9 +2,9 @@
  import {Play,Shuffle,ListEnd,Ellipsis,Search,Music2,FolderPlus,ListMusic} from 'lucide-svelte';
  import TrackList from '../components/TrackList.svelte';
  import EmptyState from '../components/EmptyState.svelte';
- import Select from '../Select.svelte';
- import Cover from '../Cover.svelte';
- import Artwork from '../Artwork.svelte';
+ import Select from '../components/Select.svelte';
+ import Cover from '../components/Cover.svelte';
+ import Artwork from '../components/Artwork.svelte';
  import {nav,memory,routeKey,go} from '../stores/nav.svelte';
  import {library} from '../stores/library.svelte';
  import {ui,openMenu} from '../stores/ui.svelte';

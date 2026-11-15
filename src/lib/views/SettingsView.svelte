@@ -1,8 +1,8 @@
 <script lang="ts">
  import {onMount} from 'svelte';
  import {FolderPlus,Database,X} from 'lucide-svelte';
- import Select from '../Select.svelte';
- import {shortcutHelp} from '../shortcuts';
+ import Select from '../components/Select.svelte';
+ import {shortcutHelp} from '../utils/shortcuts';
  import {desktopAvailable,mediaStatus,desktopPreferences,cancelScan} from '../services/music';
  import {player} from '../stores/player.svelte';
  import {library} from '../stores/library.svelte';

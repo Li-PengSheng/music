@@ -1,7 +1,7 @@
 <script lang="ts">
  import {getContext,onMount,tick,untrack} from 'svelte';
  import {Ellipsis,Play,Clock3} from 'lucide-svelte';
- import Cover from '../Cover.svelte';
+ import Cover from './Cover.svelte';
  import {tooltip} from './tooltip';
  import {queryLibrary,playTrack,type LibraryQuery,type LibraryTrack} from '../services/music';
  import {player,perform} from '../stores/player.svelte';

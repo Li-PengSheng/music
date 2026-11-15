@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
 test('selector actual key handler navigates, ignores IME and restores focus on Escape/Tab',()=>{
- const source=readFileSync('src/lib/Select.svelte','utf8');
+ const source=readFileSync('src/lib/components/Select.svelte','utf8');
  const start=source.search(/function key\s*\(/);
  const end=source.indexOf('onMount(',start);
  const handler=source.slice(start,end).replace(/function key\s*\([^)]*\)/,'function key(e)').replace(/\s+as\s+[A-Za-z0-9_]+/g,'');

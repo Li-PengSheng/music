@@ -51,8 +51,8 @@ test('favourites removed from every UI surface without touching stored data',()=
  }
  const songs=read('src/lib/views/SongsView.svelte');
  assert.doesNotMatch(songs,/favorite/);
- const rust=read('src-tauri/src/collections.rs');
+ const rust=read('src-tauri/src/catalog/collections.rs');
  assert.match(rust,/CREATE|favorites/,'database layer and stored favourites are left in place');
- const db=read('src-tauri/src/db.rs');
+ const db=read('src-tauri/src/catalog/db.rs');
  assert.match(db,/favorites/,'schema keeps the favourites table for compatibility');
 });

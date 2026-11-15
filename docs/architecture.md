@@ -15,15 +15,15 @@ src/lib/services/music.ts          invoke 与窗口主题 API
         │
         ▼
 src-tauri/src/lib.rs               命令注册与应用状态
-        ├── player.rs              Symphonia 解码、cpal 输出
-        ├── controller.rs          播放控制、队列、会话
-        ├── media.rs               Windows 媒体集成
-        ├── library.rs / catalog.rs / catalog_commands.rs / collections.rs
-        ├── db.rs                  SQLite
-        ├── lyrics.rs / metadata.rs
-        ├── covers.rs              封面读取、尺寸限制和磁盘缓存
-        ├── desktop.rs             窗口、主题、托盘、desktop-v1.json
-        └── logging.rs
+        ├── audio/player.rs              Symphonia 解码、cpal 输出
+        ├── playback/controller.rs          播放控制、队列、会话
+        ├── platform/media.rs               Windows 媒体集成
+        ├── catalog/library.rs / catalog/mod.rs / commands/catalog.rs / catalog/collections.rs
+        ├── catalog/db.rs                  SQLite
+        ├── playback/lyrics.rs / catalog/metadata.rs
+        ├── artwork/covers.rs              封面读取、尺寸限制和磁盘缓存
+        ├── platform/desktop.rs             窗口、主题、托盘、desktop-v1.json
+        └── infrastructure/logging.rs
 ```
 
 改调用链时从实际函数追，不要假设每一条 UI 操作都经过同一个包装。
@@ -36,9 +36,9 @@ src-tauri/src/lib.rs               命令注册与应用状态
 | `src/lib/layout/` | `Sidebar`、`TopBar`、`PlayerBar` |
 | `src/lib/views/` | `HomeView`、`SongsView`、`GridView`、`SettingsView` |
 | `src/lib/components/` | 手写 `Modal`、`Dialog`、`ContextMenu`、`Slider`、`TrackList`、`EmptyState` |
-| `src/lib/Select.svelte` | 手写选择器，不在 `components/` 里 |
-| `src/lib/Queue.svelte`、`NowPlaying.svelte`、`QueueCover.svelte` | 队列抽屉、正在播放和队列封面。宽屏队列覆盖页面，不把正在播放挤窄 |
-| `src/lib/Artwork.svelte`、`Cover.svelte` | 正在播放和列表里的封面 |
+| `src/lib/components/Select.svelte` | 手写选择器 |
+| `src/lib/layout/Queue.svelte`、`src/lib/views/NowPlaying.svelte`、`src/lib/components/QueueCover.svelte` | 队列抽屉、正在播放和队列封面。宽屏队列覆盖页面，不把正在播放挤窄 |
+| `src/lib/components/Artwork.svelte`、`src/lib/components/Cover.svelte` | 正在播放和列表里的封面 |
 | `src/lib/utils/cover-loader.ts`、`row-visibility.ts` | 封面并发、取消和可见行 |
 | `src/lib/stores/player.svelte.ts` | `accept()` 丢掉更旧的 `revision`；`control()` 串行播放命令 |
 | `src/lib/services/music.ts` | 全部前端 IPC 类型和调用 |

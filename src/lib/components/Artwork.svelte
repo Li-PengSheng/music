@@ -1,5 +1,5 @@
 <script lang="ts">
- import {diagnostics} from './cover-diagnostics';
+ import {diagnostics} from '../utils/cover-diagnostics';
  import {Disc3,MicVocal,ListMusic} from 'lucide-svelte';
  let {src=null,alt='专辑封面',kind='album'}:{src?:string|null;alt?:string;kind?:'album'|'artist'|'playlist'}=$props();
  let failed=$state(false);let loaded=$state(false);

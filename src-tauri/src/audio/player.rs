@@ -27,7 +27,7 @@ use symphonia::core::meta::MetadataOptions;
 use symphonia::core::probe::Hint;
 use symphonia::core::units::Time;
 
-use crate::logging::LogBuffer;
+use crate::infrastructure::logging::LogBuffer;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum PlaybackState {

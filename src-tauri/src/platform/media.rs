@@ -54,13 +54,17 @@ pub fn setup(app: &mut tauri::App) {
             move |_, args: &Option<SystemMediaTransportControlsButtonPressedEventArgs>| {
                 if let Some(args) = args {
                     let action = match args.Button()? {
-                        SystemMediaTransportControlsButton::Play => crate::controller::Action::Play,
-                        SystemMediaTransportControlsButton::Pause => {
-                            crate::controller::Action::Pause
+                        SystemMediaTransportControlsButton::Play => {
+                            crate::playback::controller::Action::Play
                         }
-                        SystemMediaTransportControlsButton::Next => crate::controller::Action::Next,
+                        SystemMediaTransportControlsButton::Pause => {
+                            crate::playback::controller::Action::Pause
+                        }
+                        SystemMediaTransportControlsButton::Next => {
+                            crate::playback::controller::Action::Next
+                        }
                         SystemMediaTransportControlsButton::Previous => {
-                            crate::controller::Action::Previous
+                            crate::playback::controller::Action::Previous
                         }
                         _ => return Ok(()),
                     };
@@ -104,7 +108,7 @@ pub fn setup(app: &mut tauri::App) {
         last: Mutex::new(String::new()),
     });
 }
-pub fn update(app: &tauri::AppHandle, s: &crate::controller::PlayerSnapshot) {
+pub fn update(app: &tauri::AppHandle, s: &crate::playback::controller::PlayerSnapshot) {
     let state = app.state::<Media>();
     let key = format!(
         "{}:{}:{}",

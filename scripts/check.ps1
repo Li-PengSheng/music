@@ -13,6 +13,8 @@ try {
     if ($LASTEXITCODE -ne 0) { $code = $LASTEXITCODE; throw "cargo fmt exited $code" }
     & cargo clippy --all-targets -- -D warnings
     if ($LASTEXITCODE -ne 0) { $code = $LASTEXITCODE; throw "cargo clippy exited $code" }
+    # GitHub's Windows runner access-violates inside WASAPI when tests open real devices.
+    $env:MUSIC_MINE_NULL_OUTPUT = "1"
     & cargo test
     if ($LASTEXITCODE -ne 0) { $code = $LASTEXITCODE; throw "cargo test exited $code" }
 } catch {

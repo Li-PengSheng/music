@@ -8,7 +8,7 @@
 | 浏览器验证 | `pnpm test:ui`，必要时 `pnpm test:ui:update` | harness 里的点击、键盘、主题、视口和截图 | Rust 出声、真实数据库、WebView2、DPI |
 | Windows Tauri 实机 | 按 `docs/isolation.md` 构建并启动。普通 debug exe 使用系统数据目录 | WebView2、真实 command、窗口尺寸、隔离目录里的持久化 | 未操作的硬件、托盘、DPI 或曲库规模 |
 
-`pnpm test` 是 `node --experimental-strip-types --test tests/*.test.mjs`。它不包含 `tests/ui` 和 `tests/perf`。
+`pnpm test` 是 `node --experimental-strip-types --test tests/*.test.mjs`。它不包含 `tests/ui` 和 `tests/perf`。`scripts/check.ps1` 跑 `cargo test` 时设置 `MUSIC_MINE_NULL_OUTPUT`，测试进程不打开系统音频设备。本机直接跑 `cargo test` 仍会打开真实设备。真实设备自测在该变量存在时记为跳过，不能当成扬声器已经出声。
 
 Playwright 已安装：`@playwright/test`，配置在 `playwright.config.ts`。浏览器是本机 Playwright Chromium，视口 1280×800，`deviceScaleFactor` 为 1，时区 `Asia/Shanghai`。截图在 `tests/ui/snapshots/`。WebdriverIO 和 Tauri WebDriver 没有安装。
 

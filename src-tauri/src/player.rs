@@ -251,8 +251,14 @@ impl Shared {
 struct Output {
     // The stream stops when dropped, so it must stay alive with the engine.
     stream: Option<cpal::Stream>,
+    pump: Option<std::thread::JoinHandle<()>>,
+    stop_pump: Option<Arc<AtomicBool>>,
     shared: Arc<Shared>,
     info: OutputInfo,
+}
+
+fn null_output_requested() -> bool {
+    std::env::var_os("MUSIC_MINE_NULL_OUTPUT").is_some()
 }
 
 /// WASAPI faults (0xc0000005) when several tests open or drop streams at once.
@@ -265,6 +271,12 @@ impl Drop for Output {
     fn drop(&mut self) {
         self.shared.active.store(false, Ordering::SeqCst);
         self.shared.paused.store(true, Ordering::SeqCst);
+        if let Some(stop) = self.stop_pump.take() {
+            stop.store(true, Ordering::SeqCst);
+        }
+        if let Some(pump) = self.pump.take() {
+            let _ = pump.join();
+        }
         let _gate = cpal_gate();
         if let Some(stream) = self.stream.take() {
             let _ = stream.pause();
@@ -275,7 +287,42 @@ impl Drop for Output {
     }
 }
 
+/// Clock that drains the ring without calling cpal. Used when the check must
+/// not touch the Windows audio device.
+fn open_null_output(logs: &Arc<LogBuffer>, volume: f32) -> Output {
+    let shared = Arc::new(Shared::new(48_000, 2, volume));
+    let stop = Arc::new(AtomicBool::new(false));
+    let stop_thread = stop.clone();
+    let shared_thread = shared.clone();
+    let pump = std::thread::Builder::new()
+        .name("null-output".into())
+        .spawn(move || {
+            let mut buf = vec![0.0f32; 480];
+            while !stop_thread.load(Ordering::SeqCst) {
+                fill_output(&mut buf, &shared_thread);
+                std::thread::sleep(Duration::from_millis(5));
+            }
+        })
+        .expect("spawn null output");
+    logs.push("使用空音频输出，未打开系统设备");
+    Output {
+        stream: None,
+        pump: Some(pump),
+        stop_pump: Some(stop),
+        shared,
+        info: OutputInfo {
+            device: "null".into(),
+            sample_rate: 48_000,
+            channels: 2,
+            sample_format: "F32".into(),
+        },
+    }
+}
+
 fn open_output(logs: &Arc<LogBuffer>, volume: f32) -> Result<Output, String> {
+    if null_output_requested() {
+        return Ok(open_null_output(logs, volume));
+    }
     let _gate = cpal_gate();
     let host = cpal::default_host();
     let device = host
@@ -358,6 +405,8 @@ fn open_output(logs: &Arc<LogBuffer>, volume: f32) -> Result<Output, String> {
                 ));
                 return Ok(Output {
                     stream: Some(stream),
+                    pump: None,
+                    stop_pump: None,
                     shared,
                     info: OutputInfo {
                         device: device_name,
@@ -1157,6 +1206,9 @@ pub struct SelfTestReport {
 /// device. Proves audio data reaches WASAPI (it cannot prove the speakers are
 /// turned up).
 pub fn output_selftest(millis: u64) -> Result<SelfTestReport, String> {
+    if null_output_requested() {
+        return Err("MUSIC_MINE_NULL_OUTPUT：未打开真实设备".into());
+    }
     let logs = Arc::new(LogBuffer::new(None));
     let out = open_output(&logs, 1.0)?;
     // Route the callback's samples into a capture buffer for inspection.

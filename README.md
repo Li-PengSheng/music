@@ -2,7 +2,7 @@
 
 Windows 本地音乐播放器。技术栈是 Rust、Tauri v2、Svelte 5、TypeScript、Vite 和 Tailwind CSS v4。
 
-当前程序的源码包含本地扫描、歌单、播放、歌词、队列，以及深色、浅色、跟随系统。产品版本在 `package.json` 和 `src-tauri/tauri.conf.json` 里是 `0.1.0`。`docs/TASK-*.md` 的 V0.9.x 是历史任务编号，不是安装包版本。
+当前程序的源码包含本地扫描、歌单、播放、歌词、队列，以及深色、浅色、跟随系统。产品版本在 `package.json` 和 `src-tauri/tauri.conf.json` 里是 `0.1.0`。`docs/tasks/done/` 里的 V0.9.x 是历史任务编号，不是安装包版本。
 
 播放进度只显示 Rust 快照里的位置，界面不用计时器推进播放。哪一层检查已经跑过，见 [docs/current-state.md](docs/current-state.md)。进度只看那一页指向的当前任务。源码里有的能力，不等于自动测试、浏览器或 Windows 实机都已通过。
 
@@ -50,4 +50,4 @@ pnpm tauri build --debug --no-bundle
 - Agent 约束：[AGENTS.md](AGENTS.md)。Claude Code 从 [CLAUDE.md](CLAUDE.md) 引入同一份。
 - 验收记录：[docs/current-state.md](docs/current-state.md)。架构：[docs/architecture.md](docs/architecture.md)。
 - 产品目标：[docs/RFC-v2.0.md](docs/RFC-v2.0.md)。其中「cargo test + Vitest」已经过时，当前前端测试命令以上面的脚本为准。
-- [docs/INITIALIZATION.md](docs/INITIALIZATION.md) 和 `docs/TASK-*.md` 是历史交接，不描述最新行为。
+- 已完成任务在 [docs/tasks/done/](docs/tasks/done/)。初始化与迁移交接在 [docs/history/](docs/history/)。它们不描述最新行为。新任务用 [docs/tasks/TEMPLATE.md](docs/tasks/TEMPLATE.md)。

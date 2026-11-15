@@ -1,6 +1,6 @@
 # 当前实现架构
 
-审查基线：`main@da5fe14`（2026-11-14）。本页描述已经存在的代码。HEAD 变化后要复核事实。
+代码地图核对到 `a4451df`。这次补上封面模块，没有逐文件重审其余条目。`src/app.css` 的行数仍是 `da5fe14` 的记录。
 
 ## 数据流
 
@@ -21,6 +21,7 @@ src-tauri/src/lib.rs               命令注册与应用状态
         ├── library.rs / catalog.rs / catalog_commands.rs / collections.rs
         ├── db.rs                  SQLite
         ├── lyrics.rs / metadata.rs
+        ├── covers.rs              封面读取、尺寸限制和磁盘缓存
         ├── desktop.rs             窗口、主题、托盘、desktop-v1.json
         └── logging.rs
 ```
@@ -36,7 +37,9 @@ src-tauri/src/lib.rs               命令注册与应用状态
 | `src/lib/views/` | `HomeView`、`SongsView`、`GridView`、`SettingsView` |
 | `src/lib/components/` | 手写 `Modal`、`Dialog`、`ContextMenu`、`Slider`、`TrackList`、`EmptyState` |
 | `src/lib/Select.svelte` | 手写选择器，不在 `components/` 里 |
-| `src/lib/Queue.svelte`、`NowPlaying.svelte` | 队列抽屉和正在播放。宽屏队列覆盖页面，不把正在播放挤窄 |
+| `src/lib/Queue.svelte`、`NowPlaying.svelte`、`QueueCover.svelte` | 队列抽屉、正在播放和队列封面。宽屏队列覆盖页面，不把正在播放挤窄 |
+| `src/lib/Artwork.svelte`、`Cover.svelte` | 正在播放和列表里的封面 |
+| `src/lib/utils/cover-loader.ts`、`row-visibility.ts` | 封面并发、取消和可见行 |
 | `src/lib/stores/player.svelte.ts` | `accept()` 丢掉更旧的 `revision`；`control()` 串行播放命令 |
 | `src/lib/services/music.ts` | 全部前端 IPC 类型和调用 |
 | `src/lib/utils/queue.ts` | `retainQueue`：曲目未变时保留原数组 |

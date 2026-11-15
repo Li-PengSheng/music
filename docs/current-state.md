@@ -9,18 +9,21 @@
 
 ## 核验基线
 
-- 下面「已记录的验证」属于提交 `da5fe14`（2026-11-14）。那次没有保存工作区指纹：未记录，无法重建。
-- 此后尚未纳入那次验证的变更：`decbefb`（便携模式与封面缓存），以及 `decbefb` 之上仍未提交的封面加载改动。
-- [09.5.3](TASK-09.5.3-QUEUE-COVER.md) 和 [09.5.5](TASK-09.5.5-RC-FREEZE.md) 写过后来的检查结果。两份记录的工作区指纹都是：未记录，无法重建。不能把其中的通过结果写成当前工作区已经验收。
+- 本页核对到 `a4451df`。核对的是提交记录，没有重跑自动测试、浏览器或 Windows 实机。
+- 已纳入提交、不再当作未提交工作：`4352fc6` 封面加载，`e03386f` 便携路径说明，`d38b4de` 约定与隔离说明，`a4451df` 工具链。`decbefb` 是更早的便携模式与封面缓存。
+- [09.5.3](tasks/done/TASK-09.5.3-QUEUE-COVER.md) 和 [09.5.5](tasks/done/TASK-09.5.5-RC-FREEZE.md) 的工作区指纹仍是：未记录，无法重建。报告里的通过结果不能写成 `a4451df` 的重新验收。
+- 整理时 `main` 与 `origin/main` 对齐，工作区干净。
 
 ## 当前任务
 
-未提交的封面加载改动是一个验收单元。任务记录是 [09.5.5](TASK-09.5.5-RC-FREEZE.md)，它依赖同一工作区里的 [09.5.3](TASK-09.5.3-QUEUE-COVER.md)。两轮改过同一个 loader 和测试，不拆成没有独立验收的两次提交。`portable/README.txt` 是用户留下的未提交修改，09.5.5 写明本轮未改，不放进这个单元。
+没有进行中的任务。新任务从 `docs/tasks/TEMPLATE.md` 写起，完成后把记录放到 `docs/tasks/done/`。
 
-- 状态：待审阅
-- 依赖：09.5.3 的队列封面改动已经叠在同一工作区里
-- 下一步：由用户决定是否提交这一单元
-- 提交：待提交
+封面加载单元已经提交：
+
+- 状态：完成
+- 提交：`4352fc6`
+- 记录：[09.5.5](tasks/done/TASK-09.5.5-RC-FREEZE.md)，依赖 [09.5.3](tasks/done/TASK-09.5.3-QUEUE-COVER.md)
+- 下一步：没有指定的下一任务
 - 遗留事项的任务 ID：库外打开、WAV 经界面打开、托盘三态还没有单独的任务 ID
 
 ## 已知缺陷
@@ -42,14 +45,14 @@ NOT RUN 放在这里。它不是已知缺陷，也不表示可以放行。
 
 这是 2026-11-15 这次文档整理做出的决定，不是 09.5.3 或 09.5.5 当时已经写完的验收结论。
 
-库外打开、WAV 经界面打开、托盘三态这三项 NOT RUN，不阻塞把当前封面加载改动当作一个待审阅的验收单元。它们阻塞把该单元称为完整发布。
+库外打开、WAV 经界面打开、托盘三态这三项 NOT RUN，不阻塞 `4352fc6` 里的封面加载。它们仍阻塞把当前程序称为完整发布。
 
 ## 源码事实
 
 | 状态 | 事实 |
 |---|---|
 | 源码可见 | Svelte 5、TypeScript、Vite、Tailwind v4、Tauri v2、Rust |
-| 源码可见 | 产品版本 `0.1.0`。`docs/TASK-V0.9.*.md` 是任务编号，不是安装包版本 |
+| 源码可见 | 产品版本 `0.1.0`。`docs/tasks/done/` 里的 V0.9.x 是任务编号，不是安装包版本 |
 | 源码可见 | IPC 在 `src/lib/services/music.ts`。播放快照有 `revision` |
 | 源码可见 | `src/app.css` 3072 行。通用组件仍是手写的 |
 | 源码可见 | `package.json` 有 `@playwright/test`。没有 shadcn-svelte、Bits UI、Vitest、WebdriverIO、tauri-specta、TanStack Virtual |
@@ -57,11 +60,11 @@ NOT RUN 放在这里。它不是已知缺陷，也不表示可以放行。
 | 源码可见 | 数据库演进是 `db.rs` 的建表和 `ensure_column` |
 | 源码可见 | 队列用 `retainQueue`。宽屏队列覆盖页面 |
 
-`src/app.css` 的行数是 `da5fe14` 时记下的，后来的未提交改动没有在这里重数。
+`src/app.css` 的行数是 `da5fe14` 时记下的，这次没有重数。
 
 ## 已记录的验证
 
-这些是 `da5fe14` 提交前、同一工作区里的结果。指纹：未记录，无法重建。不属于 `decbefb`，也不属于更晚的未提交改动。
+这些是 `da5fe14` 提交前的结果。指纹：未记录，无法重建。不能用来勾掉 `decbefb` 及更晚提交。
 
 | 层次 | 结果 |
 |---|---|
@@ -78,8 +81,8 @@ NOT RUN 放在这里。它不是已知缺陷，也不表示可以放行。
 
 - `docs/RFC-v2.0.md` 写自动化测试是 cargo test + Vitest。当前命令是 `pnpm test` 和 `pnpm test:ui`。RFC 仍是产品目标，测试一行过时。
 - RFC 写前端用单调时钟对播放进度做平滑插值。当前界面只显示快照里的 `position_ms`，拖动时另有松开前的草稿。约定禁止用定时器推进进度。
-- `docs/TASK-V0.9.2-VISUAL-POLISH.md` 写宽屏正在播放会为队列让出宽度。当前 CSS 是队列覆盖，`min-width: 1200px` 时非沉浸页隐藏遮罩。
-- `docs/INITIALIZATION.md` 和其余 `docs/TASK-*.md` 是历史交接，可能落后于后续提交。09.5.3 和 09.5.5 仍是当前未提交工作的任务记录。
+- `docs/tasks/done/TASK-V0.9.2-VISUAL-POLISH.md` 写宽屏正在播放会为队列让出宽度。当前 CSS 是队列覆盖，`min-width: 1200px` 时非沉浸页隐藏遮罩。
+- `docs/history/` 和 `docs/tasks/done/` 是历史交接，可能落后于后续提交。其中没有进行中的任务。
 - 规范包 `music-mine-ai-guidelines-v3-project-wide/` 基于 `2d8d8d2`，其中「测试仍因格式化失败」「尚未安装 Playwright」「README 仍是 Task 02」已过时。以本仓库文档为准。该目录未纳入版本管理。
 
 ## 后续优先级

@@ -45,7 +45,7 @@ The Tauri frontend settings follow the [official Vite integration](https://v2.ta
 
 ## Audio migration preparation
 
-Based solely on the supplied `docs/MIGRATION-AUDIT.md`, not a fresh source inspection:
+Based solely on the supplied `MIGRATION-AUDIT.md`, not a fresh source inspection:
 
 1. Extract `player.rs` and `logging.rs` algorithms first; preserve Symphonia, cpal and rubato instead of rewriting a decoder. The Player receiver is not Sync. A controller thread should own Player, consume Finished/Failed and expose snapshot/requests to Tauri.
 2. Reuse `metadata.rs` tag reading and `lyrics.rs` parsing independently of UI.

@@ -9,7 +9,23 @@ pub fn open(path: &Path) -> Result<Connection, String> {
         let _ = std::fs::create_dir_all(dir);
     }
     let conn = Connection::open(path).map_err(|e| e.to_string())?;
+    configure_connection(&conn)?;
     init(&conn)?;
+    Ok(conn)
+}
+
+fn configure_connection(conn: &Connection) -> Result<(), String> {
+    conn.execute_batch("PRAGMA foreign_keys = ON;")
+        .map_err(|e| e.to_string())?;
+    conn.busy_timeout(std::time::Duration::from_secs(2))
+        .map_err(|e| e.to_string())
+}
+
+/// Opens an initialized database without creating it or running migrations.
+pub fn open_light(path: &Path) -> Result<Connection, String> {
+    let conn = Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE)
+        .map_err(|e| e.to_string())?;
+    configure_connection(&conn)?;
     Ok(conn)
 }
 
@@ -18,20 +34,19 @@ pub fn open_read(path: &Path) -> Result<Connection, String> {
     let flags =
         rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX;
     let conn = Connection::open_with_flags(path, flags).map_err(|e| e.to_string())?;
-    conn.busy_timeout(std::time::Duration::from_secs(2))
-        .map_err(|e| e.to_string())?;
+    configure_connection(&conn)?;
     Ok(conn)
 }
 
+#[cfg(test)]
 pub fn open_in_memory() -> Connection {
     let conn = Connection::open_in_memory().expect("open in-memory db");
+    configure_connection(&conn).expect("configure in-memory db");
     init(&conn).expect("init in-memory db");
     conn
 }
 
 fn init(conn: &Connection) -> Result<(), String> {
-    conn.execute_batch("PRAGMA foreign_keys = ON;")
-        .map_err(|e| e.to_string())?;
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS tracks (
             id INTEGER PRIMARY KEY,
@@ -205,6 +220,7 @@ pub fn add_folder(conn: &Connection, path: &str) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(test)]
 pub fn remove_folder(conn: &Connection, path: &str) -> Result<(), String> {
     conn.execute("DELETE FROM folders WHERE path = ?1", [path])
         .map_err(|e| e.to_string())?;
@@ -224,6 +240,7 @@ pub fn get_setting(conn: &Connection, key: &str) -> Option<String> {
     .ok()
 }
 
+#[cfg(test)]
 pub fn set_setting(conn: &Connection, key: &str, value: &str) -> Result<(), String> {
     conn.execute(
         "INSERT INTO settings (key, value) VALUES (?1,?2)

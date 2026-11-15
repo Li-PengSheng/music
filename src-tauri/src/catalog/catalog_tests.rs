@@ -77,6 +77,9 @@ fn wal_backup_preserves_ids_collections_and_settings() {
         (report.tracks, report.favorites, report.playlists),
         (2, 1, 1)
     );
+    assert!(*dest.initialized.lock().unwrap());
+    assert_eq!(dest.summary().unwrap().tracks, 2);
+    assert_eq!(dest.initialization_count.load(Ordering::SeqCst), 1);
     let copied = db::open(&dest.path).unwrap();
     assert_eq!(
         collections::playlist_track_ids(&copied, playlist),
@@ -223,4 +226,113 @@ fn same_title_resolves_by_exact_path() {
     assert!(state.track_by_path("C:\\missing.flac").unwrap().is_none());
     assert!(state.track_by_path("").unwrap().is_none());
     let _ = std::fs::remove_dir_all(dir);
+}
+
+fn initialization_test_dir(label: &str) -> PathBuf {
+    let nonce = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let dir = std::env::temp_dir().join(format!("mm-init-{label}-{}-{nonce}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    dir
+}
+
+#[test]
+fn concurrent_first_access_initializes_once() {
+    let dir = initialization_test_dir("concurrent");
+    let catalog = std::sync::Arc::new(Catalog::new(dir.join("library.db")));
+    let barrier = std::sync::Arc::new(std::sync::Barrier::new(8));
+    let workers: Vec<_> = (0..8)
+        .map(|_| {
+            let catalog = catalog.clone();
+            let barrier = barrier.clone();
+            std::thread::spawn(move || {
+                barrier.wait();
+                assert_eq!(catalog.query(Query::default()).unwrap().total, 0);
+                assert_eq!(catalog.summary().unwrap().tracks, 0);
+            })
+        })
+        .collect();
+    for worker in workers {
+        worker.join().unwrap();
+    }
+    assert_eq!(catalog.initialization_count.load(Ordering::SeqCst), 1);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn hot_connections_preserve_zero_added_at_and_configure_pragmas() {
+    let dir = initialization_test_dir("hot");
+    let catalog = Catalog::new(dir.join("library.db"));
+    let conn = catalog.connection().unwrap();
+    conn.execute("INSERT INTO tracks (path,title,artist,album,album_artist,genre,duration_ms,added_at) VALUES ('fixture.flac','Song','Artist','Album','','',1000,0)", []).unwrap();
+    let id = conn.last_insert_rowid();
+    drop(conn);
+    for _ in 0..3 {
+        assert_eq!(
+            catalog.query(Query::default()).unwrap().tracks[0].added_at,
+            0
+        );
+        assert_eq!(catalog.track(id).unwrap().added_at, 0);
+        assert_eq!(catalog.tracks_by_ids(&[id]).unwrap()[0].added_at, 0);
+        assert_eq!(catalog.summary().unwrap().tracks, 1);
+        catalog.record_listen("fixture.flac").unwrap();
+        assert_eq!(catalog.home().unwrap().recent[0].added_at, 0);
+        assert_eq!(
+            catalog
+                .track_by_path("fixture.flac")
+                .unwrap()
+                .unwrap()
+                .added_at,
+            0
+        );
+        assert_eq!(catalog.track_present(id).unwrap().unwrap().added_at, 0);
+    }
+    assert_eq!(catalog.initialization_count.load(Ordering::SeqCst), 1);
+    for conn in [
+        catalog.connection().unwrap(),
+        db::open_light(&catalog.path).unwrap(),
+        db::open_read(&catalog.path).unwrap(),
+        db::open(&catalog.path).unwrap(),
+    ] {
+        assert_eq!(
+            conn.query_row("PRAGMA foreign_keys", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            1
+        );
+        assert_eq!(
+            conn.query_row("PRAGMA busy_timeout", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            2000
+        );
+    }
+    assert!(catalog.track(id).unwrap().added_at > 0);
+    std::fs::remove_file(&catalog.path).unwrap();
+    assert!(catalog.connection().is_err());
+    assert!(!catalog.path.exists());
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn initialization_failure_is_retryable_and_poison_is_reported() {
+    let dir = initialization_test_dir("retry");
+    let parent = dir.join("blocked");
+    std::fs::write(&parent, b"not a directory").unwrap();
+    let catalog = std::sync::Arc::new(Catalog::new(parent.join("library.db")));
+    assert!(catalog.connection().is_err());
+    assert!(!*catalog.initialized.lock().unwrap());
+    std::fs::remove_file(&parent).unwrap();
+    assert_eq!(catalog.summary().unwrap().tracks, 0);
+    assert!(*catalog.initialized.lock().unwrap());
+    let poisoned = catalog.clone();
+    assert!(std::thread::spawn(move || {
+        let _guard = poisoned.initialized.lock().unwrap();
+        panic!("intentional initialization lock poison");
+    })
+    .join()
+    .is_err());
+    let error = catalog.connection().expect_err("poison must fail");
+    assert!(error.contains("初始化锁已毒化"));
+    std::fs::remove_dir_all(dir).unwrap();
 }

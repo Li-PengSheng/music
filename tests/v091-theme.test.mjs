@@ -48,20 +48,20 @@ test('pre-render script agrees with resolveTheme for every saved choice (no flas
 
 test('choice persists locally and in desktop preferences, and system changes are followed',()=>{
  const prefs=read('src/lib/stores/preferences.ts');
- assert.match(prefs,/localStorage\.setItem\(THEME_KEY,choice\)/);
- assert.match(prefs,/desktopPreferences\(null,null,choice\)/,'Rust applies it to the window on the next start');
- assert.match(prefs,/addEventListener\('change',onMedia\)/);
- assert.match(prefs,/onWindowThemeChanged\(t=>\{if\(ui\.theme==='system'\)paint\(t\);\}\)/);
- assert.doesNotMatch(prefs,/reduceMotion=.*theme|theme.*reduceMotion=/,'theme never touches reduce-motion');
+ assert.match(prefs,/localStorage\.setItem\(\s*THEME_KEY\s*,\s*choice\s*\)/);
+ assert.match(prefs,/desktopPreferences\(\s*null\s*,\s*null\s*,\s*choice\s*\)/,'Rust applies it to the window on the next start');
+ assert.match(prefs,/addEventListener\(\s*'change'\s*,\s*onMedia\s*\)/);
+ assert.match(prefs,/onWindowThemeChanged\(\s*\(\s*t\s*\)\s*=>\s*\{\s*if\s*\(\s*ui\.theme\s*===\s*'system'\s*\)\s*paint\(\s*t\s*\)\s*;?\s*\}\s*\)/);
+ assert.doesNotMatch(prefs,/reduceMotion\s*=.*theme|theme.*reduceMotion\s*=/,'theme never touches reduce-motion');
  const services=read('src/lib/services/music.ts');
- assert.match(services,/getCurrentWindow\(\)\.setTheme\(choice==='system'\?null:choice\)/);
+ assert.match(services,/getCurrentWindow\(\)\.setTheme\(\s*choice\s*===\s*'system'\s*\?\s*null\s*:\s*choice\s*\)/);
  assert.match(read('src-tauri/capabilities/default.json'),/"core:window:allow-set-theme"/);
  assert.match(read('src-tauri/tauri.conf.json'),/"theme":"Dark","backgroundColor":"#121414"/);
  const desktop=read('src-tauri/src/platform/desktop.rs');
  assert.match(desktop,/w\.set_theme\(window_theme\(&preferences\.theme\)\)\?/);
  const settings=read('src/lib/views/SettingsView.svelte');
  assert.match(settings,/<h3 id="set-appearance">外观<\/h3>/);
- for(const label of ['深色','浅色','跟随系统'])assert.match(settings,new RegExp(`label:'${label}'`));
+ for(const label of ['深色','浅色','跟随系统'])assert.match(settings,new RegExp(`label\\s*:\\s*'${label}'`));
 });
 
 test('both themes share one set of tokens and components',()=>{

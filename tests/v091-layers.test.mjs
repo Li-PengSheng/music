@@ -55,7 +55,7 @@ test('modal component: dialogs share Modal and it restores focus',()=>{
  assert.match(modal,/previous\.focus\(/);
  for(const file of ['src/lib/components/Dialog.svelte','src/lib/components/TrackDetails.svelte']){
   const source=readFileSync(file,'utf8');
-  assert.match(source,/<Modal /,file);
+  assert.match(source,/<Modal\s/,file);
   assert.doesNotMatch(source,/<dialog|showModal/,file+' must not manage its own <dialog>');
  }
 });

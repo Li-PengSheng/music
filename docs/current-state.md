@@ -9,10 +9,14 @@
 
 ## 核验基线
 
-- 本页核对到 `a4451df`。核对的是提交记录，没有重跑自动测试、浏览器或 Windows 实机。
-- 已纳入提交、不再当作未提交工作：`4352fc6` 封面加载，`e03386f` 便携路径说明，`d38b4de` 约定与隔离说明，`a4451df` 工具链。`decbefb` 是更早的便携模式与封面缓存。
-- [09.5.3](tasks/done/TASK-09.5.3-QUEUE-COVER.md) 和 [09.5.5](tasks/done/TASK-09.5.5-RC-FREEZE.md) 的工作区指纹仍是：未记录，无法重建。报告里的通过结果不能写成 `a4451df` 的重新验收。
-- 整理时 `main` 与 `origin/main` 对齐，工作区干净。
+- 核验 Commit：HEAD `ed191d48c7af4c9bf66c4f8accee308897860af6`。一阶段目录分层已在该提交。二阶段改动仍在工作区，尚未提交。
+- 工作区指纹：`c6c401ff55e8cfe6656d000ce6f96cf7ce0291c972b4158320524aa8a01c8b0c`。命令是 `pwsh -File scripts/worktree-fingerprint.ps1 -Exclude docs/current-state.md,docs/architecture.md`。取指纹前已删除根目录 `repomix-output.xml`，并把 `docs/STAGE2-PLAN.md` 移到 `docs/history/STAGE2-PLAN.md`。这是写入本页与 `docs/architecture.md` 本次基线之前的工作区。脚本的 Exclude 只跳过未跟踪路径；这两份文档当时已是受跟踪修改，它们的 diff 仍计入该指纹。写入后的指纹不同。
+- 工作区内容：一阶段已提交的 Rust 与前端目录分层。二阶段每个 `Catalog` 实例只 `init` 一次，热路径走 `open_light`；`catalog/mod.rs` 的模块级 `dead_code` 豁免已去掉；`Action::Open` 复用 `prepare` 之后那一次 `synchronize` 的状态，`Start` 仍是两次 `execute`；`audio/player.rs` 的互斥锁毒化改为 `into_inner`；前端 17 个白名单文件已用 Prettier 展开。施工图在 `docs/history/STAGE2-PLAN.md`。
+- 自动测试：`pnpm test` 75/75；`pnpm check` 0 error、0 warning；`cargo fmt --all -- --check` PASS；`cargo clippy --all-targets -- -D warnings` PASS；`cargo test` 77 通过、1 ignored（`cover_corpus`），`tests/audio.rs` 3 通过，`tests/lyrics.rs` 6 通过。`pwsh -File scripts/check.ps1` 退出码 0。`pnpm build` 通过。Rust 测试设置 `MUSIC_MINE_NULL_OUTPUT=1`，不证明真实设备出声。Cargo 的 bin/lib PDB 文件名冲突警告仍在，未导致失败。
+- 浏览器验证：`pnpm test:ui` 8/8 通过，未更新 `tests/ui/snapshots/`。这是 harness，不是 Rust 播放。
+- Windows Tauri 实机：NOT RUN。
+
+历史任务 09.5.3、09.5.5 的指纹仍为“未记录，无法重建”；本次结果不回填历史验收。
 
 ## 当前任务
 
@@ -38,7 +42,7 @@
 NOT RUN 放在这里。它不是已知缺陷，也不表示可以放行。
 
 - 库外 `player_open_file`、WAV 经界面打开、托盘三态：09.5.5 写明未做。保持 NOT RUN。
-- `da5fe14` 的记录写过：没有跑 `cargo fmt`、`cargo clippy`、`cargo test`；实机没有播放真实音频、没有扫描、没有测 DPI、托盘或系统媒体键。09.5.5 后来写了自动检查和部分实机，但指纹未记录，不能用来勾掉这些缺口。
+- 当前工作区的 Rust 自动检查和浏览器 harness 已记在核验基线。真实音频、扫描、DPI、托盘和系统媒体键的实机仍是 NOT RUN。历史无指纹记录不作为当前验收。
 - 浏览器 harness 不是 Rust 播放。
 
 ## 发布决定
@@ -89,10 +93,9 @@ NOT RUN 放在这里。它不是已知缺陷，也不表示可以放行。
 
 | 优先级 | 事项 | 完成标志 |
 |---|---|---|
-| P1 | 补 Rust 检查记录 | `cargo fmt --check`、`cargo clippy --all-targets -- -D warnings`、`cargo test` 有 PASS 或明确失败，并且能对上源码指纹 |
 | P1 | 实机播放与扫描 | 隔离目录里播放一条 fixture 或扫描一个临时文件夹，并记录 IPC 结果 |
 | P1 | 实机窗口外观 | DPI 125% 或 150%，以及托盘行为有记录 |
 | P2 | 全局 CSS 责任 | 只在改到的区域把独有规则移出 `app.css`，并有浏览器对比 |
 | P2 | Select 组件库试点 | 单独任务。先安装验证，再迁移。未开始 |
 
-不要把上表写成已经完成。
+表中事项仍未完成。Rust 自动检查记录已从本表移出，结果在核验基线。

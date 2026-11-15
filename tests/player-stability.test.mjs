@@ -28,7 +28,7 @@ test('real Svelte effects keep cover stable through progress, pause, volume and 
 test('player bar never resets the cover or the seek draft on progress-only snapshots',()=>{
  const bar=readFileSync('src/lib/layout/PlayerBar.svelte','utf8');
  // Seek draft resets only when the track identity changes, not on each 200 ms snapshot.
- assert.match(bar,/let trackId=\$derived\(s\?\.track_id\);\s*\$effect\(\(\)=>\{trackId;dragging=null;\}\);/);
+ assert.match(bar,/let\s+trackId\s*=\s*\$derived\(\s*s\s*\?\.\s*track_id\s*\)\s*;?\s*\$effect\(\s*\(\s*\)\s*=>\s*\{\s*trackId\s*;\s*dragging\s*=\s*null\s*;?\s*\}\s*\)\s*;?/);
  // The bar renders the App-level artwork and does not request covers itself.
  assert.doesNotMatch(bar,/getArtwork|trackCover/);
  const now=readFileSync('src/lib/views/NowPlaying.svelte','utf8');

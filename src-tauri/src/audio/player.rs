@@ -138,7 +138,10 @@ impl Player {
     }
 
     pub fn status(&self) -> PlayerStatus {
-        self.status.lock().unwrap().clone()
+        self.status
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
     }
 
     pub fn poll(&self) -> Option<PlaybackEvent> {
@@ -236,11 +239,11 @@ impl Shared {
     }
 
     fn clear_ring(&self) {
-        self.ring.lock().unwrap().clear();
+        self.ring.lock().unwrap_or_else(|e| e.into_inner()).clear();
     }
 
     fn fill(&self) -> usize {
-        self.ring.lock().unwrap().len()
+        self.ring.lock().unwrap_or_else(|e| e.into_inner()).len()
     }
 
     fn reset_clock(&self) {
@@ -486,7 +489,7 @@ fn begin_track(
         match d.next_output() {
             Some(chunk) => {
                 filled += chunk.len();
-                let mut ring = out.shared.ring.lock().unwrap();
+                let mut ring = out.shared.ring.lock().unwrap_or_else(|e| e.into_inner());
                 ring.extend(chunk);
             }
             None => {
@@ -558,7 +561,7 @@ where
         Vec::new()
     };
     {
-        let mut ring = shared.ring.lock().unwrap();
+        let mut ring = shared.ring.lock().unwrap_or_else(|e| e.into_inner());
         for s in data.iter_mut() {
             match ring.pop_front() {
                 Some(v) => {
@@ -845,7 +848,7 @@ fn engine_loop(
                     let chunk = decoder.as_mut().and_then(|d| d.next_output());
                     match chunk {
                         Some(samples) => {
-                            let mut ring = o.shared.ring.lock().unwrap();
+                            let mut ring = o.shared.ring.lock().unwrap_or_else(|e| e.into_inner());
                             for s in &samples {
                                 ring.push_back(*s);
                                 win_peak = win_peak.max(s.abs());
@@ -934,7 +937,7 @@ fn engine_loop(
             } else {
                 position
             };
-            let mut st = status.lock().unwrap();
+            let mut st = status.lock().unwrap_or_else(|e| e.into_inner());
             *st = PlayerStatus {
                 state,
                 position,
@@ -948,7 +951,7 @@ fn engine_loop(
         }
 
         if let Some(reply) = acknowledgement {
-            let _ = reply.send(status.lock().unwrap().clone());
+            let _ = reply.send(status.lock().unwrap_or_else(|e| e.into_inner()).clone());
         }
         std::thread::sleep(Duration::from_millis(3));
     }
@@ -1215,14 +1218,14 @@ pub fn output_selftest(millis: u64) -> Result<SelfTestReport, String> {
     out.shared
         .capture
         .lock()
-        .unwrap()
+        .unwrap_or_else(|e| e.into_inner())
         .replace(Vec::with_capacity(48_000 * 2));
 
     let rate = out.shared.rate as f32;
     let channels = out.shared.channels;
     // Pre-fill ~50 ms of tone so the first callbacks are not silent.
     {
-        let mut ring = out.shared.ring.lock().unwrap();
+        let mut ring = out.shared.ring.lock().unwrap_or_else(|e| e.into_inner());
         for i in 0..(rate as usize * channels / 20) {
             let t = i as f32 / (rate * channels as f32);
             ring.push_back((2.0 * std::f32::consts::PI * 440.0 * t).sin() * 0.5);
@@ -1237,7 +1240,7 @@ pub fn output_selftest(millis: u64) -> Result<SelfTestReport, String> {
     let mut t = 0.0f32; // seconds
     while Instant::now() < deadline {
         {
-            let mut ring = out.shared.ring.lock().unwrap();
+            let mut ring = out.shared.ring.lock().unwrap_or_else(|e| e.into_inner());
             while ring.len() + channels <= out.shared.capacity {
                 let v = (2.0 * std::f32::consts::PI * 440.0 * t).sin() * 0.5;
                 for _ in 0..channels {
@@ -1252,7 +1255,7 @@ pub fn output_selftest(millis: u64) -> Result<SelfTestReport, String> {
         .shared
         .capture
         .lock()
-        .unwrap()
+        .unwrap_or_else(|e| e.into_inner())
         .take()
         .unwrap_or_default();
     let peak = captured.iter().fold(0.0f32, |m, s| m.max(s.abs()));
@@ -1271,6 +1274,51 @@ pub fn output_selftest(millis: u64) -> Result<SelfTestReport, String> {
 #[cfg(test)]
 pub mod tests {
     use super::*;
+
+    #[test]
+    fn poisoned_status_remains_readable_and_engine_publishes() {
+        let player = Player::new(None);
+        player.synchronize().unwrap();
+        let status = player.status.clone();
+        assert!(std::thread::spawn(move || {
+            let _guard = status.lock().unwrap_or_else(|e| e.into_inner());
+            panic!("intentional status poison");
+        })
+        .join()
+        .is_err());
+        assert!(player.status.is_poisoned());
+        assert_eq!(player.status().state, PlaybackState::Stopped);
+        player.set_volume(0.25);
+        assert_eq!(player.synchronize().unwrap().volume, 0.25);
+        player.shutdown().unwrap();
+    }
+
+    #[test]
+    fn poisoned_ring_supports_fill_clear_and_callback() {
+        let shared = Arc::new(Shared::new(48_000, 2, 1.0));
+        let poisoned = shared.clone();
+        assert!(std::thread::spawn(move || {
+            let mut ring = poisoned.ring.lock().unwrap_or_else(|e| e.into_inner());
+            ring.extend([0.5, -0.5]);
+            panic!("intentional ring poison");
+        })
+        .join()
+        .is_err());
+        assert!(shared.ring.is_poisoned());
+        assert_eq!(shared.fill(), 2);
+        let mut data = [1.0f32; 4];
+        fill_output(&mut data, &shared);
+        assert_eq!(data, [0.5, -0.5, 0.0, 0.0]);
+        shared
+            .ring
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push_back(0.5);
+        shared.clear_ring();
+        assert_eq!(shared.fill(), 0);
+        fill_output(&mut data, &shared);
+        assert_eq!(data, [0.0; 4]);
+    }
 
     /// Write a small stereo 16-bit PCM WAV file for testing.
     pub fn write_test_wav(path: &Path, rate: u32, seconds: f32) {
@@ -1366,7 +1414,7 @@ pub mod tests {
         shared.active.store(true, Ordering::SeqCst);
         shared.clock_on.store(true, Ordering::SeqCst);
         {
-            let mut ring = shared.ring.lock().unwrap();
+            let mut ring = shared.ring.lock().unwrap_or_else(|e| e.into_inner());
             for i in 0..480 {
                 ring.push_back(if i % 2 == 0 { 0.5 } else { -0.5 });
             }
@@ -1384,7 +1432,7 @@ pub mod tests {
         shared.active.store(true, Ordering::SeqCst);
         shared.paused.store(true, Ordering::SeqCst);
         {
-            let mut ring = shared.ring.lock().unwrap();
+            let mut ring = shared.ring.lock().unwrap_or_else(|e| e.into_inner());
             ring.push_back(0.8);
             ring.push_back(0.8);
         }
@@ -1397,7 +1445,11 @@ pub mod tests {
     #[test]
     fn volume_scales_the_actual_callback_samples() {
         let shared = Shared::new(48_000, 2, 0.25);
-        shared.ring.lock().unwrap().extend([0.8, -0.8]);
+        shared
+            .ring
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .extend([0.8, -0.8]);
         let mut samples = [0.0f32; 2];
         fill_output(&mut samples, &shared);
         assert!((samples[0] - 0.2).abs() < 0.0001);

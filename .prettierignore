@@ -1,0 +1,10 @@
+src-tauri/
+docs/
+tests/
+dist*/
+src/app.css
+src/lib/styles/tokens.css
+src/App.svelte
+src/lib/components/Dialog.svelte
+src/lib/components/Select.svelte
+src/lib/layout/Queue.svelte

@@ -23,6 +23,7 @@ pub fn favorite_ids(conn: &Connection) -> HashSet<i64> {
         .unwrap_or_default()
 }
 
+#[cfg(test)]
 pub fn is_favorite(conn: &Connection, track_id: i64) -> bool {
     conn.query_row(
         "SELECT 1 FROM favorites WHERE track_id = ?1",
@@ -47,6 +48,7 @@ pub fn set_favorite(conn: &Connection, track_id: i64, on: bool) -> Result<(), St
 }
 
 /// Returns the new state.
+#[cfg(test)]
 pub fn toggle_favorite(conn: &Connection, track_id: i64) -> Result<bool, String> {
     let now = is_favorite(conn, track_id);
     set_favorite(conn, track_id, !now)?;
@@ -55,6 +57,7 @@ pub fn toggle_favorite(conn: &Connection, track_id: i64) -> Result<bool, String>
 
 /// Favourite / un-favourite many songs in one transaction (one disk sync for a
 /// selection of thousands).
+#[cfg(test)]
 pub fn set_favorites(conn: &Connection, ids: &[i64], on: bool) -> Result<usize, String> {
     if ids.is_empty() {
         return Ok(0);
@@ -210,6 +213,7 @@ pub fn add_to_playlist(conn: &Connection, playlist_id: i64, track_id: i64) -> Re
 
 /// Append many tracks in order, skipping those already in the playlist, in one
 /// transaction. Returns how many were added.
+#[cfg(test)]
 pub fn add_many_to_playlist(
     conn: &Connection,
     playlist_id: i64,
@@ -265,6 +269,7 @@ pub fn remove_from_playlist(
 }
 
 /// Moves the entry at `from` to index `to` (clamped), renumbering positions.
+#[cfg(test)]
 pub fn move_in_playlist(
     conn: &Connection,
     playlist_id: i64,

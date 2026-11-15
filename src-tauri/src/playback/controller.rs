@@ -307,6 +307,7 @@ impl Controller {
             }
         }
 
+        let mut prepared_status = None;
         match action {
             Action::Select(path) => {
                 if !self.queue.iter().any(|t| t.path == path) {
@@ -436,6 +437,7 @@ impl Controller {
                 } else {
                     None
                 };
+                prepared_status = Some(status);
             }
             Action::Play => {
                 let track = self.track.as_ref().ok_or("请先添加真实音频文件")?;
@@ -466,7 +468,10 @@ impl Controller {
                 self.engine.set_volume(value as f32);
             }
         }
-        let status = self.engine.synchronize()?;
+        let status = match prepared_status {
+            Some(status) => status,
+            None => self.engine.synchronize()?,
+        };
         // Only transport changes invalidate old EOF. Queue/config/volume actions preserve it.
         if replaces_transport {
             while self.engine.poll().is_some() {}

@@ -14,6 +14,8 @@
 
 没有按 RFC 假设尚未存在的模块或 crate。
 
+Catalog 每实例首次连接完成 schema 初始化；后续轻量连接不执行 DDL，每个连接仍设置 `foreign_keys=ON` 与 2 秒 `busy_timeout`，导入备份继续显式迁移。
+
 ## 用户数据
 
 应用数据目录来自 Tauri 的 `app.path().app_data_dir()`：
@@ -31,6 +33,9 @@ Windows 上这个路径来自系统已知文件夹。把进程的 `APPDATA` 指�
 结构变更在新建的临时库、空库和旧 schema fixture 上验证。多表写入使用事务。禁止用用户正在使用的库做迁移、去重、删除或改标签。缺文件和用户移除曲库要区分，避免删掉歌单关系。
 
 ## 音频
+
+- 音频模块的指定 Mutex 锁在毒化后恢复 guard，避免二次 panic；这不保证受保护数据完整，也不恢复已退出的线程。
+- Controller 的 Open 复用 prepare 后已确认的状态生成快照；复合切歌仍执行 Open、Play 两次，保持 revision +2 与两次 persist 调用及原失败顺序。
 
 - cpal 输出回调中不做文件 IO、数据库 IO、阻塞等待、可阻塞 Mutex、线程 join、无界分配、网络和高频日志格式化。
 - 解码、读文件、Seek 和格式转换放在工作线程。回调只读取已经准备好的 PCM。

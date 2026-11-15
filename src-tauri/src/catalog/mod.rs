@@ -1,8 +1,5 @@
-#[allow(dead_code)]
 pub(crate) mod collections;
-#[allow(dead_code)]
 mod db;
-#[allow(dead_code)]
 pub(crate) mod library;
 pub(crate) mod metadata;
 use library::Track;
@@ -82,6 +79,9 @@ use std::{
 };
 
 pub struct Catalog {
+    initialized: Mutex<bool>,
+    #[cfg(test)]
+    initialization_count: std::sync::atomic::AtomicUsize,
     pub path: PathBuf,
     pub progress: Mutex<Progress>,
     pub cancel: AtomicBool,
@@ -167,13 +167,30 @@ impl Catalog {
     pub fn new(path: PathBuf) -> Self {
         Self {
             path,
+            initialized: Mutex::new(false),
+            #[cfg(test)]
+            initialization_count: std::sync::atomic::AtomicUsize::new(0),
             progress: Mutex::new(Progress::default()),
             cancel: AtomicBool::new(false),
             operation: Mutex::new(()),
         }
     }
+    fn ensure_initialized(&self) -> Result<(), String> {
+        let mut initialized = self
+            .initialized
+            .lock()
+            .map_err(|_| "曲库初始化锁已毒化，无法安全初始化".to_string())?;
+        if !*initialized {
+            #[cfg(test)]
+            self.initialization_count.fetch_add(1, Ordering::SeqCst);
+            drop(db::open(&self.path)?);
+            *initialized = true;
+        }
+        Ok(())
+    }
     pub fn connection(&self) -> Result<Connection, String> {
-        db::open(&self.path)
+        self.ensure_initialized()?;
+        db::open_light(&self.path)
     }
     pub fn record_listen(&self, path: &str) -> Result<(), String> {
         self.connection()?.execute("INSERT INTO listening_history(track_id,last_played,plays) SELECT id,strftime('%s','now'),1 FROM tracks WHERE path=?1 ON CONFLICT(track_id) DO UPDATE SET last_played=excluded.last_played,plays=plays+1", [path]).map_err(|e|e.to_string())?;
@@ -219,9 +236,9 @@ impl Catalog {
             &path,
         )
     }
-    /// One-row lookup for per-cover requests. A read-only connection skips the schema
-    /// checks of `connection()`; if it cannot be used, the full open is the fallback.
+    /// One-row lookup after initialization, with a lightweight read-write fallback.
     fn lookup(&self, sql: &str, param: &dyn rusqlite::ToSql) -> Result<Option<Track>, String> {
+        self.ensure_initialized()?;
         let run = |conn: &Connection| match conn.query_row(sql, [param], row_track) {
             Ok(track) => Ok(Some(track)),
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
@@ -232,7 +249,7 @@ impl Catalog {
                 return Ok(found);
             }
         }
-        run(&self.connection()?).map_err(|e| e.to_string())
+        run(&db::open_light(&self.path)?).map_err(|e| e.to_string())
     }
     /// Loads tracks in the given order over one connection, skipping unknown IDs.
     pub fn tracks_by_ids(&self, ids: &[i64]) -> Result<Vec<Track>, String> {

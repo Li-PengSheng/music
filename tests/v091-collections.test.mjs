@@ -14,13 +14,13 @@ test('built-in 本地 is a stable route over the whole library, not a stored pla
  assert.deepEqual(q,{sort:'title',search:'周'});
  assert.ok(!('playlist' in q)&&!('favorite' in q),'no membership filter: imports and rescans show up automatically');
  const nav=read('src/lib/stores/nav.svelte.ts');
- assert.match(nav,/\{view:'local'\}/);
+ assert.match(nav,/\{\s*view\s*:\s*'local'\s*\}/);
  const sidebar=read('src/lib/layout/Sidebar.svelte');
- assert.match(sidebar,/go\(\{view:'local'\}\)/,'opened by route kind');
- assert.match(sidebar,/library\.summary\.tracks\}<\/span>/,'count is the library size from the summary');
+ assert.match(sidebar,/go\(\s*\{\s*view\s*:\s*'local'\s*\}\s*\)/,'opened by route kind');
+ assert.match(sidebar,/library\.summary\.tracks\s*\}\s*<\/span>/,'count is the library size from the summary');
  const songs=read('src/lib/views/SongsView.svelte');
- assert.match(songs,/case 'local':return localQuery\(sort,''\)/);
- assert.match(songs,/route\.view==='songs'\|\|route\.view==='local'\|\|route\.view==='artist'/,'sortable');
+ assert.match(songs,/case\s+'local'\s*:\s*return\s+localQuery\(\s*sort\s*,\s*''\s*\)/);
+ assert.match(songs,/route\.view\s*===\s*'songs'\s*\|\|\s*route\.view\s*===\s*'local'\s*\|\|\s*route\.view\s*===\s*'artist'/,'sortable');
 });
 
 test('built-in collection can be played and shuffled but never renamed or deleted',()=>{
@@ -40,7 +40,7 @@ test('a user playlist named 本地 keeps its data; the name is reserved only for
  assert.match(playlistNameError('本地',[{id:8,name:'夜晚'}],8),/系统歌单/,'cannot rename into it');
  assert.equal(playlistNameError('夜晚 2',lists),null,'ordinary playlists unaffected');
  const sidebar=read('src/lib/layout/Sidebar.svelte');
- assert.match(sidebar,/\{#each library\.summary\.playlists as list \(list\.id\)\}/,'user playlists still listed by ID');
+ assert.match(sidebar,/\{\s*#each\s+library\.summary\.playlists\s+as\s+list\s+\(\s*list\.id\s*\)\s*\}/,'user playlists still listed by ID');
  assert.match(sidebar,/playlistMenu\(list\)/,'and keep rename/delete');
 });
 

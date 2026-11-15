@@ -34,9 +34,19 @@ harness 设置 `window.isTauri`，因此壳层会显示连接成功。这只说�
 
 优先断言输入输出、DOM 行为和计算样式。可以从源码抽出真实函数再执行。
 
-不要新增只匹配空格、类名拼写或临时变量名的断言。这类断言已在 `5a7c9b3` 里删过一批。仍会读源码的检查包括：主题色允许列表、Modal 接线、层级 token、删除歌单的确认顺序、从 `App.svelte` 编译封面效果。它们仍可能因格式化失败。不要再增加这一类。
+不要新增只匹配空格、类名拼写或临时变量名的断言。这类断言已在 `5a7c9b3` 里删过一批。仍会读源码的检查包括：主题色允许列表、Modal 接线、层级 token、删除歌单的确认顺序、从 `App.svelte` 编译封面效果。白名单文件上的检查允许空白和换行。`App.svelte`、`Dialog.svelte`、`Select.svelte`、`Queue.svelte`、`tokens.css`、`app.css` 上的检查仍按当前拼写匹配，格式化这些文件前要先改测试。不要再增加这一类。
 
 禁止把实现改回旧代码，只为了让过时字符串测试通过。
+
+## 源码格式
+
+Prettier `3.10.1` 与 `prettier-plugin-svelte` `4.1.1` 在 devDependencies。配置是根目录 `.prettierrc`：插件启用 Svelte parser，2 空格，单引号，`printWidth` 100。`.prettierignore` 排除 `src-tauri/`、`docs/`、`tests/`、`dist*/`、`src/app.css`、`src/lib/styles/tokens.css`、`src/App.svelte`、`src/lib/components/Dialog.svelte`、`src/lib/components/Select.svelte`、`src/lib/layout/Queue.svelte`。
+
+检查白名单时把这 17 个路径传给 `pnpm exec prettier --check`。不要运行 `prettier --write .`。
+
+白名单：`src/lib/views/NowPlaying.svelte`、`src/lib/components/TrackDetails.svelte`、`Artwork.svelte`、`Cover.svelte`、`src/lib/actions.ts`、`src/lib/services/music.ts`、`src/lib/stores/preferences.ts`、`src/lib/stores/nav.svelte.ts`、`src/lib/utils/lyrics-view.ts`、`src/lib/utils/shortcuts.ts`、`src/lib/layout/PlayerBar.svelte`、`Sidebar.svelte`、`src/lib/views/SongsView.svelte`、`HomeView.svelte`、`GridView.svelte`、`SettingsView.svelte`、`src/lib/components/ContextMenu.svelte`。
+
+`tests/helpers/source-ast.mjs` 的 `extractFunction` 按函数名切出 `ContextMenu` 的 `key`，去掉参数类型和 `as` 断言后再交给 `new Function`。切不到函数就抛错。播放栏的 `trackId` / `$effect`、删除歌单的 `catch` 与 `deletePlaylist`、本地歌单路由和 `<Modal` 标签使用 `\s*`，保留原来的运行时断言。
 
 ## 完成报告
 

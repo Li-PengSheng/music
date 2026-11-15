@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+#[cfg(test)]
 use super::metadata;
 
 /// Where a track's album value came from. Grouping must not treat a folder
@@ -53,6 +54,7 @@ pub struct Track {
 }
 
 #[derive(Default)]
+#[allow(dead_code)]
 pub struct Library {
     pub tracks: Vec<Track>,
     pub folders: Vec<String>,
@@ -62,6 +64,7 @@ const EXTENSIONS: &[&str] = &["mp3", "flac", "wav"];
 
 /// Recursively scan a folder for supported audio files and read their tags.
 /// Returns tracks with id = 0 (the database assigns real ids on reload).
+#[cfg(test)]
 pub fn scan_folder(folder: &Path) -> Vec<Track> {
     let mut out = Vec::new();
     walk(folder, &mut out);
@@ -70,6 +73,7 @@ pub fn scan_folder(folder: &Path) -> Vec<Track> {
     out
 }
 
+#[cfg(test)]
 fn walk(dir: &Path, out: &mut Vec<Track>) {
     let entries = match std::fs::read_dir(dir) {
         Ok(e) => e,
@@ -175,10 +179,13 @@ pub struct AlbumGroup {
     pub key: String,
     pub name: String,
     pub artist: String,
+    #[cfg_attr(not(test), allow(dead_code))]
     pub is_compilation: bool,
+    #[allow(dead_code)]
     pub source: AlbumSource,
     /// Track indices (into the slice passed to `group_albums`), play order.
     pub tracks: Vec<usize>,
+    #[cfg_attr(not(test), allow(dead_code))]
     pub disc_count: usize,
 }
 
@@ -355,6 +362,7 @@ fn make_group(
 
 /// The performer shown for an album: the album-artist tag when present, the
 /// single shared artist when all tracks agree, otherwise "多位艺术家".
+#[cfg(test)]
 pub fn album_artist_label(album_artist: &str, artists: &[String]) -> String {
     if !album_artist.trim().is_empty() {
         return album_artist.trim().to_string();
@@ -368,6 +376,7 @@ pub fn album_artist_label(album_artist: &str, artists: &[String]) -> String {
 
 /// Sortable fields offered by the song list.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg(test)]
 pub enum SortKey {
     Title,
     Artist,
@@ -377,6 +386,7 @@ pub enum SortKey {
 }
 
 /// Sort track indices in place. Kept pure so the ordering rules are testable.
+#[cfg(test)]
 pub fn sort_track_indices(tracks: &[Track], indices: &mut [usize], key: SortKey, ascending: bool) {
     indices.sort_by(|a, b| {
         let (ta, tb) = (&tracks[*a], &tracks[*b]);
@@ -410,6 +420,7 @@ pub fn sort_track_indices(tracks: &[Track], indices: &mut [usize], key: SortKey,
     });
 }
 
+#[cfg(test)]
 pub fn sort_tracks(tracks: &mut [Track]) {
     tracks.sort_by(|a, b| {
         a.artist

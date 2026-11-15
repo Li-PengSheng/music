@@ -13,6 +13,16 @@ pub fn open(path: &Path) -> Result<Connection, String> {
     Ok(conn)
 }
 
+/// Read-only connection for hot lookups: no schema checks and no write lock per call.
+pub fn open_read(path: &Path) -> Result<Connection, String> {
+    let flags =
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX;
+    let conn = Connection::open_with_flags(path, flags).map_err(|e| e.to_string())?;
+    conn.busy_timeout(std::time::Duration::from_secs(2))
+        .map_err(|e| e.to_string())?;
+    Ok(conn)
+}
+
 pub fn open_in_memory() -> Connection {
     let conn = Connection::open_in_memory().expect("open in-memory db");
     init(&conn).expect("init in-memory db");

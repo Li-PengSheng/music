@@ -1,6 +1,8 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import type { Theme, ThemeChoice } from '../utils/theme';
+import { createCoverLoader, type CoverOutcome, type CoverPriority, type CoverStatus, type CoverTicket } from '../utils/cover-loader';
+export type { CoverOutcome, CoverPriority, CoverStatus, CoverTicket };
 export interface Track {path:string;title:string;artist:string;album:string;duration_ms:number}
 export interface PlayerSnapshot {revision:number;track_id:string|null;current_track:Track|null;playback_state:'idle'|'playing'|'paused';position_ms:number;duration_ms:number;volume:number;playback_mode:PlaybackMode;lyrics_offset_ms:number;output_device_id:string|null;error:string|null;queue:Track[]}
 interface BridgeReply {nonce:string;backend:string;snapshot:PlayerSnapshot}
@@ -35,23 +37,26 @@ export const cancelScan=()=>invoke<void>('library_cancel');
 export const trackDetails=(id:number)=>invoke<LibraryTrack>('library_track',{id});
 export interface AudioInfo {format:string;sample_rate:number|null;channels:number|null;bitrate:number|null}
 export const audioInfo=(id:number)=>invoke<AudioInfo>('library_audio_info',{id});
-const thumbCache=new Map<string,Promise<string|null>>();
-function rememberThumb(key:string,value:Promise<string|null>){
- thumbCache.set(key,value);
- if(thumbCache.size>400)thumbCache.delete(thumbCache.keys().next().value!);
- return value;
-}
+// Every library cover request goes through one bounded loader: null results mean "no cover" and are
+// kept; error codes (file missing or unreadable, IPC failure) get limited retries and are never kept as null.
+const covers=createCoverLoader({terminal:code=>code==='cover-not-in-library'});
+// Counts and durations only; no paths or image data.
+Object.assign(globalThis,{__musicMineCoverStats:covers.stats});
+const noTicket:CoverTicket={setPriority(){},cancel(){}};
+const thumbEdge=(px:number)=>Math.max(32,Math.min(960,Math.round(px)));
+const thumbKey=(id:number,px:number)=>'t:'+id+'@'+thumbEdge(px);
+export const peekTrackThumb=(id:number,px:number)=>covers.peek(thumbKey(id,px));
 /** Small and medium covers. Rust resizes; the page does not receive the original image. */
+export function requestTrackThumb(id:number,px:number,priority:CoverPriority,done:(outcome:CoverOutcome)=>void){
+ const edge=thumbEdge(px);
+ return covers.request(thumbKey(id,px),priority,()=>invoke<string|null>('library_thumb',{id,edge}),done);
+}
 export function trackThumb(id:number,px:number){
- const edge=Math.max(32,Math.min(960,Math.round(px)));
- const key=id+'@'+edge;
- const cached=thumbCache.get(key);
- if(cached){thumbCache.delete(key);thumbCache.set(key,cached);return cached;}
- const value=invoke<string|null>('library_thumb',{id,edge}).catch(e=>{thumbCache.delete(key);throw e;});
- return rememberThumb(key,value);
+ return new Promise<string|null>((resolve,reject)=>{requestTrackThumb(id,px,1,o=>o.status==='failed'?reject(new Error(o.code)):resolve(o.src));});
 }
 /** Song details use a larger JPEG, still bounded, instead of the embedded original. */
 export function trackCover(id:number){return trackThumb(id,720);}
+export const coverStats=()=>invoke<Record<string,number>>('library_cover_stats');
 export const homeData=()=>invoke<{recent:LibraryTrack[];artists:[string,number][]}>('library_home');
 export const playTrack=(id:number)=>invoke<PlayerSnapshot>('library_play',{id});
 export const createPlaylist=(name:string)=>invoke<number|null>('library_playlist',{name,playlistId:null,trackId:null}).then(id=>{if(id==null)throw new Error('创建歌单失败');return id;});
@@ -72,7 +77,11 @@ export async function collectTrackIds(query:LibraryQuery):Promise<number[]>{
 export type PlaybackMode='sequential'|'shuffle'|'repeat_one'|'repeat_all';
 export interface Lyrics {lines:{time_ms:number;text:string}[];offset_ms:number;synced:boolean;source:string}
 export const getLyrics=()=>invoke<Lyrics|null>('player_lyrics');
-export const getArtwork=()=>invoke<string|null>('player_artwork');
+/** `null` is "no cover"; a transient error (file busy or unreadable) is retried once. */
+export async function getArtwork(){
+ try{return await invoke<string|null>('player_artwork');}
+ catch{covers.stats.retries++;await new Promise(r=>setTimeout(r,800));return invoke<string|null>('player_artwork');}
+}
 const configure=(mode:PlaybackMode|null,offset:number|null,path:string|null,target:number|null)=>invoke<PlayerSnapshot>('player_configure',{mode,offset,path,target});
 export const setMode=(mode:PlaybackMode)=>configure(mode,null,null,null);
 export const setLyricsOffset=(offset:number)=>configure(null,offset,null,null);
@@ -89,14 +98,11 @@ export const onWindowThemeChanged=(handler:(theme:Theme)=>void)=>getCurrentWindo
 
 export const mediaStatus=()=>invoke<string>('media_status');
 
-// Exact library path only. The command returns nothing when that path is not a library row.
-const queueCoverCache=new Map<string,Promise<string|null>>();
-export function queueCover(track:Track){
- if(!desktopAvailable)return Promise.resolve(null);
- const edge=112;
- const key=track.path+'@'+edge;
- let cached=queueCoverCache.get(key);
- if(!cached){cached=invoke<string|null>('library_queue_thumb',{path:track.path,edge}).catch(e=>{queueCoverCache.delete(key);throw e;});queueCoverCache.set(key,cached);if(queueCoverCache.size>200)queueCoverCache.delete(queueCoverCache.keys().next().value!);}
- return cached;
+// Exact library path only. A path that is not a library row fails with `cover-not-in-library`.
+const queueKey=(path:string)=>'q:'+path+'@112';
+export const peekQueueCover=(path:string):CoverOutcome|undefined=>desktopAvailable?covers.peek(queueKey(path)):{status:'none',src:null};
+export function requestQueueCover(path:string,priority:CoverPriority,done:(outcome:CoverOutcome)=>void):CoverTicket{
+ if(!desktopAvailable){done({status:'none',src:null});return noTicket;}
+ return covers.request(queueKey(path),priority,()=>invoke<string|null>('library_queue_thumb',{path,edge:112}),done);
 }
-export function clearCoverCaches(){thumbCache.clear();queueCoverCache.clear();}
+export function clearCoverCaches(){covers.clear();}

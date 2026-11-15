@@ -200,30 +200,33 @@ impl Catalog {
     }
     /// A missing row is `Ok(None)`. Database failures stay errors.
     pub fn track_present(&self, id: i64) -> Result<Option<Track>, String> {
-        match self.connection()?.query_row(
-            &format!("SELECT {FIELDS} FROM tracks t WHERE t.id=?1"),
-            [id],
-            row_track,
-        ) {
-            Ok(track) => Ok(Some(track)),
-            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-            Err(e) => Err(format!("读取歌曲失败：{e}")),
-        }
+        self.lookup(&format!("SELECT {FIELDS} FROM tracks t WHERE t.id=?1"), &id)
+            .map_err(|e| format!("读取歌曲失败：{e}"))
     }
     /// Exact library path. Titles are never consulted. Unknown paths are `Ok(None)`.
     pub fn track_by_path(&self, path: &str) -> Result<Option<Track>, String> {
         if path.is_empty() || path.len() > 1024 {
             return Ok(None);
         }
-        match self.connection()?.query_row(
+        self.lookup(
             &format!("SELECT {FIELDS} FROM tracks t WHERE t.path=?1"),
-            [path],
-            row_track,
-        ) {
+            &path,
+        )
+    }
+    /// One-row lookup for per-cover requests. A read-only connection skips the schema
+    /// checks of `connection()`; if it cannot be used, the full open is the fallback.
+    fn lookup(&self, sql: &str, param: &dyn rusqlite::ToSql) -> Result<Option<Track>, String> {
+        let run = |conn: &Connection| match conn.query_row(sql, [param], row_track) {
             Ok(track) => Ok(Some(track)),
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-            Err(e) => Err(e.to_string()),
+            Err(e) => Err(e),
+        };
+        if let Ok(conn) = db::open_read(&self.path) {
+            if let Ok(found) = run(&conn) {
+                return Ok(found);
+            }
         }
+        run(&self.connection()?).map_err(|e| e.to_string())
     }
     /// Loads tracks in the given order over one connection, skipping unknown IDs.
     pub fn tracks_by_ids(&self, ids: &[i64]) -> Result<Vec<Track>, String> {

@@ -254,7 +254,7 @@
                     }}
                 >
                     <span class="queue-cover"
-                        ><QueueCover track={t} />{#if i === currentIndex}<span
+                        ><QueueCover track={t} current={i === currentIndex} />{#if i === currentIndex}<span
                                 class="eq"
                                 class:paused={player.snapshot
                                     ?.playback_state !== "playing"}

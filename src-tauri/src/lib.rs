@@ -3,6 +3,8 @@ mod catalog_commands;
 #[allow(dead_code)]
 mod collections;
 mod controller;
+#[cfg(test)]
+mod cover_corpus;
 mod covers;
 #[allow(dead_code)]
 mod db;
@@ -137,10 +139,11 @@ async fn player_artwork(
     let covers = covers.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let edge = 960;
-        if let Some(track) = catalog.track_by_path(&path_text)? {
-            return Ok(covers.for_track(track.id, std::path::Path::new(&track.path), edge));
-        }
-        Ok(covers.for_playback(&path, edge))
+        let cover = match catalog.track_by_path(&path_text)? {
+            Some(track) => covers.for_track(track.id, std::path::Path::new(&track.path), edge),
+            None => covers.for_playback(&path, edge),
+        };
+        cover.map_err(|e| e.code().to_string())
     })
     .await
     .map_err(|e| e.to_string())?
@@ -251,6 +254,7 @@ pub fn run() {
             catalog_commands::library_cover,
             catalog_commands::library_thumb,
             catalog_commands::library_queue_thumb,
+            catalog_commands::library_cover_stats,
             catalog_commands::library_play,
             catalog_commands::library_favorite,
             catalog_commands::library_playlist,

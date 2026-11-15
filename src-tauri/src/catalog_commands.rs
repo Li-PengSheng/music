@@ -147,7 +147,9 @@ pub async fn library_thumb(
         let Some(track) = catalog.track_present(id)? else {
             return Ok(None);
         };
-        Ok(covers.for_track(track.id, std::path::Path::new(&track.path), edge))
+        covers
+            .for_track(track.id, std::path::Path::new(&track.path), edge)
+            .map_err(|e| e.code().to_string())
     })
     .await
     .map_err(|e| e.to_string())?
@@ -163,12 +165,21 @@ pub async fn library_queue_thumb(
     let covers = covers.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let Some(track) = catalog.track_by_path(&path)? else {
-            return Ok(None);
+            return Err("cover-not-in-library".to_string());
         };
-        Ok(covers.for_track(track.id, std::path::Path::new(&track.path), edge))
+        covers
+            .for_track(track.id, std::path::Path::new(&track.path), edge)
+            .map_err(|e| e.code().to_string())
     })
     .await
     .map_err(|e| e.to_string())?
+}
+/// Cover cache counters for diagnostics. Counts and durations only, no paths or image data.
+#[tauri::command]
+pub fn library_cover_stats(
+    covers: tauri::State<'_, Arc<crate::covers::Store>>,
+) -> serde_json::Value {
+    covers.stats.snapshot()
 }
 #[tauri::command]
 pub async fn library_play(

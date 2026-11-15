@@ -118,15 +118,34 @@ fn split_track_number(stem: &str) -> (String, Option<u32>) {
     (trimmed.to_string(), number)
 }
 
-/// Extract the first embedded cover image (bytes) from a file's tags.
+/// Extract the embedded cover image (bytes) from a file's tags.
 pub fn read_cover(path: &Path) -> Option<Vec<u8>> {
-    let tagged = lofty::read_from_path(path).ok()?;
-    for tag in tagged.tags() {
-        if let Some(p) = tag.pictures().iter().find(|p| !p.data().is_empty()) {
-            return Some(p.data().to_vec());
-        }
-    }
-    None
+    read_cover_checked(path).ok().flatten()
+}
+
+/// Why tags could not be read. `Io` can succeed on a later attempt; `Tags` cannot.
+pub enum CoverReadError {
+    Io,
+    Tags,
+}
+
+/// Front cover first, then any other non-empty picture. `Ok(None)` means the tags have no picture.
+pub fn read_cover_checked(path: &Path) -> Result<Option<Vec<u8>>, CoverReadError> {
+    let tagged = lofty::read_from_path(path).map_err(|e| match e.kind() {
+        lofty::error::ErrorKind::Io(_) => CoverReadError::Io,
+        _ => CoverReadError::Tags,
+    })?;
+    let pictures = || {
+        tagged
+            .tags()
+            .iter()
+            .flat_map(|tag| tag.pictures())
+            .filter(|p| !p.data().is_empty())
+    };
+    let front = pictures().find(|p| p.pic_type() == lofty::picture::PictureType::CoverFront);
+    Ok(front
+        .or_else(|| pictures().next())
+        .map(|p| p.data().to_vec()))
 }
 
 #[cfg(test)]

@@ -4,7 +4,8 @@ import { readFileSync } from 'node:fs';
 
 const read = (f) => readFileSync(f, 'utf8');
 const tokens = read('src/lib/styles/tokens.css').replace(/\/\*[\s\S]*?\*\//g, '');
-const [darkBlock, lightBlock] = tokens.split(/:root\[data-theme=['"]?light['"]?\]/);
+const darkBlock = tokens.match(/:root\s*\{([^}]+)\}/)[1];
+const lightBlock = tokens.match(/:root\[data-theme=['"]?light['"]?\]\s*\{([^}]+)\}/)[1];
 const parse = (block) =>
   Object.fromEntries([...block.matchAll(/(--[\w-]+):([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
 const dark = parse(darkBlock);
@@ -44,6 +45,38 @@ function luminance([r, g, b]) {
 function contrast(a, b) {
   const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p);
   return (x + 0.05) / (y + 0.05);
+}
+
+for (const palette of ['celadon', 'cinnabar', 'azure', 'amber']) {
+  for (const mode of ['dark', 'light']) {
+    test(`${palette}/${mode}: primary and secondary text meet AA on all surfaces`, () => {
+      const block = tokens.match(
+        new RegExp(
+          `:root\\[data-theme=['"]${mode}['"]\\]\\[data-palette=['"]${palette}['"]\\]\\s*\\{([^}]+)\\}`,
+        ),
+      );
+      const t = { ...(mode === 'dark' ? dark : light), ...parse(block?.[1] ?? '') };
+      if (palette !== 'celadon') assert.ok(block, 'explicit palette override exists');
+      for (const foreground of ['--text', '--text-2'])
+        for (const background of [
+          '--bg',
+          '--bg-sidebar',
+          '--bg-player',
+          '--surface',
+          '--surface-hover',
+          '--surface-active',
+          '--surface-overlay',
+          '--bg-drawer',
+        ]) {
+          const ratio = contrast(rgba(t[foreground]), rgba(t[background]));
+          assert.ok(ratio >= 4.5, `${foreground}/${background}: ${ratio.toFixed(2)}`);
+        }
+      assert.ok(
+        contrast(rgba(t['--accent-ink']), rgba(t['--accent'])) >= 4.5,
+        'primary button text',
+      );
+    });
+  }
 }
 
 for (const [name, t] of [

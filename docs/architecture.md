@@ -33,7 +33,7 @@ src-tauri/src/lib.rs               命令注册与应用状态
         ├── catalog/db.rs                  SQLite
         ├── playback/lyrics.rs / catalog/metadata.rs
         ├── artwork/covers.rs              封面读取、尺寸限制和磁盘缓存
-        ├── platform/desktop.rs             窗口、主题、托盘、desktop-v1.json
+        ├── platform/desktop.rs             窗口、主题、托盘、桌面歌词窗口、desktop-v1.json
         └── infrastructure/logging.rs
 ```
 
@@ -43,9 +43,10 @@ src-tauri/src/lib.rs               命令注册与应用状态
 
 | 位置 | 当前角色 |
 |---|---|
-| `src/App.svelte` | 壳、连接、约 200ms 的 `setTimeout` 轮询、快捷键、队列开关 |
-| `src/lib/layout/` | `Sidebar`、`TopBar`、`PlayerBar` |
-| `src/lib/views/` | `HomeView`、`SongsView`、`GridView`、`SettingsView` |
+| `src/App.svelte` | 主窗口壳、连接、约 200ms 轮询、快捷键。`?window=lyrics` 时只挂载桌面歌词 |
+| `src/lib/layout/` | `Sidebar`、`TopBar`、`PlayerBar`。播放栏可开关桌面歌词，锁定时改为解锁 |
+| `src/lib/views/` | `HomeView`、`SongsView`、`GridView`、`SettingsView`、`DesktopLyrics.svelte` |
+| `src/lib/views/DesktopLyrics.svelte` | 置顶悬浮歌词。复用 `groupLines` / `activeLine`，不挂曲库、队列或封面；歌词读取独立于状态轮询，失败间隔重试，切歌丢弃旧结果 |
 | `src/lib/components/` | Bits UI Select / ContextMenu / Modal 适配层，Dialog 业务包装，原生 range Slider，以及 TrackList / EmptyState |
 | `src/lib/components/Select.svelte` | Bits UI Select，保留项目 Props 和 tokens |
 | `src/lib/layout/Queue.svelte`、`src/lib/views/NowPlaying.svelte`、`src/lib/components/QueueCover.svelte` | 队列抽屉、正在播放和队列封面。宽屏队列覆盖页面，不把正在播放挤窄 |
@@ -55,7 +56,8 @@ src-tauri/src/lib.rs               命令注册与应用状态
 | `src/lib/services/music.ts` | 全部前端 IPC 类型和调用 |
 | `src/lib/utils/queue.ts` | `retainQueue`：曲目未变时保留原数组 |
 | `src/app.css` | 1455 行：基础/共享样式、响应式与减少动画规则；主题变量在 `src/lib/styles/tokens.css`。十个指定组件独有区块已移入对应 Svelte 的 style |
-| `src-tauri/capabilities/default.json` | 只有 `core:default` 和 `core:window:allow-set-theme` |
+| `src-tauri/capabilities/default.json` | 主窗口 `core:default`、set-theme 与 minimize / toggle-maximize / close / start-dragging；不影响歌词窗口权限 |
+| `src-tauri/capabilities/lyrics-overlay.json` | 桌面歌词窗口只允许 `core:window:allow-start-dragging` |
 | `tests/harness/` | 浏览器内存曲库。它设置 `window.isTauri`，并让 `bridge_probe` 返回 `backend: 'rust'` |
 | `tests/ui/` | Playwright。视口 1280×800，`deviceScaleFactor: 1` |
 | `tests/perf/queue-profile.mjs` | 诊断脚本，不是常规测试命令 |
@@ -70,7 +72,8 @@ src-tauri/src/lib.rs               命令注册与应用状态
 - `Action::Open` 把 `prepare` 后的 `synchronize` 状态交给同一次 `execute` 的尾部。`Play` 仍单独做一次屏障。成功的 `Start` 仍是两次 `execute` 和两次 `persist` 调用。
 - `audio/player.rs` 里音频路径上的 `Mutex` 毒化用 `into_inner` 取出，避免二次 panic。这不证明锁内数据完整。
 - 启用的解码 feature：`mp3`、`flac`、`wav`、`pcm`。fixture 在 `src-tauri/tests/fixtures/`：`tone.mp3`、`tone.flac`、`tone.wav`。
-- 窗口默认 1280×850，最小 900×640。
+- 主窗口默认 1280×850，最小 900×640。桌面歌词窗口默认约 640×108，最小 360×92，标签 `lyrics-overlay`。
+- 主窗口无系统装饰，保留 resizable / shadow。TopBar 和 NowPlaying 使用 WindowControls 调用官方窗口 API，只有顶部空白背景可拖动。主窗口关闭默认请求应用退出（包括隐藏歌词窗口），close-to-tray 开启时仍隐藏到托盘。
 
 ## 改动分界
 

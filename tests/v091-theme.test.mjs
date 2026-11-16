@@ -3,14 +3,22 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-import { parseTheme, resolveTheme, THEME_KEY } from '../src/lib/utils/theme.ts';
+import {
+  parseTheme,
+  resolveTheme,
+  THEME_KEY,
+  PALETTE_KEY,
+  PALETTES,
+  parsePalette,
+} from '../src/lib/utils/theme.ts';
 
 const read = (f) => readFileSync(f, 'utf8');
 
 /** Run public/theme-init.js against a fake document, as WebView2 does before the bundle loads. */
-function boot(stored, systemLight) {
+function boot(stored, systemLight, palette) {
   const root = { dataset: {}, style: {} };
   const store = stored === undefined ? {} : { [THEME_KEY]: stored };
+  store[PALETTE_KEY] = palette;
   const context = {
     localStorage: { getItem: (k) => (k in store ? store[k] : null) },
     matchMedia: (q) => ({
@@ -32,6 +40,27 @@ test('existing users and unknown values default to dark', () => {
     'dark',
     'no saved choice stays dark even on a light system',
   );
+});
+
+test('palette boot matches the parser for every mode, including old and invalid preferences', () => {
+  for (const value of [null, undefined, '', 'unknown', 'celadon', 'cinnabar', 'azure', 'amber'])
+    for (const mode of ['dark', 'light', 'system'])
+      for (const systemLight of [false, true]) {
+        const root = boot(mode, systemLight, value);
+        assert.equal(root.dataset.palette, parsePalette(value));
+        assert.equal(root.dataset.theme, resolveTheme(mode, !systemLight));
+      }
+  const root = { dataset: {}, style: {} };
+  vm.runInNewContext(read('public/theme-init.js'), {
+    document: { documentElement: root },
+    localStorage: {
+      getItem() {
+        throw new Error('denied');
+      },
+    },
+  });
+  assert.equal(root.dataset.palette, 'celadon');
+  assert.equal(root.dataset.theme, 'dark');
 });
 
 test('resolved theme follows the choice, and the system only for 跟随系统', () => {
@@ -65,6 +94,12 @@ test('pre-render script agrees with resolveTheme for every saved choice (no flas
 test('choice persists locally and in desktop preferences, and system changes are followed', () => {
   const prefs = read('src/lib/stores/preferences.ts');
   assert.match(prefs, /localStorage\.setItem\(\s*THEME_KEY\s*,\s*choice\s*\)/);
+  assert.match(prefs, /localStorage\.setItem\(\s*PALETTE_KEY\s*,\s*ui\.palette\s*\)/);
+  const setPalette = prefs.slice(
+    prefs.indexOf('export function setPalette'),
+    prefs.indexOf('export function watchSystemTheme'),
+  );
+  assert.doesNotMatch(setPalette, /desktopPreferences|setWindowTheme|player/);
   assert.match(
     prefs,
     /desktopPreferences\(\s*null\s*,\s*null\s*,\s*choice\s*\)/,
@@ -93,11 +128,18 @@ test('choice persists locally and in desktop preferences, and system changes are
   assert.match(settings, /<h3 id="set-appearance">外观<\/h3>/);
   for (const label of ['深色', '浅色', '跟随系统'])
     assert.match(settings, new RegExp(`label\\s*:\\s*'${label}'`));
+  assert.match(settings, /label="配色意境"/);
+  assert.match(settings, /options=\{PALETTES\}/);
+  assert.deepEqual(
+    PALETTES.map((item) => item.label),
+    ['松烟 · 秘色（青瓷）', '宣纸 · 朱砂（书卷）', '天青 · 汝窑（霁蓝）', '琥珀 · 沉香（暖金）'],
+  );
 });
 
 test('both themes share one set of tokens and components', () => {
   const tokens = read('src/lib/styles/tokens.css');
-  const [dark, light] = tokens.split(/:root\[data-theme=['"]?light['"]?\]/);
+  const dark = tokens.match(/:root\s*\{([^}]+)\}/)[1];
+  const light = tokens.match(/:root\[data-theme=['"]?light['"]?\]\s*\{([^}]+)\}/)[1];
   const names = (block) => new Set([...block.matchAll(/(--[\w-]+):/g)].map((m) => m[1]));
   const darkNames = names(dark);
   for (const name of names(light))

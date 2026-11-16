@@ -222,9 +222,13 @@
               onclick={() => go({ view: 'artist', name })}
               oncontextmenu={(e) => openMenu(e, artistMenu(artistGroup(name)), name + ' 操作')}
             >
-              <span class="artist-initial small" style:--hue={nameHue(name)} aria-hidden="true"
-                >{initial(name)}</span
-              >
+              <span class="artist-avatar" aria-hidden="true">
+                <span class="artist-initial small" style:--hue={nameHue(name)}>{initial(name)}</span
+                >
+                {#if artistGroup(name).cover_id > 0}
+                  <Cover id={artistGroup(name).cover_id} alt={name} size={96} kind="artist" />
+                {/if}
+              </span>
               <span class="artist-pill-text"
                 ><strong>{name || '未知艺术家'}</strong><small>{plays} 次播放</small></span
               >
@@ -424,6 +428,25 @@
 
     .artist-pill:hover {
       background: var(--surface-hover);
+    }
+
+    .artist-avatar {
+      position: relative;
+      width: 44px;
+      height: 44px;
+      flex-shrink: 0;
+      border-radius: 50%;
+      overflow: hidden;
+    }
+    .artist-avatar .cover-fill {
+      position: absolute;
+      inset: 0;
+    }
+    .artist-avatar .artwork {
+      background: transparent;
+    }
+    .artist-avatar .artwork-placeholder {
+      visibility: hidden;
     }
 
     .artist-pill-text {

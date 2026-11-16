@@ -63,12 +63,16 @@ let snapshot = {
   error: null,
   queue,
 };
+const lyricsBoot = window.__lyricsPrefs ?? {};
+let lyricsOpen = !!lyricsBoot.lyrics_overlay_open;
 const prefs = {
   close_to_tray: false,
   queue_open: false,
   theme: null,
   output_device: new URLSearchParams(location.search).get('outputDevice'),
+  lyrics_overlay_locked: !!lyricsBoot.lyrics_overlay_locked,
 };
+if (window.__lyricsFixture) Object.assign(snapshot, window.__lyricsFixture);
 window.__mockOutputDevices = ['Fixture output', 'Headphones'];
 const log = [];
 window.__mockLog = log;
@@ -108,6 +112,11 @@ const handlers = {
     if (a.theme !== undefined && a.theme !== null) prefs.theme = a.theme;
     return { ...prefs };
   },
+  desktop_lyrics_window: (a) => {
+    if (a.locked != null) prefs.lyrics_overlay_locked = a.locked;
+    if (a.open != null) lyricsOpen = a.open;
+    return lyricsOpen;
+  },
   media_status: () => 'Fixture',
   library_progress: () => ({
     running: false,
@@ -144,7 +153,7 @@ const handlers = {
       .map((g) => [g.name, g.count]),
   }),
   library_cover: () => null,
-  library_thumb: () => null,
+  library_thumb: () => window.__mockThumb ?? null,
   library_queue_thumb: () => null,
   library_track: (a) => tracks.find((t) => t.id === a.id),
   library_audio_info: () => ({ format: 'Flac', sample_rate: 44100, channels: 2, bitrate: 900 }),
@@ -192,15 +201,18 @@ const handlers = {
   library_queue_tracks: () => snapshot,
   library_play: () => snapshot,
   library_queue: () => snapshot,
-  player_lyrics: () => ({
-    lines: Array.from({ length: 30 }, (_, i) => ({
-      time_ms: i * 4000,
-      text: `歌词第 ${i + 1} 行`,
-    })),
-    offset_ms: 0,
-    synced: true,
-    source: 'fixture.lrc',
-  }),
+  player_lyrics: () =>
+    window.__mockLyrics === undefined
+      ? {
+          lines: Array.from({ length: 30 }, (_, i) => ({
+            time_ms: i * 4000,
+            text: `歌词第 ${i + 1} 行`,
+          })),
+          offset_ms: 0,
+          synced: true,
+          source: 'fixture.lrc',
+        }
+      : window.__mockLyrics,
   player_artwork: () => null,
   player_configure: () => snapshot,
   player_play: () => snapshot,
@@ -223,6 +235,7 @@ const handlers = {
   library_import: () => null,
 };
 let callbackId = 0;
+let maximized = false;
 window.isTauri = true;
 window.__TAURI_INTERNALS__ = {
   metadata: {
@@ -240,6 +253,11 @@ window.__TAURI_INTERNALS__ = {
   invoke: async (cmd, args = {}) => {
     log.push({ cmd, args });
     if (window.__mockFailures?.[cmd]) throw window.__mockFailures[cmd];
+    if (cmd === 'plugin:window|is_maximized') return maximized;
+    if (cmd === 'plugin:window|toggle_maximize') {
+      maximized = !maximized;
+      return null;
+    }
     const h = handlers[cmd];
     if (cmd.startsWith('plugin:')) return null;
     if (!h) throw `mock: unhandled command ${cmd}`;

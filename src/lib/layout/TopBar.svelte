@@ -5,6 +5,7 @@
   import { player } from '../stores/player.svelte';
   import { ui } from '../stores/ui.svelte';
   import IconButton from '../components/IconButton.svelte';
+  import WindowControls from '../components/WindowControls.svelte';
   import { tooltip } from '../components/tooltip';
   import { LOCAL_COLLECTION } from '../utils/collections';
 
@@ -63,7 +64,7 @@
   }
 </script>
 
-<header class="topbar">
+<header class="topbar" data-tauri-drag-region>
   <div class="history-buttons">
     <IconButton label="后退" disabled={!nav.canBack} onclick={back}
       ><ChevronLeft size={18} /></IconButton
@@ -105,6 +106,7 @@
   <span class="local-status" class:offline={!player.connected} use:tooltip={player.connection}>
     <span class="status-dot" aria-hidden="true"></span><span class="local-label">本地模式</span>
   </span>
+  <WindowControls />
 </header>
 
 <style>

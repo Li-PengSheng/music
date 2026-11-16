@@ -26,6 +26,7 @@ function service() {
       },
     },
     '@tauri-apps/api/window': {},
+    '@tauri-apps/api/event': {},
     '../utils/cover-loader': { createCoverLoader: () => ({ stats: {} }) },
   });
   return { api, calls };

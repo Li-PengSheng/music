@@ -9,6 +9,9 @@ import {
 import {
   THEME_KEY,
   THEME_COLOR,
+  PALETTE_KEY,
+  parsePalette,
+  type Palette,
   parseTheme,
   resolveTheme,
   type Theme,
@@ -25,6 +28,7 @@ function paint(system?: Theme) {
   const theme = resolveTheme(ui.theme, system ? system === 'dark' : (systemDark?.matches ?? true));
   const root = document.documentElement;
   root.dataset.theme = theme;
+  root.dataset.palette = ui.palette;
   root.style.colorScheme = theme;
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', THEME_COLOR[theme]);
 }
@@ -36,14 +40,20 @@ async function syncWindow(choice: ThemeChoice) {
   if (choice === 'system' && ui.theme === 'system') paint((await windowTheme()) ?? undefined);
 }
 
-export function loadPreferences() {
+/** Local theme and motion only. The lyrics window must not call the main-window theme API. */
+export function loadLocalPreferences() {
   try {
     ui.reduceMotion = localStorage.getItem(KEY) === '1';
     ui.theme = parseTheme(localStorage.getItem(THEME_KEY));
+    ui.palette = parsePalette(localStorage.getItem(PALETTE_KEY));
   } catch {
     /* storage unavailable: keep defaults */
   }
   paint();
+}
+
+export function loadPreferences() {
+  loadLocalPreferences();
   syncWindow(ui.theme).catch(notifyError);
 }
 
@@ -58,6 +68,17 @@ export function setTheme(choice: ThemeChoice) {
   syncWindow(choice).catch(notifyError);
   // Rust applies the saved theme to the window before the page loads on the next start.
   if (desktopAvailable) desktopPreferences(null, null, choice).catch(notifyError);
+}
+
+export function setPalette(value: Palette) {
+  ui.palette = parsePalette(value);
+  try {
+    localStorage.setItem(PALETTE_KEY, ui.palette);
+  } catch {
+    /* session only */
+  }
+  // Preserve the resolved Windows mode; palette changes never issue playback or native IPC.
+  document.documentElement.dataset.palette = ui.palette;
 }
 
 /** Follow Windows light/dark changes while the user has chosen `system`. Returns a cleanup function. */

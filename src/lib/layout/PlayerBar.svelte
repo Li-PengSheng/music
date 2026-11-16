@@ -14,6 +14,7 @@
     Maximize2,
   } from 'lucide-svelte';
   import Artwork from '../components/Artwork.svelte';
+  import DesktopLyricsButton from '../components/DesktopLyricsButton.svelte';
   import Slider from '../components/Slider.svelte';
   import IconButton from '../components/IconButton.svelte';
   import { tooltip } from '../components/tooltip';
@@ -207,6 +208,7 @@
   </div>
 
   <div class="pb-options">
+    <DesktopLyricsButton />
     <IconButton
       label="正在播放与歌词 (Ctrl+L)"
       active={ui.immersive}

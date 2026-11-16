@@ -18,6 +18,7 @@ test('output device services preserve null/default and return authoritative snap
       },
     },
     '@tauri-apps/api/window': {},
+    '@tauri-apps/api/event': {},
     '../utils/cover-loader': { createCoverLoader: () => ({ stats: {} }) },
   };
   const api = {};

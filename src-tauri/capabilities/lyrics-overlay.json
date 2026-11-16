@@ -1,0 +1,6 @@
+{
+  "identifier": "lyrics-overlay",
+  "description": "Frameless desktop lyrics window. It may drag itself. Playback and lyrics commands stay application commands and are not given extra plugin permissions.",
+  "windows": ["lyrics-overlay"],
+  "permissions": ["core:window:allow-start-dragging"]
+}

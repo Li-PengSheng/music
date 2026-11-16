@@ -17,8 +17,8 @@
   import { library, refreshSummary } from '../stores/library.svelte';
   import { ui, notify, notifyError, confirmAction } from '../stores/ui.svelte';
   import { importFolder, importLegacyDatabase } from '../actions';
-  import { setReduceMotion, setTheme } from '../stores/preferences';
-  import { parseTheme } from '../utils/theme';
+  import { setReduceMotion, setTheme, setPalette } from '../stores/preferences';
+  import { parseTheme, parsePalette, PALETTES } from '../utils/theme';
 
   let media = $state('尚未连接桌面');
   let closeToTray = $state(false);
@@ -249,6 +249,18 @@
           { value: 'light', label: '浅色' },
           { value: 'system', label: '跟随系统' },
         ]}
+      />
+    </div>
+    <div class="settings-row">
+      <div>
+        <strong>配色意境</strong>
+        <p>即时预览，独立搭配深色、浅色或跟随系统。</p>
+      </div>
+      <Select
+        label="配色意境"
+        value={ui.palette}
+        onchange={(value) => setPalette(parsePalette(value))}
+        options={PALETTES}
       />
     </div>
     <div class="settings-row">

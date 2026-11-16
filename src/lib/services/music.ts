@@ -1,4 +1,5 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import type { Theme, ThemeChoice } from '../utils/theme';
 import {
@@ -247,12 +248,22 @@ export interface DesktopPreferences {
   close_to_tray: boolean;
   queue_open: boolean;
   theme: string;
+  lyrics_overlay_locked: boolean;
 }
 export const desktopPreferences = (
   closeToTray: boolean | null = null,
   queueOpen: boolean | null = null,
   theme: ThemeChoice | null = null,
 ) => invoke<DesktopPreferences>('desktop_preferences', { closeToTray, queueOpen, theme });
+export interface LyricsOverlayState {
+  open: boolean;
+  locked: boolean;
+}
+/** `open` and `locked` are unchanged when null. The boolean is whether the window is visible. */
+export const desktopLyricsWindow = (open: boolean | null = null, locked: boolean | null = null) =>
+  invoke<boolean>('desktop_lyrics_window', { open, locked });
+export const onLyricsOverlay = (handler: (state: LyricsOverlayState) => void) =>
+  listen<LyricsOverlayState>('lyrics-overlay', (event) => handler(event.payload));
 /** Native title bar colour; `system` hands control back to Windows. */
 export const setWindowTheme = (choice: ThemeChoice) =>
   getCurrentWindow().setTheme(choice === 'system' ? null : choice);

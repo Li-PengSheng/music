@@ -15,7 +15,7 @@
 ## 修改一个 command 时
 
 1. 核对 Rust 命令名、参数和 serde。注意 `Option`、camelCase 和枚举写法。
-2. 不扩大 capability。路径和数值在 Rust 校验。
+2. 不扩大 `capabilities/default.json`。桌面歌词窗口使用单独的 `capabilities/lyrics-overlay.json`。路径和数值在 Rust 校验。
 3. 更新 `music.ts` 的类型和封装，并搜索全部调用点与 `tests/harness/mock-ipc.js`。
 4. 成功、失败和取消都要有界面反馈。前端不编造成功快照。
 5. 返回的播放快照交给 `accept()`。调用点不直接覆盖 `player.snapshot`。
@@ -46,6 +46,15 @@ Rust 是播放位置的权威。界面显示 `position_ms`。拖动进度条只�
 - `library_playlist_edit` 保留 rename/delete/remove_track，并新增 `action: 'reorder'`，参数 `{ playlistId: number, from: number, to: number }` 为零基完整歌单位置；其余 name/trackId 可省略。Rust 在同一操作锁内检查缺失参数、不存在的歌单、空歌单及越界位置，失败返回错误且不改变顺序；合法同位置为无操作。只更新歌单成员位置，不改变曲库歌曲和文件。旧调用不需要新增参数。
 - UI 仅在没有搜索词的歌单中提供上下移菜单与 `Alt+ArrowUp` / `Alt+ArrowDown`。禁用边界与进行中的操作；成功后递增 `library.revision`、重载列表、恢复目标行焦点并播报位置。搜索匹配行不能作为完整歌单索引使用。
 
+## 桌面歌词窗口
+
+- `desktop_lyrics_window({ open: boolean | null, locked: boolean | null })` 返回窗口当前是否可见。
+- `open: true` 创建或显示标签为 `lyrics-overlay` 的无边框透明置顶窗口，地址是应用入口 `?window=lyrics`；已存在时只 `show()`。`false` 只 `hide()`，不销毁。`null` 不改变可见性。
+- `locked: true` 写入 `desktop-v1.json` 的 `lyrics_overlay_locked`，并调用 `set_ignore_cursor_events(true)`，鼠标穿透该窗口。`false` 恢复点击。`null` 不改变锁定。主窗口播放栏和托盘菜单「解锁桌面歌词」都可以解除锁定。
+- 拖动和缩放后的外框位置与内框尺寸写入 `lyrics_overlay_bounds`。下次打开时，只有完整落在某一显示器工作区内、且不小于 `360×92` 的边界才会恢复，否则居中到默认 `640×108`。旧配置缺少这两个字段时，锁定为 `false`，边界为空。
+- 命令结束后 Rust 发出 `lyrics-overlay` 事件，载荷为 `{ open, locked }`，主窗口用它同步按钮。主进程退出时关闭该窗口。
+- 悬浮窗只轮询播放状态和歌词，不挂载曲库、队列或封面加载。
+
 ## 错误协议
 
 现有 `Result<T, String>` 保持不变。新的复杂命令可以在单独任务里使用可序列化的 `code`、`message`、可选 `details`。不在无关的 UI 任务里批量替换错误类型。
@@ -60,6 +69,7 @@ Rust 是播放位置的权威。界面显示 `position_ms`。拖动进度条只�
 
 ```ipc-commands
 bridge_probe
+desktop_lyrics_window
 desktop_preferences
 library_audio_info
 library_cancel

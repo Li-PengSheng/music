@@ -252,6 +252,7 @@ pub fn run() {
             player_output_devices,
             player_set_output_device,
             platform::desktop::desktop_preferences,
+            platform::desktop::desktop_lyrics_window,
             platform::media::media_status,
             player_configure,
             player_lyrics,

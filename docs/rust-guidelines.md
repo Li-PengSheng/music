@@ -47,8 +47,10 @@ Windows 上这个路径来自系统已知文件夹。把进程的 `APPDATA` 指�
 
 ## 错误、权限与依赖
 
+- Windows 的 `WebviewWindowBuilder::build()` 不得在同步 IPC 或窗口/托盘事件回调里执行。桌面歌词命令通过异步 IPC + `spawn_blocking` 创建窗口，以独立操作锁串行化创建；事件回调也进入该异步路径。浏览器 mock 无法验证这个约束，需在隔离 exe 中检查打开后主窗口 IPC 和歌词仍更新。
+
 - 可预期的文件、设备和数据库错误不用 `unwrap` 或 `expect` 吞掉。
 - 现有命令返回 `Result<T, String>`。不为了统一风格改全部签名。
-- 不扩大 `src-tauri/capabilities/default.json`。现在只有 `core:default` 和 `core:window:allow-set-theme`。路径和数值在 Rust 侧校验。
+- 主窗口 `capabilities/default.json` 除 `core:default`、`allow-set-theme` 外，TASK-14 授权加入窗口 minimize / toggle-maximize / close / start-dragging 四项权限；不授予文件系统或 shell 权限。桌面歌词窗口使用单独的 `capabilities/lyrics-overlay.json`，只允许 `core:window:allow-start-dragging`。路径和数值在 Rust 侧校验。
 - 新增 crate 前说明现有依赖为何不够、Windows 目标、feature、构建成本和替代方案。依赖变更带上 `Cargo.lock`。
 - Rust 改动按范围运行 `cargo fmt --check`、`cargo clippy --all-targets -- -D warnings` 和相关 `cargo test`。没跑就写 `NOT RUN`。

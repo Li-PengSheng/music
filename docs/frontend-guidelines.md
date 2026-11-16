@@ -29,6 +29,10 @@
 
 图标继续用 `lucide-svelte`。
 
+主窗口无边框，TopBar / NowPlaying 复用 `WindowControls`；官方窗口 API 可在该组件调用，业务 `invoke` 仍集中在 music.ts。拖拽属性只放在标题区背景，不放在按钮、搜索框或面包屑上。窗口大小变化时同步最大化状态并清理监听；普通浏览器隐藏控件。
+
+首页艺术家头像复用 Cover 的 96px 缩略图请求，成功显示图片，缺图/解码失败保留原圆形首字母。当前歌词加粗并在非减少动画模式缩放，减少动画时不缩放。
+
 ## 组件库选型
 
 `docs/decisions.md` 的 ADR-005 已启动 Select 试点：`bits-ui 2.21.0` 已安装，`Select.svelte` 的 Props 与调用点保持原样，保留 `.select-trigger` / `.select-panel` 和项目 tokens。库负责定位、列表键盘导航与关闭；触发器使用原生 button 和库提供的 `combobox` 角色，以 `aria-activedescendant` 表达高亮选项。shadcn-svelte 未安装。

@@ -7,6 +7,8 @@
   import IconButton from '../components/IconButton.svelte';
   import EmptyState from '../components/EmptyState.svelte';
   import { ChevronDown, Music2, LocateFixed } from 'lucide-svelte';
+  import DesktopLyricsButton from '../components/DesktopLyricsButton.svelte';
+  import WindowControls from '../components/WindowControls.svelte';
   import { player, control } from '../stores/player.svelte';
   import { ui, notifyError } from '../stores/ui.svelte';
   import { ambientColor } from '../utils/color';
@@ -157,12 +159,14 @@
   style:--lyric-size={fontSize + 'px'}
   style:--ambient={ambient ?? undefined}
   class="immersive"
+  class:reduce-motion={ui.reduceMotion}
   class:has-ambient={!!ambient && !ui.reduceMotion}
   aria-label="正在播放"
 >
-  <header class="immersive-header">
+  <header class="immersive-header" data-tauri-drag-region>
     <IconButton label="收起正在播放 (Esc)" onclick={onclose}><ChevronDown size={20} /></IconButton>
     <span class="immersive-caption">正在播放</span>
+    <DesktopLyricsButton />
     <Select
       label="正在播放布局"
       bind:value={layout}
@@ -172,6 +176,7 @@
         { value: 'lyrics', label: '纯歌词' },
       ]}
     />
+    <WindowControls />
   </header>
   <div
     class="immersive-content"
@@ -463,7 +468,10 @@
       color: rgb(var(--ink) / var(--lyric-dim));
       white-space: pre-wrap;
       overflow-wrap: anywhere;
-      transition: color var(--dur) var(--ease);
+      transition:
+        color var(--dur) var(--ease),
+        transform var(--dur) var(--ease);
+      transform-origin: left center;
     }
 
     .lyric-lines > button:not(:disabled):hover {
@@ -476,7 +484,16 @@
     }
 
     .lyric-lines > button.current-line {
-      color: var(--text);
+      color: rgb(var(--ink) / 1);
+      font-weight: 700;
+    }
+
+    .immersive:not(.reduce-motion) .lyric-lines > button.current-line {
+      transform: scale(1.03);
+    }
+
+    .immersive.reduce-motion .lyric-lines > button {
+      transition: none;
     }
 
     .lyric-lines > button:disabled {

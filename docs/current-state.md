@@ -9,19 +9,19 @@
 
 ## 核验基线
 
-- 核验 Commit：HEAD `416d4a1e7bde5a0e3ead4120aed3fd1b1375b9ec`，分支 `main`；开工时工作区干净，本次 TASK-12-SMTC-THUMBNAIL 未提交。
-- 工作区指纹：`bb873a50b245b596ce513991374611d23959a5af72c77b28a7ab08809e7ec6da`，验收前后相同；命令为 `pwsh -File scripts/worktree-fingerprint.ps1 -Exclude docs/current-state.md,docs/tasks/TASK-12-SMTC-THUMBNAIL.md,docs/tasks/done/TASK-12-SMTC-THUMBNAIL.md`。
-- 工作区内容：Windows SMTC 复用 Store 的 320px JPEG 缩略图，按完整播放路径缓存 WinRT 引用及无封面/失败结果；暂停/队列文本更新复用引用，停止或无封面切歌清图。封面准备和 SetThumbnail 失败时仍更新文本，不改音频引擎、回调、数据库或 IPC 形状。状态文案为「SMTC 已连接（含专辑封面）」。仅为锁定的 windows 0.58 新增 Storage_Streams feature，Cargo.lock 无解析变化且 --locked 检查通过。GIF/WebP 的透传图因尺寸未解码约束，不送入 SMTC，保留文本。未访问用户真实数据。
-- CSS 责任：`src/app.css` 仍为 1455 行；本轮十个指定组件的样式归位结果保留。
-- 自动测试：pwsh -File scripts/check.ps1 退出 0；格式通过、Svelte 0 error / 0 warning、前端单测 74/74、Rust fmt / clippy 通过、Rust 单元 90 通过与 1 ignored、音频/歌词集成 3/6 通过（空输出测试）。新增完整路径去重、暂停/停止/无封面状态、320px 字节准备/缓存复用/损坏和缺失降级、文件不变及 WinRT writer/stream 释放后引用可读测试。既有 Cargo PDB 文件名冲突警告仍在。
-- 浏览器验证：pnpm test:ui 22/22 PASS、退出码 0，既有 8 张快照零像素差异且无更新。harness 不证明系统 SMTC 或 Rust 播放。
-- Windows Tauri 实机：PASS（系统会话 API 范围，NULL_OUTPUT）。隔离 exe 播放/暂停带封面的临时 FLAC，通过 Windows 全局媒体会话 API 验证标题和缩略图引用；无封面切歌/停止后缩略图为空，切回恢复。连续轮询封面请求保持 6→6，fixture 哈希不变。exe SHA-256 `29C601E5EC5A27D3D1F94483552DA36CAAF629548363070C73C62519EF7A5D29`，最终 check-source 为 OK；来源与结果见任务单及 `tests/perf/out/task12-native-result.json`。系统面板人工目视、实体媒体键、实际出声、DPI/托盘 NOT RUN。
+- 核验 Commit：HEAD `bad7f2ec8cf744adc04edd4627b9f701a5ee0d1a`，分支 `main`。开工时工作区已含未提交的 TASK-13、TASK-14；本次 TASK-15 也未提交。
+- 工作区指纹：`71eb641c8fcf9b17f877c4aca3a9105bab35cf4d6f2b0216c813de50ff608ec7`，验收前后相同。命令为 `pwsh -File scripts/worktree-fingerprint.ps1 -Exclude docs/current-state.md,docs/tasks/TASK-15-CHINESE-THEMES.md,docs/tasks/done/TASK-15-CHINESE-THEMES.md`。
+- 工作区内容：配色与明暗正交。`theme` 仍是深色、浅色或跟随系统；`data-theme` 仍只有 `dark` / `light`。新增 `palette`：`celadon`（默认，沿用原秘色）、`cinnabar`、`azure`、`amber`。值存在 `localStorage` 的 `music-mine-palette`，首屏脚本写入 `data-palette`。设置页可立即切换。不写 Rust 偏好，不改播放、音量或 IPC。未访问用户真实数据。
+- CSS：`src/app.css` 仍为 1455 行。新色系只加在 `tokens.css`。青瓷继续使用原来的 `:root` 与浅色覆盖。
+- 自动测试：`pnpm format` 与 `pwsh -File scripts/check.ps1` 退出 0。Prettier 通过，Svelte 0 error / 0 warning，前端 83/83，Rust fmt / clippy 通过，Rust 单元 92 通过、1 ignored，音频/歌词集成 3/6 通过。八组配色的主次文字对比度达到 4.5:1。既有 Cargo PDB 文件名冲突警告仍在。
+- 浏览器验证：`pnpm test:ui` 34/34，退出 0。朱砂深浅切换后音量仍是 70%、进度仍是 0:42，刷新后配色还在。默认青瓷下除设置页外的快照为零像素差异。设置页新增选择器，只更新了 `settings-dark.png`。
+- Windows Tauri 实机：NOT RUN。没有为这四套配色重新启动 exe。标题栏仍只跟深浅模式，不跟色系。
 
-历史任务 09.5.3、09.5.5 的指纹仍为“未记录，无法重建”；本次结果不回填历史验收。
+历史任务 09.5.3、09.5.5 的指纹仍为“未记录，无法重建”。TASK-13、TASK-14 的记录留在各自任务单，本次指纹不回填它们。
 
 ## 当前任务
 
-TASK-12 已完成并归档：[TASK-12-SMTC-THUMBNAIL](tasks/done/TASK-12-SMTC-THUMBNAIL.md)。未提交，等待检视；没有其他进行中的任务。TASK-11 输出设备选择/热切换已包含在当前 HEAD `416d4a1`。
+TASK-15 已完成并归档：[TASK-15-CHINESE-THEMES](tasks/done/TASK-15-CHINESE-THEMES.md)。未提交，等待检视。TASK-13 与 TASK-14 仍在同一份未提交工作区。
 
 封面加载单元已经提交：
 
@@ -43,7 +43,7 @@ TASK-12 已完成并归档：[TASK-12-SMTC-THUMBNAIL](tasks/done/TASK-12-SMTC-TH
 NOT RUN 放在这里。它不是已知缺陷，也不表示可以放行。
 
 - 库外 `player_open_file`、WAV 经界面打开、托盘三态：09.5.5 写明未做。保持 NOT RUN。
-- 当前工作区的 Rust 自动检查和浏览器 harness 已记在核验基线。真实音频、扫描、DPI、托盘和系统媒体键的实机仍是 NOT RUN。历史无指纹记录不作为当前验收。
+- 当前工作区的 Rust 自动检查和浏览器 harness 已记在核验基线。真实音频、扫描、DPI、托盘和系统媒体键的实机仍是 NOT RUN。四套配色没有在构建出的 exe 里看过，标题栏颜色也不随色系改变。历史无指纹记录不作为当前验收。
 - 浏览器 harness 不是 Rust 播放。
 
 ## 发布决定
@@ -64,6 +64,8 @@ NOT RUN 放在这里。它不是已知缺陷，也不表示可以放行。
 | 源码可见 | Symphonia feature 为 mp3、flac、wav、pcm |
 | 源码可见 | 数据库演进是 `db.rs` 的建表和 `ensure_column` |
 | 源码可见 | 队列用 `retainQueue`。宽屏队列覆盖页面 |
+| 源码可见 | 桌面歌词窗口标签 `lyrics-overlay`，地址带 `?window=lyrics`。主窗口 capability 未扩大 |
+| 源码可见 | 配色 `palette` 与明暗 `theme` 分开。默认 `celadon`。首屏脚本设置 `data-palette` |
 
 `src/app.css` 的行数已在本次组件 CSS 搬迁后重数。
 

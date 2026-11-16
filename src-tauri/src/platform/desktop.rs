@@ -7,8 +7,13 @@ use std::sync::{
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager,
+    Emitter, Manager,
 };
+
+const LYRICS_OVERLAY: &str = "lyrics-overlay";
+const LYRICS_ENTRY: &str = "index.html?window=lyrics";
+const LYRICS_MIN_WIDTH: u32 = 360;
+const LYRICS_MIN_HEIGHT: u32 = 92;
 
 #[derive(Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
@@ -20,6 +25,9 @@ pub struct Preferences {
     pub theme: String,
     bounds: Option<(i32, i32, u32, u32)>,
     maximized: bool,
+    pub lyrics_overlay_bounds: Option<(i32, i32, u32, u32)>,
+    /// Pointer events pass through the lyrics window while this is true.
+    pub lyrics_overlay_locked: bool,
 }
 /// Native title bar theme; `None` lets Windows follow the system setting.
 fn window_theme(theme: &str) -> Option<tauri::Theme> {
@@ -36,6 +44,7 @@ fn window_background(theme: tauri::Theme) -> tauri::window::Color {
     }
 }
 pub struct Desktop {
+    lyrics_operation: Mutex<()>,
     preferences: Mutex<Preferences>,
     path: std::path::PathBuf,
     pub exiting: AtomicBool,
@@ -93,6 +102,226 @@ pub fn desktop_preferences(
     *guard = next.clone();
     Ok(next)
 }
+
+#[derive(Clone, Serialize)]
+struct LyricsOverlayState {
+    open: bool,
+    locked: bool,
+}
+
+fn publish_lyrics(app: &tauri::AppHandle, open: bool) {
+    let locked = app
+        .try_state::<Desktop>()
+        .and_then(|state| {
+            state
+                .preferences
+                .lock()
+                .ok()
+                .map(|prefs| prefs.lyrics_overlay_locked)
+        })
+        .unwrap_or(false);
+    let _ = app.emit(LYRICS_OVERLAY, LyricsOverlayState { open, locked });
+    if let Some(items) = app.try_state::<TrayItems>() {
+        let _ = items.unlock.set_enabled(locked);
+    }
+}
+
+/// The whole overlay must sit in one work area. Sizes below the window minimum are rejected.
+fn lyrics_overlay_fits(bounds: (i32, i32, u32, u32), area: (i32, i32, u32, u32)) -> bool {
+    let (x, y, width, height) = bounds;
+    let (ax, ay, aw, ah) = area;
+    width >= LYRICS_MIN_WIDTH
+        && height >= LYRICS_MIN_HEIGHT
+        && width <= 16384
+        && height <= 16384
+        && x >= ax
+        && y >= ay
+        && i64::from(x) + i64::from(width) <= i64::from(ax) + i64::from(aw)
+        && i64::from(y) + i64::from(height) <= i64::from(ay) + i64::from(ah)
+}
+
+fn restore_lyrics_bounds(
+    window: &tauri::WebviewWindow,
+    bounds: Option<(i32, i32, u32, u32)>,
+) -> tauri::Result<()> {
+    let Some(bounds) = bounds else {
+        return window.center();
+    };
+    let fits_monitor = window.available_monitors()?.iter().any(|monitor| {
+        let area = monitor.work_area();
+        lyrics_overlay_fits(
+            bounds,
+            (
+                area.position.x,
+                area.position.y,
+                area.size.width,
+                area.size.height,
+            ),
+        )
+    });
+    if !fits_monitor {
+        return window.center();
+    }
+    let (x, y, width, height) = bounds;
+    window.set_size(tauri::PhysicalSize::new(width, height))?;
+    window.set_position(tauri::PhysicalPosition::new(x, y))
+}
+
+fn create_lyrics_window(
+    app: &tauri::AppHandle,
+    bounds: Option<(i32, i32, u32, u32)>,
+) -> Result<tauri::WebviewWindow, String> {
+    let window = tauri::WebviewWindowBuilder::new(
+        app,
+        LYRICS_OVERLAY,
+        tauri::WebviewUrl::App(LYRICS_ENTRY.into()),
+    )
+    .title("桌面歌词")
+    .decorations(false)
+    .transparent(true)
+    .always_on_top(true)
+    .skip_taskbar(true)
+    .shadow(false)
+    .resizable(true)
+    .focused(false)
+    .visible(false)
+    .inner_size(640.0, 108.0)
+    .min_inner_size(LYRICS_MIN_WIDTH as f64, LYRICS_MIN_HEIGHT as f64)
+    .background_color(tauri::window::Color(0, 0, 0, 0))
+    .build()
+    .map_err(|error| format!("无法创建桌面歌词窗口：{error}"))?;
+    restore_lyrics_bounds(&window, bounds)
+        .map_err(|error| format!("无法放置桌面歌词窗口：{error}"))?;
+    Ok(window)
+}
+
+#[tauri::command]
+pub async fn desktop_lyrics_window(
+    app: tauri::AppHandle,
+    open: Option<bool>,
+    locked: Option<bool>,
+) -> Result<bool, String> {
+    // WebView2 creation must not block the Windows event loop. Serialize on the
+    // blocking pool so simultaneous toggles cannot create the same label twice.
+    tauri::async_runtime::spawn_blocking(move || update_lyrics_window(app, open, locked))
+        .await
+        .map_err(|error| format!("桌面歌词窗口任务失败：{error}"))?
+}
+
+fn update_lyrics_window(
+    app: tauri::AppHandle,
+    open: Option<bool>,
+    locked: Option<bool>,
+) -> Result<bool, String> {
+    let state = app.state::<Desktop>();
+    let _operation = state.lyrics_operation.lock().map_err(|e| e.to_string())?;
+    let (locked_now, bounds) = {
+        let state = app.state::<Desktop>();
+        let mut guard = state
+            .preferences
+            .lock()
+            .map_err(|error| error.to_string())?;
+        if let Some(value) = locked {
+            let previous = guard.lyrics_overlay_locked;
+            guard.lyrics_overlay_locked = value;
+            if let Err(error) = state.save(&guard) {
+                guard.lyrics_overlay_locked = previous;
+                return Err(error);
+            }
+        }
+        (guard.lyrics_overlay_locked, guard.lyrics_overlay_bounds)
+    };
+    let mut window = app.get_webview_window(LYRICS_OVERLAY);
+    if window.is_none() && open == Some(true) {
+        window = Some(create_lyrics_window(&app, bounds)?);
+    }
+    if let Some(window) = window.as_ref() {
+        window
+            .set_ignore_cursor_events(locked_now)
+            .map_err(|error| format!("无法设置桌面歌词鼠标穿透：{error}"))?;
+        match open {
+            Some(true) => window
+                .show()
+                .map_err(|error| format!("无法显示桌面歌词：{error}"))?,
+            Some(false) => window
+                .hide()
+                .map_err(|error| format!("无法隐藏桌面歌词：{error}"))?,
+            None => {}
+        }
+    }
+    let visible = window
+        .as_ref()
+        .is_some_and(|window| window.is_visible().unwrap_or(false));
+    publish_lyrics(&app, visible);
+    Ok(visible)
+}
+
+fn ensure_lyrics_on_screen(window: &tauri::WebviewWindow) -> tauri::Result<()> {
+    let pos = window.outer_position()?;
+    let size = window.inner_size()?;
+    let bounds = (pos.x, pos.y, size.width, size.height);
+    let fits = window.available_monitors()?.iter().any(|monitor| {
+        let area = monitor.work_area();
+        lyrics_overlay_fits(
+            bounds,
+            (
+                area.position.x,
+                area.position.y,
+                area.size.width,
+                area.size.height,
+            ),
+        )
+    });
+    if !fits {
+        window.center()?;
+    }
+    Ok(())
+}
+
+fn lyrics_overlay_event(window: &tauri::Window, event: &tauri::WindowEvent) {
+    let Some(state) = window.try_state::<Desktop>() else {
+        return;
+    };
+    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+        if !state.exiting.load(Ordering::SeqCst) && window.hide().is_ok() {
+            api.prevent_close();
+            publish_lyrics(window.app_handle(), false);
+        }
+        return;
+    }
+    if matches!(event, tauri::WindowEvent::ScaleFactorChanged { .. }) {
+        let app = window.app_handle().clone();
+        let handle = app.clone();
+        if let Err(error) = app.run_on_main_thread(move || {
+            if let Some(lyrics) = handle.get_webview_window(LYRICS_OVERLAY) {
+                if let Err(error) = ensure_lyrics_on_screen(&lyrics) {
+                    eprintln!("调整桌面歌词显示范围失败: {error}");
+                }
+            }
+        }) {
+            eprintln!("调整桌面歌词 DPI 失败: {error}");
+        }
+    }
+    if matches!(
+        event,
+        tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_)
+    ) && window.is_visible().unwrap_or(false)
+    {
+        if let (Ok(mut prefs), Ok(pos), Ok(size)) = (
+            state.preferences.lock(),
+            window.outer_position(),
+            window.inner_size(),
+        ) {
+            if size.width >= LYRICS_MIN_WIDTH && size.height >= LYRICS_MIN_HEIGHT {
+                prefs.lyrics_overlay_bounds = Some((pos.x, pos.y, size.width, size.height));
+                if let Err(error) = state.save(&prefs) {
+                    eprintln!("保存桌面歌词窗口失败: {error}");
+                }
+            }
+        }
+    }
+}
+
 // Require the entire window to fit one monitor's work area; disconnected monitors
 // and changed DPI therefore fall back to the current primary work area.
 fn fits(bounds: (i32, i32, u32, u32), area: (i32, i32, u32, u32)) -> bool {
@@ -169,6 +398,10 @@ pub fn show(app: &tauri::AppHandle) {
     }
 }
 pub fn window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
+    if window.label() == LYRICS_OVERLAY {
+        lyrics_overlay_event(window, event);
+        return;
+    }
     if window.label() != "main" {
         return;
     }
@@ -196,7 +429,16 @@ pub fn window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
             // must never strand an invisible process.
             if window.hide().is_ok() {
                 api.prevent_close();
+                return;
             }
+        }
+        if !state.exiting.load(Ordering::SeqCst) {
+            // A hidden lyrics WebView keeps the event loop alive. Closing main
+            // must request application exit so the existing shutdown hook flushes
+            // the session and releases output before disposing all windows.
+            api.prevent_close();
+            window.app_handle().exit(0);
+            return;
         }
     }
     if matches!(
@@ -229,6 +471,7 @@ pub fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         .map_err(|_| "播放器控制器不可用")?
         .execute(Action::OutputDevice(preferences.output_device.clone()))?;
     app.manage(Desktop {
+        lyrics_operation: Mutex::new(()),
         preferences: Mutex::new(preferences.clone()),
         path,
         exiting: AtomicBool::new(false),
@@ -253,10 +496,19 @@ pub fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let toggle = MenuItem::with_id(app, "toggle", "播放", false, None::<&str>)?;
     let previous = MenuItem::with_id(app, "previous", "上一首", false, None::<&str>)?;
     let next = MenuItem::with_id(app, "next", "下一首", false, None::<&str>)?;
+    let unlock = MenuItem::with_id(
+        app,
+        "unlock-lyrics",
+        "解锁桌面歌词",
+        preferences.lyrics_overlay_locked,
+        None::<&str>,
+    )?;
     let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
     let menu = Menu::with_items(
         app,
-        &[&show_item, &status, &toggle, &previous, &next, &quit],
+        &[
+            &show_item, &status, &toggle, &previous, &next, &unlock, &quit,
+        ],
     )?;
     TrayIconBuilder::with_id("music-mine")
         .icon(tauri::image::Image::from_bytes(include_bytes!(
@@ -280,6 +532,15 @@ pub fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         .on_menu_event(|app, event| match event.id().as_ref() {
             "show" => show(app),
             "quit" => app.exit(0),
+            "unlock-lyrics" => {
+                let app = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(error) = desktop_lyrics_window(app.clone(), None, Some(false)).await
+                    {
+                        let _ = status_error(&app, &error);
+                    }
+                });
+            }
             id => {
                 let app = app.clone();
                 let id = id.to_string();
@@ -314,6 +575,7 @@ pub fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         toggle,
         previous,
         next,
+        unlock,
         last: Mutex::new(String::new()),
     });
     Ok(())
@@ -323,6 +585,7 @@ struct TrayItems {
     toggle: MenuItem<tauri::Wry>,
     previous: MenuItem<tauri::Wry>,
     next: MenuItem<tauri::Wry>,
+    unlock: MenuItem<tauri::Wry>,
     last: Mutex<String>,
 }
 fn status_error(app: &tauri::AppHandle, error: &str) -> tauri::Result<()> {
@@ -379,6 +642,9 @@ pub fn shutdown(app: &tauri::AppHandle) {
             eprintln!("释放音频输出失败: {e}");
         }
     };
+    if let Some(window) = app.get_webview_window(LYRICS_OVERLAY) {
+        let _ = window.close();
+    }
 }
 #[cfg(test)]
 mod tests {
@@ -389,6 +655,8 @@ mod tests {
         assert!(!p.close_to_tray);
         assert!(!p.queue_open);
         assert_eq!(p.output_device, None);
+        assert!(!p.lyrics_overlay_locked);
+        assert_eq!(p.lyrics_overlay_bounds, None);
     }
     #[test]
     fn existing_users_keep_the_dark_title_bar() {
@@ -409,6 +677,7 @@ mod tests {
             std::env::temp_dir().join(format!("music-mine-desktop-test-{}", std::process::id()));
         std::fs::create_dir_all(&directory).unwrap();
         let state = Desktop {
+            lyrics_operation: Mutex::new(()),
             preferences: Mutex::new(Preferences::default()),
             path: directory.join("desktop.json"),
             exiting: AtomicBool::new(false),
@@ -437,6 +706,7 @@ mod tests {
         std::fs::create_dir_all(&directory).unwrap();
         let mut controller = crate::playback::controller::Controller::new();
         let state = Desktop {
+            lyrics_operation: Mutex::new(()),
             preferences: Mutex::new(Preferences::default()),
             path: directory.join("desktop.json"),
             exiting: AtomicBool::new(false),
@@ -484,11 +754,56 @@ mod tests {
             output_device: Some("Headphones".into()),
             bounds: Some((-1200, 30, 1000, 700)),
             maximized: true,
+            lyrics_overlay_locked: true,
+            lyrics_overlay_bounds: Some((40, 80, 760, 136)),
         };
         let q: Preferences = serde_json::from_slice(&serde_json::to_vec(&p).unwrap()).unwrap();
         assert_eq!(p.bounds, q.bounds);
         assert_eq!(q.theme, "light");
         assert_eq!(q.output_device.as_deref(), Some("Headphones"));
         assert!(q.maximized && q.queue_open && q.close_to_tray);
+        assert!(q.lyrics_overlay_locked);
+        assert_eq!(q.lyrics_overlay_bounds, Some((40, 80, 760, 136)));
+    }
+    #[test]
+    fn old_desktop_files_default_the_lyrics_overlay() {
+        let old: Preferences = serde_json::from_str(
+            r#"{"close_to_tray":true,"queue_open":true,"bounds":[10,20,1280,800]}"#,
+        )
+        .unwrap();
+        assert!(old.close_to_tray && old.queue_open);
+        assert_eq!(old.bounds, Some((10, 20, 1280, 800)));
+        assert!(!old.lyrics_overlay_locked);
+        assert_eq!(old.lyrics_overlay_bounds, None);
+        let explicit: Preferences =
+            serde_json::from_str(r#"{"lyrics_overlay_locked":false,"lyrics_overlay_bounds":null}"#)
+                .unwrap();
+        assert!(!explicit.lyrics_overlay_locked);
+        assert_eq!(explicit.lyrics_overlay_bounds, None);
+        assert!(LYRICS_ENTRY.contains("?window=lyrics"));
+    }
+    #[test]
+    fn lyrics_overlay_bounds_must_fit_one_work_area() {
+        let desktop = (0, 0, 1920, 1080);
+        assert!(lyrics_overlay_fits((0, 0, 760, 136), desktop));
+        assert!(lyrics_overlay_fits(
+            (0, 0, LYRICS_MIN_WIDTH, LYRICS_MIN_HEIGHT),
+            desktop
+        ));
+        assert!(lyrics_overlay_fits((1560, 944, 360, 136), desktop));
+        assert!(!lyrics_overlay_fits(
+            (0, 0, LYRICS_MIN_WIDTH - 1, 136),
+            desktop
+        ));
+        assert!(!lyrics_overlay_fits(
+            (0, 0, 760, LYRICS_MIN_HEIGHT - 1),
+            desktop
+        ));
+        assert!(!lyrics_overlay_fits((1561, 944, 360, 136), desktop));
+        assert!(!lyrics_overlay_fits((1800, 0, 760, 136), desktop));
+        assert!(!lyrics_overlay_fits((0, 0, 20_000, 136), desktop));
+        let left = (-1920, 0, 1920, 1080);
+        assert!(lyrics_overlay_fits((-1800, 40, 760, 136), left));
+        assert!(!lyrics_overlay_fits((40, 40, 760, 136), left));
     }
 }

@@ -297,3 +297,210 @@
     </section>
   {/if}
 {/if}
+
+<style>
+  :global {
+    /* ============================================================ home */
+    .home-header {
+      padding: var(--space-4) 0 var(--space-2);
+    }
+
+    .home-section {
+      margin-top: var(--space-8);
+    }
+
+    .home-section:first-of-type {
+      margin-top: var(--space-5);
+    }
+
+    .section-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: var(--space-4);
+    }
+
+    .section-title {
+      font-family: var(--font-display);
+      font-size: var(--fs-section);
+      font-weight: var(--fw-semibold);
+    }
+
+    .home-section > .section-title {
+      margin-bottom: var(--space-4);
+    }
+
+    .continue {
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+      max-width: 720px;
+      padding: var(--space-3);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+    }
+
+    .continue-art {
+      position: relative;
+      flex-shrink: 0;
+      width: 72px;
+      height: 72px;
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .continue-info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .continue-info strong {
+      font-size: 15px;
+      font-weight: var(--fw-semibold);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .continue-info > span {
+      color: var(--text-2);
+      font-size: var(--fs-meta);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .continue-progress {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .continue-progress small {
+      color: var(--text-3);
+      font-size: var(--fs-small);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .meter {
+      flex: 1;
+      height: 4px;
+      border-radius: 2px;
+      background: rgb(var(--ink) / 0.14);
+      overflow: hidden;
+    }
+
+    .meter i {
+      display: block;
+      height: 100%;
+      background: var(--accent);
+      border-radius: inherit;
+    }
+
+    .artist-row,
+    .playlist-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: var(--space-2);
+    }
+
+    .artist-pill {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+      padding: 8px 12px 8px 8px;
+      border-radius: 999px;
+      background: var(--surface);
+      text-align: left;
+      transition: background-color var(--dur-fast);
+    }
+
+    .artist-pill:hover {
+      background: var(--surface-hover);
+    }
+
+    .artist-pill-text {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .artist-pill-text strong,
+    .playlist-tile-text strong {
+      font-size: var(--fs-body);
+      font-weight: var(--fw-semibold);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .artist-pill-text small,
+    .playlist-tile-text small {
+      color: var(--text-3);
+      font-size: var(--fs-small);
+    }
+
+    .playlist-tile {
+      position: relative;
+      display: flex;
+      align-items: center;
+      min-width: 0;
+      border-radius: var(--radius);
+      background: var(--surface);
+      transition: background-color var(--dur-fast);
+    }
+
+    .playlist-tile:hover {
+      background: var(--surface-hover);
+    }
+
+    .playlist-tile-main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px;
+      text-align: left;
+      border-radius: inherit;
+    }
+
+    .playlist-tile-art {
+      position: relative;
+      flex-shrink: 0;
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+
+    .playlist-tile-text {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .playlist-tile-play {
+      margin-right: 8px;
+      background: var(--accent);
+      color: var(--accent-ink) !important;
+      opacity: 0;
+    }
+
+    .playlist-tile:hover .playlist-tile-play,
+    .playlist-tile:focus-within .playlist-tile-play {
+      opacity: 1;
+    }
+
+    .playlist-tile-play:hover:not(:disabled) {
+      background: var(--accent-hover) !important;
+    }
+  }
+</style>

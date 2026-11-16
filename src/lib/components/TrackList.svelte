@@ -353,3 +353,235 @@
       >
     </p>{/if}
 </div>
+
+<style>
+  :global {
+    /* ============================================================ track table (virtualised) */
+    .track-table {
+      container-type: inline-size;
+      --cols: 44px minmax(0, 4fr) minmax(0, 2.4fr) minmax(0, 2.6fr) 56px 40px;
+    }
+
+    .track-head,
+    .track-row {
+      display: grid;
+      grid-template-columns: var(--cols);
+      align-items: center;
+      column-gap: var(--space-3);
+      padding: 0 var(--space-2);
+    }
+
+    /* Sticky offsets are measured inside the scroller's padding; cancel .main's top padding so rows cannot show above the header. */
+    .track-head {
+      position: sticky;
+      top: calc(var(--page-top) * -1);
+      z-index: var(--z-sticky);
+      height: 36px;
+      margin: 0 calc(var(--space-2) * -1) var(--space-1);
+      padding-inline: calc(var(--space-2) * 2);
+      background: var(--bg);
+      border-bottom: 1px solid var(--line);
+      color: var(--text-3);
+      font-size: var(--fs-small);
+    }
+
+    .track-head button {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      color: inherit;
+      border-radius: var(--radius-xs);
+      font-size: inherit;
+    }
+
+    .track-head button:hover,
+    .track-head button.sorted {
+      color: var(--text);
+    }
+
+    .track-head .col-index,
+    .track-row .col-index {
+      justify-self: center;
+    }
+
+    .track-head .col-duration,
+    .track-row .col-duration {
+      justify-self: end;
+    }
+
+    .track-body {
+      position: relative;
+      contain: strict;
+      width: 100%;
+    }
+
+    .track-window {
+      position: absolute;
+      inset: 0 0 auto;
+      will-change: transform;
+    }
+
+    .track-row {
+      height: var(--row-h);
+      border-radius: var(--radius-sm);
+      color: var(--text-2);
+      font-size: var(--fs-meta);
+      cursor: default;
+      user-select: none;
+      outline: none;
+    }
+
+    .track-row:hover {
+      background: var(--hover);
+    }
+
+    .track-row.selected {
+      background: var(--selected);
+    }
+
+    .track-row:focus-visible {
+      box-shadow: inset 0 0 0 2px var(--focus);
+    }
+
+    .track-row.current .row-title {
+      color: var(--accent);
+    }
+
+    .col-index {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 32px;
+      height: 32px;
+      color: var(--text-3);
+    }
+
+    .row-play {
+      position: absolute;
+      inset: 0;
+      display: none;
+      place-items: center;
+      border-radius: 50%;
+      color: var(--text);
+    }
+
+    .track-row:hover .row-play,
+    .track-row.selected .row-play {
+      display: grid;
+    }
+
+    .track-row:hover .row-number,
+    .track-row.selected .row-number,
+    .track-row:hover .eq,
+    .track-row.selected .eq {
+      visibility: hidden;
+    }
+
+    .col-title {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      min-width: 0;
+    }
+
+    .row-cover {
+      position: relative;
+      flex-shrink: 0;
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-xs);
+      overflow: hidden;
+      background: var(--surface-hover);
+    }
+
+    .row-title {
+      min-width: 0;
+      color: var(--text);
+      font-size: var(--fs-body);
+      font-weight: var(--fw-semibold);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .col-artist,
+    .col-album {
+      min-width: 0;
+    }
+
+    .row-text {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .col-duration {
+      color: var(--text-3);
+    }
+
+    .col-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 2px;
+    }
+
+    .row-action {
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      color: var(--text-3);
+      opacity: 0;
+      transition:
+        opacity var(--dur-fast),
+        color var(--dur-fast),
+        background-color var(--dur-fast);
+    }
+
+    .row-action:hover {
+      color: var(--text);
+      background: var(--surface-active);
+    }
+
+    .track-row:hover .row-action,
+    .track-row.selected .row-action,
+    .track-row:focus-within .row-action {
+      opacity: 1;
+    }
+
+    .track-row.loading .col-title .skeleton-text {
+      flex: 1;
+    }
+
+    .list-error {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 16px;
+      color: var(--danger);
+      font-size: var(--fs-meta);
+    }
+
+    @container (max-width:760px) {
+      .track-table {
+        --cols: 40px minmax(0, 3fr) minmax(0, 2fr) 52px 40px;
+      }
+
+      .col-album {
+        display: none;
+      }
+    }
+
+    @container (max-width:520px) {
+      .track-table {
+        --cols: 36px minmax(0, 1fr) 48px 40px;
+      }
+
+      .col-artist {
+        display: none;
+      }
+    }
+  }
+</style>

@@ -2,12 +2,13 @@
 
 ## 核验基线
 
-- 核验 Commit：HEAD `7a768e37ffd40c84deaed6a1d6a3f73dd81d1831`，分支 `main`；开工时工作区干净，本次改动未提交。
-- 工作区指纹：`fa8806f1694d6756aa432e1054e22e9eedbb67506f69b05ab5b7bd9571f83cac`，验收前后相同；命令为 `pwsh -File scripts/worktree-fingerprint.ps1 -Exclude docs/current-state.md,docs/architecture.md`。
-- 工作区内容：ContextMenu 已用 Bits UI DropdownMenu 替换手写键盘循环、坐标算法与全局监听；Modal 以 Bits UI Dialog 管理焦点和 Escape，保留原生 dialog 顶层及最小遮罩命中适配，Dialog 业务接口保持原样。tooltip 使用 Floating UI 定位；Slider 保留浏览器原生 range，没有自建拖动或键盘算法。旧菜单坐标工具与源码函数提取器已删除，覆盖移至真实浏览器测试。
-- CSS 责任：已完成本次指定的 Sidebar、TopBar、PlayerBar、Queue、NowPlaying、SettingsView、TrackDetails 七个区块搬迁。`src/app.css` 本次实际从 3147 行降到 1926 行（任务描述的旧基线为 3125 行）；共享 tokens、基础样式和跨组件响应式/减少动画规则继续留在全局。迁入组件的规则使用 `:global` 保持选择器权重与跨子组件语义，七个原始区块与迁入规则的选择器及声明逐块一致。
-- 自动测试：`pnpm format`、`pnpm format:check`、`pnpm check`、`pnpm test`、`pwsh -File scripts/check.ps1` 退出码均为 0。前端单测 71/71（旧菜单导航/坐标及 Modal 键盘单测迁至浏览器）；Rust fmt、clippy 均通过，Rust 单元测试 78 通过、1 ignored，音频/歌词集成测试 3/6 通过；设置 `MUSIC_MINE_NULL_OUTPUT=1`，不证明真实设备出声。既有 Cargo PDB 文件名冲突警告仍在。CSS 搬迁后 Svelte CSS 检查会对原有 `-webkit-line-clamp` 提示缺少标准 `line-clamp`（1 warning）；为保持原视觉声明，未添加新属性。CSS 源码测试扫描全部 CSS 与 Svelte style 块，主题调色板单独验证。
-- 浏览器验证：`pnpm test:ui` 16/16 通过，退出码 0；原有快照全部零像素差异，`tests/ui/snapshots/` 无改动。新增 4 项原语浏览器用例覆盖菜单循环/搜索/IME/焦点、点/矩形锚点与视口碰撞、动作失败、Modal 初始选区/焦点约束/拖出/忙碌保护、原生 range 键盘与 tooltip。覆盖深浅主题、1280×800、960×700、900×640。harness 不证明 Rust 播放。
+- 核验 Commit：HEAD `b048cecb669042c6b8e9e95b31d7ead444573071`，分支 `main`；开工时工作区干净，本次改动未提交。
+- 工作区指纹：`9fa7f88abf51132580fd9ad42e797af3d50714d751ee249c642bbc1a4f88bc38`，验收前后相同；命令为 `pwsh -File scripts/worktree-fingerprint.ps1 -Exclude docs/current-state.md,docs/architecture.md`。
+- 工作区内容：TrackList（包括 container 规则）、HomeView、EmptyState 的 CSS 已移入对应组件 `<style>` 的 `:global` 块，选择器与声明逐块对比保持一致；共享 `.eq` 动画原样留在全局。NowPlaying 的两行截断规则补充 `line-clamp: 2`，消除兼容性警告。
+- CSS 责任：`src/app.css` 从 1926 行降至 1455 行，P2 全局 CSS 责任已完成本轮十个指定组件范围；基础/共享样式、`.eq`、跨组件响应式和减少动画仍在全局。
+- 工具与音量：旧 `menu-position.ts`、`source-ast.mjs` 已不存在且无引用；`modal.ts` 仍被 Modal 和真实遮罩单测引用，保留原生 dialog 遮罩命中、拖出及嵌套浮层保护。`amplitude_gain` 与 `fill_output` 已按三次方曲线映射：20% → 0.008，50% → 0.125，100% → 1.0；本次不改 Rust、IPC 或会话数据。
+- 自动测试：`pnpm format`、`pnpm format:check`、`pnpm check`、`pnpm test`、`pwsh -File scripts/check.ps1` 退出码均为 0；Svelte 检查 0 error / 0 warning，前端 71/71，Rust fmt / clippy 通过，Rust 单元测试 78 通过、1 ignored，音频/歌词集成 3/6 通过。`amplitude_gain_maps_perceived_volume_and_clamps_bounds` 与 `volume_scales_the_actual_callback_samples` 均在完整 cargo test 中通过。测试设置 `MUSIC_MINE_NULL_OUTPUT=1`，不证明真实设备出声；既有 Cargo PDB 文件名冲突警告仍在。CSS 源码检查已扫描所有 CSS 与 Svelte style 块，无需改变断言范围。
+- 浏览器验证：`pnpm test:ui` 16/16 通过，退出码 0；既有快照全部零像素差异，`tests/ui/snapshots/` 无改动。覆盖深浅主题、首页、歌曲/虚拟列表与 sticky 表头、队列、弹窗、菜单、Select、减少动画及 1280×800 / 960×700 / 900×640 视口。harness 不证明 Rust 播放。
 - Windows Tauri 实机：NOT RUN。
 
 本次核验覆盖交互原语与指定组件 CSS 搬迁后的工作区检查，不代表逐行重审所有实现。
@@ -53,7 +54,7 @@ src-tauri/src/lib.rs               命令注册与应用状态
 | `src/lib/stores/player.svelte.ts` | `accept()` 丢掉更旧的 `revision`；`control()` 串行播放命令 |
 | `src/lib/services/music.ts` | 全部前端 IPC 类型和调用 |
 | `src/lib/utils/queue.ts` | `retainQueue`：曲目未变时保留原数组 |
-| `src/app.css` | 1926 行：基础/共享样式、响应式与减少动画规则；主题变量在 `src/lib/styles/tokens.css`。七个组件独有区块已移入对应 Svelte 的 style |
+| `src/app.css` | 1455 行：基础/共享样式、响应式与减少动画规则；主题变量在 `src/lib/styles/tokens.css`。十个指定组件独有区块已移入对应 Svelte 的 style |
 | `src-tauri/capabilities/default.json` | 只有 `core:default` 和 `core:window:allow-set-theme` |
 | `tests/harness/` | 浏览器内存曲库。它设置 `window.isTauri`，并让 `bridge_probe` 返回 `backend: 'rust'` |
 | `tests/ui/` | Playwright。视口 1280×800，`deviceScaleFactor: 1` |

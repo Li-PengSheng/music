@@ -106,3 +106,142 @@
     <span class="status-dot" aria-hidden="true"></span><span class="local-label">本地模式</span>
   </span>
 </header>
+
+<style>
+  :global {
+    /* ============================================================ topbar */
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: 0 var(--page-x) 0 calc(var(--page-x) - 8px);
+      min-width: 0;
+    }
+
+    .history-buttons {
+      display: flex;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+
+    .crumbs {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .crumb-parent {
+      color: var(--text-3);
+      font-size: var(--fs-meta);
+      white-space: nowrap;
+      border-radius: var(--radius-xs);
+    }
+
+    .crumb-parent:hover {
+      color: var(--text);
+    }
+
+    .crumb-sep {
+      color: var(--text-3);
+      font-size: var(--fs-meta);
+    }
+
+    .crumb-title {
+      font-size: 15px;
+      font-weight: var(--fw-semibold);
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .search {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: clamp(200px, 28vw, 340px);
+      height: 34px;
+      padding: 0 6px 0 12px;
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--text-3);
+      border: 1px solid var(--field-line);
+      transition:
+        background-color var(--dur-fast),
+        border-color var(--dur-fast);
+      flex-shrink: 1;
+      min-width: 150px;
+    }
+
+    .search:hover {
+      background: var(--surface-hover);
+    }
+
+    .search:focus-within {
+      background: var(--surface-hover);
+      border-color: var(--accent-line);
+      color: var(--text-2);
+    }
+
+    .search input {
+      flex: 1;
+      min-width: 0;
+      height: 100%;
+      background: none;
+      border: 0;
+      outline: none;
+      font-size: var(--fs-meta);
+      color: var(--text);
+    }
+
+    .search input::placeholder {
+      color: var(--text-3);
+    }
+
+    .search input::-webkit-search-cancel-button {
+      display: none;
+    }
+
+    .search kbd {
+      margin-right: 4px;
+    }
+
+    .search-clear {
+      display: grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      color: var(--text-2);
+    }
+
+    .search-clear:hover {
+      background: var(--surface-active);
+      color: var(--text);
+    }
+
+    .local-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+      color: var(--text-3);
+      font-size: var(--fs-small);
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    .local-status.offline .status-dot {
+      background: var(--text-3);
+      box-shadow: none;
+    }
+  }
+</style>

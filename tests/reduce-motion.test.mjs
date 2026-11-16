@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { sourceStyles } from './helpers/source-styles.mjs';
 
-const css = readFileSync('src/app.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+const css = sourceStyles();
 
 /** Rules whose selector list targets every element, including the reduce-motion variant. */
 function universalRules(source) {

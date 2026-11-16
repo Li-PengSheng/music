@@ -23,7 +23,7 @@
 
 ## 现有组件
 
-`Select.svelte` 已使用 Bits UI；`Modal.svelte`、`Dialog.svelte`、`ContextMenu.svelte`、`Slider.svelte` 仍为手写组件。播放栏、队列、歌词、专辑卡片和歌曲表保持业务组件。
+`Select.svelte`、`ContextMenu.svelte`、`Modal.svelte` 已使用 Bits UI；Dialog 保留业务表单包装，Slider 保留原生 range。tooltip 通过 Floating UI 定位，保持 action 接口。播放栏、队列、歌词、专辑卡片和歌曲表保持业务组件。
 
 歌曲表使用 `src/lib/utils/virtual-range.ts`。TanStack Virtual 没有接入。
 
@@ -54,3 +54,5 @@ Select 试点只通过包管理器安装，无样式初始化。保留现有 `[d
 | 设置、主题 | 深色、浅色、跟随系统，音量不被主题改掉 |
 
 窗口尺寸至少覆盖最小窗附近（900×640）和默认附近（1280×800 或 1280×850）。125%/150% DPI 属于 Windows 实机项，浏览器 1 倍缩放不能代替。
+
+本次七个指定组件的独有 CSS 已从 `app.css` 移入各自 `<style>` 的 `:global` 块，先保留等价选择器与权重。不要直接去掉 `:global`，否则会改变子组件样式和级联；共享响应式与减少动画规则仍在全局。

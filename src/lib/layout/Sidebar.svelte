@@ -166,3 +166,171 @@
     </button>
   </div>
 </aside>
+
+<style>
+  :global {
+    /* ============================================================ sidebar */
+    .sidebar {
+      grid-column: 1;
+      grid-row: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-sidebar);
+      padding: var(--space-3) var(--space-2) var(--space-2);
+      overflow: hidden;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      height: 40px;
+      padding: 0 10px;
+      margin-bottom: var(--space-3);
+      border-radius: var(--radius);
+      font-family: var(--font-display);
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+      flex-shrink: 0;
+    }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border-radius: var(--radius);
+      background: var(--accent);
+      color: var(--accent-ink);
+    }
+
+    .nav {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .nav-group {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+
+    .nav-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 30px;
+      margin-top: var(--space-4);
+      padding: 0 6px 0 12px;
+      color: var(--text-3);
+      font-size: var(--fs-small);
+      font-weight: var(--fw-semibold);
+      flex-shrink: 0;
+    }
+
+    .nav-heading.active-group {
+      color: var(--text-2);
+    }
+
+    .nav-item {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      height: 36px;
+      padding: 0 10px 0 12px;
+      border-radius: var(--radius);
+      color: var(--text-2);
+      font-size: var(--fs-body);
+      text-align: left;
+      transition:
+        background-color var(--dur-fast) var(--ease),
+        color var(--dur-fast) var(--ease);
+    }
+
+    .nav-item > svg {
+      flex-shrink: 0;
+    }
+
+    .nav-item:hover {
+      background: var(--hover);
+      color: var(--text);
+    }
+
+    .nav-item.active {
+      background: var(--selected);
+      color: var(--text);
+      font-weight: var(--fw-semibold);
+    }
+
+    .nav-item.active::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 10px;
+      bottom: 10px;
+      width: 3px;
+      border-radius: 0 3px 3px 0;
+      background: var(--accent);
+    }
+
+    .nav-item.active > svg {
+      color: var(--accent);
+    }
+
+    .nav-item-muted {
+      color: var(--text-3);
+    }
+
+    .nav-label {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .nav-tag {
+      flex-shrink: 0;
+      padding: 0 6px;
+      border-radius: 999px;
+      background: var(--surface-hover);
+      color: var(--text-3);
+      font-size: 11px;
+      line-height: 18px;
+    }
+
+    .nav-count {
+      flex-shrink: 0;
+      color: var(--text-3);
+      font-size: var(--fs-small);
+      font-weight: 400;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Only the playlist list scrolls; brand, library groups and settings stay put. */
+    .nav-playlists {
+      flex: 1 1 auto;
+      min-height: 72px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      margin-right: -4px;
+      padding-right: 4px;
+      padding-bottom: var(--space-2);
+      flex-shrink: 1;
+      mask-image: linear-gradient(to bottom, #000 calc(100% - 16px), transparent);
+    }
+
+    .sidebar-footer {
+      flex-shrink: 0;
+      padding-top: var(--space-2);
+      border-top: 1px solid var(--line);
+    }
+  }
+</style>

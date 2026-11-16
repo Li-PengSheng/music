@@ -1,3 +1,4 @@
+import { sourceStyles } from './helpers/source-styles.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -110,7 +111,7 @@ test('both themes share one set of tokens and components', () => {
     ['--accent', '#52705a'],
   ])
     assert.match(light, new RegExp(`${name}:\\s*${value};`, 'i'));
-  const css = read('src/app.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  const css = sourceStyles({ excludeTokens: true });
   const colours = [...css.matchAll(/#[0-9a-f]{3,8}\b|rgba?\((?!var\()[^)]*\)/gi)].map((m) =>
     m[0].replace(/\s+/g, ''),
   );

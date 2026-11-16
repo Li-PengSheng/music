@@ -174,3 +174,121 @@
     <p class="detail-feedback" role="status">{feedback}</p>
   </div>
 </Modal>
+
+<style>
+  :global {
+    /* ============================================================ song details dialog */
+    .details-body {
+      color: var(--text);
+    }
+
+    .details-hero {
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+    }
+
+    .details-cover {
+      position: relative;
+      flex-shrink: 0;
+      width: 96px;
+      height: 96px;
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .details-head {
+      min-width: 0;
+    }
+
+    .details-head h3 {
+      font-size: var(--fs-section);
+      font-weight: var(--fw-semibold);
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+
+    .details-head p {
+      margin-top: 2px;
+      color: var(--text-2);
+      font-size: var(--fs-meta);
+      overflow-wrap: anywhere;
+    }
+
+    .details-head p.muted {
+      color: var(--text-3);
+    }
+
+    .details-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: var(--space-4) 0 var(--space-2);
+    }
+
+    .details-section {
+      padding: var(--space-4) 0 0;
+      margin-top: var(--space-4);
+      border-top: 1px solid var(--line);
+    }
+
+    .details-section h4 {
+      margin-bottom: var(--space-3);
+      color: var(--text-2);
+      font-size: var(--fs-small);
+      font-weight: var(--fw-semibold);
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 96px minmax(0, 1fr);
+      gap: 8px 16px;
+      font-size: var(--fs-meta);
+      line-height: 1.5;
+    }
+
+    .info-grid dt {
+      color: var(--text-3);
+    }
+
+    .info-grid dd {
+      color: var(--text);
+      overflow-wrap: anywhere;
+    }
+
+    .details-section .field-label {
+      margin-top: var(--space-4);
+    }
+
+    .path-copy {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .path-copy .input {
+      flex: 1;
+      min-width: 0;
+      text-overflow: ellipsis;
+    }
+
+    .playlist-add {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .playlist-add .select-trigger {
+      flex: 1;
+      min-width: 180px;
+    }
+
+    .detail-feedback {
+      min-height: 20px;
+      margin-top: var(--space-3);
+      color: var(--accent);
+      font-size: var(--fs-meta);
+    }
+  }
+</style>

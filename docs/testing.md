@@ -46,7 +46,7 @@ Prettier `3.10.1` 与 `prettier-plugin-svelte` `4.1.1` 在 devDependencies。配
 
 Playwright 截图检查使用 `maxDiffPixels: 0`、`threshold: 0`，要求零像素差异。本次格式化验收禁止更新快照。
 
-`tests/helpers/source-ast.mjs` 的 `extractFunction` 按函数名切出 `ContextMenu` 的 `key`，去掉参数类型和 `as` 断言后再交给 `new Function`。切不到函数就抛错。播放栏的 `trackId` / `$effect`、删除歌单的 `catch` 与 `deletePlaylist`、本地歌单路由和 `<Modal` 标签使用 `\s*`，保留原来的运行时断言。
+菜单的旧 `key()` 源码提取器和坐标工具已删除，对应键盘、碰撞与焦点行为在 `tests/ui/primitives.spec.ts` 中通过真实组件验证。`tests/helpers/source-styles.mjs` 扫描 `src/` 的所有 CSS 和 Svelte `<style>`；颜色检查单独排除已由主题测试验证的 `tokens.css` 调色板，避免 CSS 搬迁漏检。播放栏效果和删除歌单等剩余源码检查仍允许空白与换行。
 
 ## 完成报告
 

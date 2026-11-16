@@ -8,7 +8,7 @@ export function outsideBox(box: Box, x: number, y: number) {
 }
 
 /**
- * Backdrop and Escape dismissal for one modal dialog.
+ * Native backdrop hit-testing; keyboard dismissal and focus are owned by Bits UI Dialog.
  * Dismisses only when both press and release land on the backdrop, so a text selection dragged out of an
  * input never closes the dialog, and a press that only light-dismisses an open popover is not counted.
  */
@@ -27,22 +27,6 @@ export function createDismissal(
       const hit = armed && onBackdrop(e);
       armed = false;
       if (hit && options.canDismiss()) options.dismiss();
-    },
-    /** Escape is handled here so the native close request (which Chromium may skip or force) never races app state. */
-    keydown(e: {
-      key: string;
-      isComposing?: boolean;
-      defaultPrevented?: boolean;
-      preventDefault(): void;
-    }) {
-      if (e.key !== 'Escape' || e.isComposing || e.defaultPrevented) return;
-      e.preventDefault();
-      if (options.canDismiss()) options.dismiss();
-    },
-    /** Any other native close request: keep the dialog open while busy, otherwise let state close it. */
-    cancel(e: { preventDefault(): void }) {
-      e.preventDefault();
-      if (options.canDismiss()) options.dismiss();
     },
   };
 }

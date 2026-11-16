@@ -1,7 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { allowsNativeMenu, isBrowserAccelerator } from '../src/lib/utils/native-menu.ts';
-import { placeAtPoint, placeAtAnchor } from '../src/lib/utils/menu-position.ts';
 import { playlistNameError, suggestPlaylistName } from '../src/lib/utils/playlist-name.ts';
 import { createHistory } from '../src/lib/utils/history.ts';
 import { visibleRange, pagesFor, scrollToRow } from '../src/lib/utils/virtual-range.ts';
@@ -36,38 +35,6 @@ test('native WebView menu only for text fields, or Shift+right click in developm
   );
   assert.equal(isBrowserAccelerator(k('l', { ctrlKey: true })), false);
   assert.equal(isBrowserAccelerator(k(' ')), false);
-});
-
-test('menus stay inside the window and flip near edges', () => {
-  assert.deepEqual(placeAtPoint(100, 100, 200, 180, 1280, 800), {
-    left: 100,
-    top: 100,
-    maxHeight: 784,
-  });
-  const corner = placeAtPoint(1270, 790, 200, 180, 1280, 800);
-  assert.equal(corner.left, 1070);
-  assert.equal(corner.top, 610);
-  const tall = placeAtPoint(10, 10, 200, 2000, 1280, 600);
-  assert.equal(tall.top, 8);
-  assert.equal(tall.maxHeight, 584);
-  const below = placeAtAnchor(
-    { left: 500, right: 532, top: 100, bottom: 132 },
-    200,
-    150,
-    1280,
-    800,
-  );
-  assert.deepEqual([below.left, below.top], [332, 136]);
-  const above = placeAtAnchor(
-    { left: 500, right: 532, top: 700, bottom: 732 },
-    200,
-    150,
-    1280,
-    800,
-  );
-  assert.equal(above.top, 546);
-  const edge = placeAtAnchor({ left: 0, right: 20, top: 100, bottom: 120 }, 200, 150, 1280, 800);
-  assert.equal(edge.left, 8);
 });
 
 test('playlist names: blank, too long and case-insensitive duplicates rejected', () => {

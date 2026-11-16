@@ -27,9 +27,6 @@
   loop
   allowDeselect={false}
   onValueChange={(next) => onchange?.(next)}
-  onOpenChange={(open) => {
-    if (open) document.dispatchEvent(new Event('music-menu-open'));
-  }}
 >
   <Select.Trigger
     class="select-trigger"

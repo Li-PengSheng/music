@@ -1,7 +1,10 @@
+import { autoUpdate, computePosition, flip, offset, shift } from '@floating-ui/dom';
+
 // One shared tooltip element in the top layer; shown on hover after a short delay and on keyboard focus.
 let tip: HTMLDivElement | null = null;
 let timer: ReturnType<typeof setTimeout> | undefined;
 let owner: HTMLElement | null = null;
+let stopPositioning: (() => void) | undefined;
 
 function element() {
   if (!tip) {
@@ -24,13 +27,18 @@ function show(node: HTMLElement, text: string) {
   } catch {
     /* already open */
   }
-  const r = node.getBoundingClientRect();
-  const w = el.offsetWidth,
-    h = el.offsetHeight;
-  const left = Math.max(6, Math.min(r.left + r.width / 2 - w / 2, window.innerWidth - w - 6));
-  const top = r.top - h - 8 >= 6 ? r.top - h - 8 : r.bottom + 8;
-  el.style.left = left + 'px';
-  el.style.top = top + 'px';
+  stopPositioning?.();
+  stopPositioning = autoUpdate(node, el, () => {
+    void computePosition(node, el, {
+      strategy: 'fixed',
+      placement: 'top',
+      middleware: [offset(8), flip({ padding: 6 }), shift({ padding: 6 })],
+    }).then(({ x, y }) => {
+      if (owner !== node) return;
+      el.style.left = x + 'px';
+      el.style.top = y + 'px';
+    });
+  });
   el.dataset.visible = 'true';
 }
 
@@ -38,6 +46,8 @@ function hide(node?: HTMLElement) {
   clearTimeout(timer);
   if (node && owner !== node) return;
   owner = null;
+  stopPositioning?.();
+  stopPositioning = undefined;
   if (tip) {
     tip.dataset.visible = 'false';
     try {

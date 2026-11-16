@@ -9,12 +9,13 @@
 
 ## 核验基线
 
-- 核验 Commit：HEAD `93000e39257d45d2c39aeee272021f14d9d02d07`，分支 `main`；本次 Select 试点尚未提交。保留原有未跟踪文件 `repomix-output.md`。
-- 工作区指纹：`1c6a7755e25fefa3ca3501c2b9e4c7a8531ea866c19292284f13e869e9099e94`，验收前后相同；命令为 `pwsh -File scripts/worktree-fingerprint.ps1 -Exclude docs/current-state.md`。
-- 工作区内容：已安装 `bits-ui 2.21.0` 并迁移 `Select.svelte`，Props 和调用点保持原样。保留 tokens、触发器与选项按钮样式；库负责浮层定位、键盘导航和关闭，原生 dialog 与 IME 做小范围兼容。没有运行样式初始化脚本，没有改 Rust 或数据库。
-- 自动测试：`pnpm format`、`pnpm test`、`pwsh -File scripts/check.ps1` 退出码均为 0。格式检查、类型检查（0 error / 0 warning）、74 项前端测试、Rust fmt / clippy 均通过；Rust 单元 78 通过、1 ignored，音频与歌词集成分别 3 / 6 通过，使用 `MUSIC_MINE_NULL_OUTPUT=1`。既有 Cargo PDB 文件名冲突警告仍在。旧 Select 源码抽取测试已迁移到浏览器行为测试，因此前端单测从 75 项变为 74 项，覆盖保留并扩展。
-- 浏览器验证：`pnpm test:ui` 12/12 通过、退出码 0；原有 8 项及其全部基准截图零像素差异，快照无修改；另增 4 项 Select 测试覆盖双向绑定、回调、空值、禁用、键盘/IME、深浅主题、900×640 视口边缘与长列表、原生 dialog 的 Escape 和遮罩关闭顺序。测试在沙箱外运行以正常清理服务器。harness 不证明 Rust 播放。Select 从 150 行缩减至 71 行。
-- Windows Tauri 实机：NOT RUN。完成 Windows 隔离窗口验收前不扩展到其他组件。
+- 核验 Commit：HEAD `7a768e37ffd40c84deaed6a1d6a3f73dd81d1831`，分支 `main`；开工时工作区干净，本次改动未提交。
+- 工作区指纹：`fa8806f1694d6756aa432e1054e22e9eedbb67506f69b05ab5b7bd9571f83cac`，验收前后相同；命令为 `pwsh -File scripts/worktree-fingerprint.ps1 -Exclude docs/current-state.md,docs/architecture.md`。
+- 工作区内容：ContextMenu 已用 Bits UI DropdownMenu 替换手写键盘循环、坐标算法与全局监听；Modal 以 Bits UI Dialog 管理焦点和 Escape，保留原生 dialog 顶层及最小遮罩命中适配，Dialog 业务接口保持原样。tooltip 使用 Floating UI 定位；Slider 保留浏览器原生 range，没有自建拖动或键盘算法。旧菜单坐标工具与源码函数提取器已删除，覆盖移至真实浏览器测试。
+- CSS 责任：已完成本次指定的 Sidebar、TopBar、PlayerBar、Queue、NowPlaying、SettingsView、TrackDetails 七个区块搬迁。`src/app.css` 本次实际从 3147 行降到 1926 行（任务描述的旧基线为 3125 行）；共享 tokens、基础样式和跨组件响应式/减少动画规则继续留在全局。迁入组件的规则使用 `:global` 保持选择器权重与跨子组件语义，七个原始区块与迁入规则的选择器及声明逐块一致。
+- 自动测试：`pnpm format`、`pnpm format:check`、`pnpm check`、`pnpm test`、`pwsh -File scripts/check.ps1` 退出码均为 0。前端单测 71/71（旧菜单导航/坐标及 Modal 键盘单测迁至浏览器）；Rust fmt、clippy 均通过，Rust 单元测试 78 通过、1 ignored，音频/歌词集成测试 3/6 通过；设置 `MUSIC_MINE_NULL_OUTPUT=1`，不证明真实设备出声。既有 Cargo PDB 文件名冲突警告仍在。CSS 搬迁后 Svelte CSS 检查会对原有 `-webkit-line-clamp` 提示缺少标准 `line-clamp`（1 warning）；为保持原视觉声明，未添加新属性。CSS 源码测试扫描全部 CSS 与 Svelte style 块，主题调色板单独验证。
+- 浏览器验证：`pnpm test:ui` 16/16 通过，退出码 0；原有快照全部零像素差异，`tests/ui/snapshots/` 无改动。新增 4 项原语浏览器用例覆盖菜单循环/搜索/IME/焦点、点/矩形锚点与视口碰撞、动作失败、Modal 初始选区/焦点约束/拖出/忙碌保护、原生 range 键盘与 tooltip。覆盖深浅主题、1280×800、960×700、900×640。harness 不证明 Rust 播放。
+- Windows Tauri 实机：NOT RUN。
 
 历史任务 09.5.3、09.5.5 的指纹仍为“未记录，无法重建”；本次结果不回填历史验收。
 
@@ -58,13 +59,13 @@ NOT RUN 放在这里。它不是已知缺陷，也不表示可以放行。
 | 源码可见 | Svelte 5、TypeScript、Vite、Tailwind v4、Tauri v2、Rust |
 | 源码可见 | 产品版本 `0.1.0`。`docs/tasks/done/` 里的 V0.9.x 是任务编号，不是安装包版本 |
 | 源码可见 | IPC 在 `src/lib/services/music.ts`。播放快照有 `revision` |
-| 源码可见 | `src/app.css` 3147 行。Select 已使用 Bits UI，其余通用组件仍为手写 |
+| 源码可见 | `src/app.css` 1926 行。Select / ContextMenu / Modal 使用 Bits UI，Slider 使用原生 range |
 | 源码可见 | `package.json` 有 `@playwright/test` 和 `bits-ui`。没有 shadcn-svelte、Vitest、WebdriverIO、tauri-specta、TanStack Virtual |
 | 源码可见 | Symphonia feature 为 mp3、flac、wav、pcm |
 | 源码可见 | 数据库演进是 `db.rs` 的建表和 `ensure_column` |
 | 源码可见 | 队列用 `retainQueue`。宽屏队列覆盖页面 |
 
-`src/app.css` 的行数已在本次全量格式化后重数。
+`src/app.css` 的行数已在本次组件 CSS 搬迁后重数。
 
 ## 已记录的验证
 
@@ -95,7 +96,7 @@ NOT RUN 放在这里。它不是已知缺陷，也不表示可以放行。
 |---|---|---|
 | P1 | 实机播放与扫描 | 隔离目录里播放一条 fixture 或扫描一个临时文件夹，并记录 IPC 结果 |
 | P1 | 实机窗口外观 | DPI 125% 或 150%，以及托盘行为有记录 |
-| P2 | 全局 CSS 责任 | 只在改到的区域把独有规则移出 `app.css`，并有浏览器对比 |
-| P2 | Select 组件库试点 | `bits-ui 2.21.0` 已安装，Select 已迁移。Windows 隔离窗口验收 NOT RUN，通过后再决定下一组件 |
+| P2 | 全局 CSS 责任 | 本次指定七组件区块已搬迁，规则逐块对比一致；其余共享样式仍由全局管理 |
+| P2 | Select 组件库试点 | Select、ContextMenu 和 Modal 已接入 `bits-ui 2.21.0`；本次范围已完成，Windows 隔离窗口验收仍为 NOT RUN |
 
-表中事项仍未完成。Rust 自动检查记录已从本表移出，结果在核验基线。
+P2 全局 CSS 责任已完成本次指定范围；实机相关缺口仍未完成。自动检查结果在核验基线。

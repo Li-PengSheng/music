@@ -18,6 +18,7 @@
     "portable": "tauri build --no-bundle --config src-tauri/tauri.portable.conf.json"
   },
   "dependencies": {
+    "@floating-ui/dom": "^1.8.0",
     "@tauri-apps/api": "^2.0.0",
     "bits-ui": "^2.21.0",
     "lucide-svelte": "^0.468.0"

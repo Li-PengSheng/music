@@ -49,46 +49,6 @@ test('modal: drag out of an input or a light-dismissed popover does not close', 
   assert.equal(right.closed(), 0, 'secondary button');
 });
 
-test('modal: Escape closes once; IME composition and busy dialogs stay open', () => {
-  const h = harness();
-  const key = (extra = {}) => ({
-    key: 'Escape',
-    isComposing: false,
-    defaultPrevented: false,
-    prevented: false,
-    preventDefault() {
-      this.prevented = true;
-    },
-    ...extra,
-  });
-  const ime = key({ isComposing: true });
-  h.d.keydown(ime);
-  assert.equal(h.closed(), 0);
-  assert.equal(ime.prevented, false);
-  const handled = key({ defaultPrevented: true });
-  h.d.keydown(handled);
-  assert.equal(h.closed(), 0, 'a popover inside already handled it');
-  const esc = key();
-  h.d.keydown(esc);
-  assert.equal(h.closed(), 1);
-  assert.equal(esc.prevented, true, 'native cancel suppressed: no double close');
-  h.d.keydown({ key: 'Enter', preventDefault() {} });
-  assert.equal(h.closed(), 1);
-  const busy = harness({ dismissible: false });
-  const cancel = {
-    prevented: false,
-    preventDefault() {
-      this.prevented = true;
-    },
-  };
-  busy.d.cancel(cancel);
-  busy.d.keydown(key());
-  busy.d.pointerdown(busy.at(busy.node, 1, 1));
-  busy.d.click(busy.at(busy.node, 1, 1));
-  assert.equal(busy.closed(), 0);
-  assert.equal(cancel.prevented, true);
-});
-
 test('modal component: dialogs share Modal and it restores focus', () => {
   const modal = readFileSync('src/lib/components/Modal.svelte', 'utf8');
   assert.match(modal, /showModal\(\)/);

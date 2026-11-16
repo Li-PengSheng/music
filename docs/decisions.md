@@ -31,7 +31,7 @@
 - 状态：已安装 `bits-ui 2.21.0`（Svelte 5），`Select.svelte` 试点已迁移；shadcn-svelte 未安装。
 - 决定：将来的通用交互优先 shadcn-svelte；焦点、键盘和浮层原语用 Bits UI。外观仍用本项目 tokens。播放器业务组件保持自定义。
 - 约束：没有单独的迁移任务时，继续用手写组件。初始化命令不得覆盖 `src/app.css`。
-- 试点顺序：只先做 `src/lib/components/Select.svelte`。浏览器和 Windows 窗口都通过后再决定下一项。
+- 试点进展：Select 已迁移；本次明确授权继续迁移 ContextMenu 和 Modal。它们使用 Bits UI，Modal 保留原生 dialog 顶层以保持外观；Slider 采用浏览器原生 range，tooltip 复用 Floating UI。Windows 隔离实机验收仍为 NOT RUN，不能用浏览器结果替代。
 - 试点实现：使用 Bits UI Select 的 Root、Trigger、Portal、Content、Item，保留原 Props、样式类、选项按钮与 tokens。定位和键盘导航由库处理；触发器采用库的 `combobox` / `aria-activedescendant` 语义，测试按真实 DOM 行为验证。仅保留 IME 保护及原生 dialog / 外部菜单的兼容接线；不运行样式初始化 CLI。
 
 ## ADR-006 — 一份根约定，按模块展开

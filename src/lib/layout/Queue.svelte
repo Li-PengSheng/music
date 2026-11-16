@@ -246,3 +246,273 @@
   </div>
   <p class="sr-only" aria-live="polite">{announce}</p>
 </aside>
+
+<style>
+  :global {
+    /* ============================================================ queue */
+    /* The queue is an app-level overlay drawer between the top bar and the player bar; pages keep their width.
+   Only transform and opacity animate. Closing delays visibility:hidden until the exit transition ends,
+   and an interrupted toggle simply reverses from the current position. */
+    .queue {
+      position: fixed;
+      top: var(--topbar-h);
+      right: 0;
+      bottom: var(--player-h);
+      z-index: var(--z-queue);
+      width: var(--queue-w);
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-drawer);
+      border-left: 1px solid var(--line);
+      box-shadow: var(--shadow-drawer);
+      transform: translateX(var(--drawer-shift));
+      opacity: 0;
+      visibility: hidden;
+      transition:
+        transform var(--dur-drawer-out) var(--ease-exit),
+        opacity var(--dur-drawer-out) var(--ease-exit),
+        visibility 0s linear var(--dur-drawer-out);
+    }
+
+    .app.queue-open .queue {
+      transform: none;
+      opacity: 1;
+      visibility: visible;
+      transition:
+        transform var(--dur-drawer-in) var(--ease-enter),
+        opacity var(--dur-drawer-in) var(--ease-enter),
+        visibility 0s;
+    }
+
+    @starting-style {
+      .app.queue-open .queue {
+        transform: translateX(var(--drawer-shift));
+        opacity: 0;
+      }
+    }
+
+    .app.immersive-open .queue {
+      top: 0;
+    }
+
+    /* The drawer covers Now Playing instead of narrowing it, so lyrics never re-wrap and the cover keeps its size.
+   A light scrim marks the drawer as the active layer wherever it covers content: Now Playing at any width
+   and every page on narrow windows. Wide library pages stay usable beside it. */
+    .queue-scrim {
+      position: fixed;
+      top: var(--topbar-h);
+      left: var(--sidebar-w);
+      right: 0;
+      bottom: var(--player-h);
+      z-index: var(--z-queue-scrim);
+      background: var(--scrim-soft);
+      cursor: default;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--dur-drawer-out) var(--ease-exit);
+    }
+
+    .app.queue-open .queue-scrim {
+      opacity: 1;
+      pointer-events: auto;
+      transition: opacity var(--dur-drawer-in) var(--ease-enter);
+    }
+
+    .app.immersive-open .queue-scrim {
+      top: 0;
+      left: 0;
+    }
+
+    @media (min-width: 1200px) {
+      .app:not(.immersive-open) .queue-scrim {
+        display: none;
+      }
+    }
+
+    .queue-header {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      height: 64px;
+      padding: 0 var(--space-2) 0 var(--space-4);
+      flex-shrink: 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .queue-heading {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .queue-heading h2 {
+      font-size: 15px;
+      font-weight: var(--fw-semibold);
+    }
+
+    .queue-heading p {
+      color: var(--text-3);
+      font-size: var(--fs-small);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .queue-list {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      overscroll-behavior: contain;
+      padding: var(--space-2);
+    }
+
+    .queue-list.dragging {
+      cursor: grabbing;
+      user-select: none;
+    }
+
+    /* Off-screen rows skip style, layout and paint, so toggling the drawer restyles only the visible rows
+   (inherited visibility/inert changes otherwise recompute every element of a long queue). */
+    .queue-item {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      height: 56px;
+      padding-right: 4px;
+      border-radius: var(--radius-sm);
+      transition: background-color var(--dur-fast);
+      content-visibility: auto;
+      contain-intrinsic-size: auto 56px;
+    }
+
+    .queue-list:not(.dragging) .queue-item {
+      transition:
+        background-color var(--dur-fast),
+        transform var(--dur) var(--ease);
+    }
+
+    .queue-item:hover {
+      background: var(--hover);
+    }
+
+    .queue-item.current {
+      background: var(--selected);
+    }
+
+    .queue-item.current .queue-text strong {
+      color: var(--accent);
+    }
+
+    .queue-item.played {
+      opacity: 0.55;
+    }
+
+    .queue-item.played:hover {
+      opacity: 1;
+    }
+
+    .queue-item.lifted {
+      z-index: 3;
+      background: var(--surface-active);
+      box-shadow: var(--shadow-card);
+      opacity: 1;
+      transition: none;
+    }
+
+    .queue-handle {
+      display: grid;
+      place-items: center;
+      width: 24px;
+      height: 40px;
+      flex-shrink: 0;
+      border-radius: var(--radius-xs);
+      color: var(--text-3);
+      cursor: grab;
+      opacity: 0;
+      touch-action: none;
+    }
+
+    .queue-item:hover .queue-handle,
+    .queue-handle:focus-visible,
+    .queue-item.lifted .queue-handle {
+      opacity: 1;
+    }
+
+    .queue-handle:hover {
+      color: var(--text);
+    }
+
+    .queue-main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      height: 100%;
+      text-align: left;
+      border-radius: var(--radius-sm);
+    }
+
+    .queue-cover {
+      position: relative;
+      flex-shrink: 0;
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-xs);
+      overflow: hidden;
+    }
+
+    .queue-cover .eq {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      justify-content: center;
+      align-items: center;
+      height: auto;
+      padding: 12px 0;
+      background: rgba(0, 0, 0, 0.5);
+    }
+
+    .queue-cover .eq i {
+      height: 14px;
+    }
+
+    .queue-text {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .queue-text strong {
+      font-size: var(--fs-meta);
+      font-weight: var(--fw-semibold);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .queue-text small {
+      color: var(--text-3);
+      font-size: var(--fs-small);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .queue-duration {
+      flex-shrink: 0;
+      color: var(--text-3);
+      font-size: var(--fs-small);
+    }
+
+    .queue-item .queue-more {
+      opacity: 0;
+    }
+
+    .queue-item:hover .queue-more,
+    .queue-item:focus-within .queue-more {
+      opacity: 1;
+    }
+  }
+</style>

@@ -206,3 +206,151 @@
     </div>
   </section>
 </div>
+
+<style>
+  :global {
+    /* ============================================================ settings */
+    .settings {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
+      max-width: 760px;
+    }
+
+    .settings-card {
+      padding: var(--space-5);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+    }
+
+    .settings-card h3 {
+      margin-bottom: var(--space-3);
+      font-size: 15px;
+      font-weight: var(--fw-semibold);
+    }
+
+    .settings-note {
+      color: var(--text-2);
+      font-size: var(--fs-meta);
+      line-height: 1.6;
+    }
+
+    .settings-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: var(--space-4);
+    }
+
+    .folder-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: var(--space-3);
+    }
+
+    .folder-list li {
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+      color: var(--text-2);
+    }
+
+    .scan-status {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: var(--space-4);
+      padding: var(--space-3);
+      border-radius: var(--radius);
+      background: var(--bg);
+      font-size: var(--fs-meta);
+    }
+
+    .scan-line {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .scan-line span {
+      color: var(--text-2);
+    }
+
+    .scan-status small {
+      color: var(--text-3);
+    }
+
+    .scan-status details {
+      color: var(--danger);
+    }
+
+    .settings-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .settings-list > div,
+    .settings-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-4);
+    }
+
+    .settings-list dt {
+      color: var(--text-2);
+      font-size: var(--fs-meta);
+    }
+
+    .settings-list dd {
+      color: var(--text);
+      font-size: var(--fs-meta);
+      text-align: right;
+      overflow-wrap: anywhere;
+    }
+
+    .settings-row {
+      padding: var(--space-3) 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .settings-row:first-of-type {
+      border-top: 0;
+      padding-top: 0;
+    }
+
+    .settings-row strong {
+      font-size: var(--fs-body);
+      font-weight: var(--fw-semibold);
+    }
+
+    .settings-row p {
+      margin-top: 2px;
+      color: var(--text-3);
+      font-size: var(--fs-small);
+      line-height: 1.5;
+    }
+
+    .shortcut-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 6px 24px;
+      margin-bottom: var(--space-3);
+    }
+
+    .shortcut-list > div {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .shortcut-list dd {
+      color: var(--text-2);
+      font-size: var(--fs-meta);
+    }
+  }
+</style>

@@ -262,3 +262,245 @@
       </div>{/if}
   </div>
 </section>
+
+<style>
+  :global {
+    /* ============================================================ now playing */
+    .immersive-layer {
+      position: fixed;
+      inset: 0 0 var(--player-h) 0;
+      z-index: var(--z-immersive);
+    }
+
+    .immersive {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--bg);
+    }
+
+    .immersive::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: radial-gradient(ellipse 70% 80% at 22% 40%, var(--glow), transparent 70%);
+    }
+
+    .immersive.has-ambient::before {
+      background:
+        radial-gradient(
+          ellipse 75% 85% at 22% 40%,
+          rgb(var(--ambient) / var(--ambient-a)),
+          transparent 72%
+        ),
+        radial-gradient(
+          ellipse 60% 70% at 85% 80%,
+          rgb(var(--ambient) / var(--ambient-b)),
+          transparent 70%
+        );
+    }
+
+    .immersive > * {
+      position: relative;
+    }
+
+    .immersive-header {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      height: 56px;
+      padding: 0 var(--page-x) 0 calc(var(--page-x) - 8px);
+      flex-shrink: 0;
+    }
+
+    .immersive-caption {
+      flex: 1;
+      color: var(--text-2);
+      font-size: var(--fs-small);
+      font-weight: var(--fw-semibold);
+    }
+
+    .immersive-content {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+      gap: clamp(24px, 5vw, 80px);
+      width: 100%;
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: var(--space-4) clamp(20px, 4vw, 64px) var(--space-6);
+      align-items: center;
+    }
+
+    .cover-only,
+    .lyrics-only {
+      grid-template-columns: minmax(0, 1fr);
+      max-width: 760px;
+    }
+
+    .artwork-panel {
+      min-width: 0;
+      max-height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    .large-artwork {
+      position: relative;
+      width: min(100%, 42vh, 440px);
+      aspect-ratio: 1;
+      border-radius: var(--radius-xl);
+      overflow: hidden;
+      box-shadow: var(--shadow-art);
+    }
+
+    .artwork-panel h1 {
+      margin-top: var(--space-6);
+      max-width: 100%;
+      font-family: var(--font-display);
+      font-size: clamp(20px, 2vw, 28px);
+      font-weight: 700;
+      line-height: 1.3;
+      overflow-wrap: anywhere;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .artwork-panel p {
+      margin-top: 6px;
+      color: var(--text-2);
+      font-size: 15px;
+    }
+
+    .artwork-panel small {
+      margin-top: 2px;
+      max-width: 100%;
+      color: var(--text-3);
+      font-size: var(--fs-meta);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .lyrics-panel {
+      height: 100%;
+      min-height: 0;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .lyric-tools {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+      padding-bottom: var(--space-3);
+      color: var(--text-3);
+      font-size: var(--fs-small);
+      flex-shrink: 0;
+    }
+
+    .lyric-source {
+      max-width: 40%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .lyric-field {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .lyric-field output {
+      min-width: 20px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .lyric-lines {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+      overflow-x: hidden;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      padding: 38% 12px 60%;
+      scrollbar-gutter: stable;
+      overflow-anchor: none;
+      mask-image: linear-gradient(to bottom, transparent, #000 12%, #000 82%, transparent);
+      outline: none;
+    }
+
+    .lyric-lines:focus-visible {
+      box-shadow: inset 0 0 0 2px var(--focus);
+      border-radius: var(--radius);
+    }
+
+    .lyric-lines > button {
+      display: block;
+      width: 100%;
+      max-width: 36rem;
+      margin-inline: auto;
+      padding: 10px 8px;
+      border-radius: var(--radius);
+      text-align: start;
+      font-family: var(--font-display);
+      font-size: clamp(16px, calc(var(--lyric-size) * 0.7 + 0.5vw), 32px);
+      font-weight: 600;
+      line-height: 1.5;
+      color: rgb(var(--ink) / var(--lyric-dim));
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      transition: color var(--dur) var(--ease);
+    }
+
+    .lyric-lines > button:not(:disabled):hover {
+      color: rgb(var(--ink) / 0.7);
+      background: rgb(var(--ink) / 0.04);
+    }
+
+    .lyric-lines > button.past-line {
+      color: rgb(var(--ink) / var(--lyric-past));
+    }
+
+    .lyric-lines > button.current-line {
+      color: var(--text);
+    }
+
+    .lyric-lines > button:disabled {
+      cursor: default;
+    }
+
+    .lyric-lines > button > span {
+      display: block;
+    }
+
+    .lyric-lines > button .lyric-secondary {
+      font-size: 0.74em;
+      font-weight: 400;
+      margin-top: 0.2em;
+    }
+
+    .lyric-lines.empty-lyrics {
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      mask-image: none;
+    }
+
+    .lyric-empty {
+      color: var(--text-3);
+    }
+  }
+</style>

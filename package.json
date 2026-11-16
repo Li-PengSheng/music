@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "check": "svelte-check --tsconfig ./tsconfig.json",
+    "format": "prettier --write src/ public/ tests/",
+    "format:check": "prettier --check src/ public/ tests/",
     "check:all": "pwsh -File scripts/check.ps1",
     "tauri": "tauri",
     "test": "node --experimental-strip-types --test tests/*.test.mjs",

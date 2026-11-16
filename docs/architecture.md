@@ -2,14 +2,14 @@
 
 ## 核验基线
 
-- 核验 Commit：HEAD `ed191d48c7af4c9bf66c4f8accee308897860af6`。一阶段目录分层已在该提交。二阶段改动仍在工作区，尚未提交。
-- 工作区指纹：`c6c401ff55e8cfe6656d000ce6f96cf7ce0291c972b4158320524aa8a01c8b0c`。命令是 `pwsh -File scripts/worktree-fingerprint.ps1 -Exclude docs/current-state.md,docs/architecture.md`。取指纹前已删除根目录 `repomix-output.xml`，并把 `docs/STAGE2-PLAN.md` 移到 `docs/history/STAGE2-PLAN.md`。这是写入本页与 `docs/current-state.md` 本次基线之前的工作区。脚本的 Exclude 只跳过未跟踪路径；这两份文档当时已是受跟踪修改，它们的 diff 仍计入该指纹。写入后的指纹不同。
-- 工作区内容：一阶段已提交的 Rust 与前端目录分层。二阶段每个 `Catalog` 实例只 `init` 一次，热路径走 `open_light`；`catalog/mod.rs` 的模块级 `dead_code` 豁免已去掉；`Action::Open` 复用 `prepare` 之后那一次 `synchronize` 的状态，`Start` 仍是两次 `execute`；`audio/player.rs` 的互斥锁毒化改为 `into_inner`；前端 17 个白名单文件已用 Prettier 展开。施工图在 `docs/history/STAGE2-PLAN.md`。
-- 自动测试：`pnpm test` 75/75；`pnpm check` 0 error、0 warning；`cargo fmt --all -- --check` PASS；`cargo clippy --all-targets -- -D warnings` PASS；`cargo test` 77 通过、1 ignored（`cover_corpus`），`tests/audio.rs` 3 通过，`tests/lyrics.rs` 6 通过。`pwsh -File scripts/check.ps1` 退出码 0。`pnpm build` 通过。Rust 测试设置 `MUSIC_MINE_NULL_OUTPUT=1`，不证明真实设备出声。Cargo 的 bin/lib PDB 文件名冲突警告仍在，未导致失败。
-- 浏览器验证：`pnpm test:ui` 8/8 通过，未更新 `tests/ui/snapshots/`。这是 harness，不是 Rust 播放。
+- 核验 Commit：HEAD `1fc87a8f62ea3ef6da310ca184e0365ec30e0025`，分支 `main`。本次改动尚未提交，保留原有未跟踪文件 `.repomixignore`。
+- 工作区指纹：`e6b043149ad40c995f0b4f1ffc4d3fae682da8b77c800e09f4ced6867a23b448`。验收前后指纹一致。命令是 `pwsh -File scripts/worktree-fingerprint.ps1 -Exclude docs/current-state.md,docs/architecture.md`。脚本已修正为同时排除受跟踪与未跟踪路径，并支持逗号分隔的排除列表。
+- 工作区内容：全仓 Prettier 100% 统一格式化完成。`src/`、`public/`、`tests/` 全量纳入 `pnpm format` 和 `pnpm format:check`，没有源码白名单或豁免；源码测试兼容格式化，保留原有功能断言；`scripts/check.ps1` 与 GitHub Actions CI 包含格式门禁。根目录没有 `repomix-output*` 临时打包文件。
+- 自动测试：`pnpm format:check` PASS；`pnpm check` 0 error、0 warning；`pnpm test` 75/75；`pnpm build` PASS；`pwsh -File scripts/check.ps1` PASS（含格式门禁、类型、测试、Rust fmt、clippy、cargo test），以上命令退出码均为 0。Rust 单元测试 77 通过、1 ignored（`cover_corpus`），音频集成测试 3 通过，歌词集成测试 6 通过。Rust 测试设置 `MUSIC_MINE_NULL_OUTPUT=1`，不证明真实设备出声。Cargo 的 bin/lib PDB 文件名冲突警告仍在，未导致失败。
+- 浏览器验证：`pnpm test:ui` 8/8 PASS，退出码 0。截图使用 `maxDiffPixels: 0`、`threshold: 0`，零像素差异；`tests/ui/snapshots/` 无修改。覆盖 1280×800、960×700，深浅主题、导航、播放栏、队列、弹窗、菜单、减少动画。沙箱中服务器清理阻塞，结束已确认属于本次测试的 Vite 进程树后正常退出。harness 不证明 Rust 播放。
 - Windows Tauri 实机：NOT RUN。
 
-本次核验覆盖目录分层之后的工作区检查，不代表逐行重审所有实现。`src/app.css` 的行数仍是 `da5fe14` 的历史记录。
+本次核验覆盖全量格式化后的工作区检查，不代表逐行重审所有实现。
 
 ## 数据流
 
@@ -52,7 +52,7 @@ src-tauri/src/lib.rs               命令注册与应用状态
 | `src/lib/stores/player.svelte.ts` | `accept()` 丢掉更旧的 `revision`；`control()` 串行播放命令 |
 | `src/lib/services/music.ts` | 全部前端 IPC 类型和调用 |
 | `src/lib/utils/queue.ts` | `retainQueue`：曲目未变时保留原数组 |
-| `src/app.css` | 全局样式。`da5fe14` 时 3072 行。主题变量在 `src/lib/styles/tokens.css` |
+| `src/app.css` | 全局样式。主题变量在 `src/lib/styles/tokens.css` |
 | `src-tauri/capabilities/default.json` | 只有 `core:default` 和 `core:window:allow-set-theme` |
 | `tests/harness/` | 浏览器内存曲库。它设置 `window.isTauri`，并让 `bridge_probe` 返回 `backend: 'rust'` |
 | `tests/ui/` | Playwright。视口 1280×800，`deviceScaleFactor: 1` |

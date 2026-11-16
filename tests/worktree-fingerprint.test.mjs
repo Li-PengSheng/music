@@ -1,20 +1,28 @@
-import {spawnSync} from 'node:child_process';
-import {mkdtempSync, writeFileSync, rmSync} from 'node:fs';
-import {tmpdir} from 'node:os';
-import {join, dirname} from 'node:path';
-import {fileURLToPath} from 'node:url';
-import {test} from 'node:test';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-const script = join(dirname(dirname(fileURLToPath(import.meta.url))), 'scripts', 'worktree-fingerprint.ps1');
+const script = join(
+  dirname(dirname(fileURLToPath(import.meta.url))),
+  'scripts',
+  'worktree-fingerprint.ps1',
+);
 
 function git(repo, args) {
-  const result = spawnSync('git', args, {cwd: repo, encoding: 'utf8'});
+  const result = spawnSync('git', args, { cwd: repo, encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr || result.stdout);
 }
 
 function fingerprint(repo, extra = []) {
-  const result = spawnSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script, '-Repo', repo, ...extra], {encoding: 'utf8'});
+  const result = spawnSync(
+    'powershell.exe',
+    ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script, '-Repo', repo, ...extra],
+    { encoding: 'utf8' },
+  );
   assert.equal(result.status, 0, result.stdout + result.stderr);
   return result.stdout.trim();
 }
@@ -46,7 +54,14 @@ test('worktree fingerprint covers staged, unstaged, and included untracked files
     const withKeep = fingerprint(repo);
     assert.notEqual(withKeep, staged);
     assert.equal(fingerprint(repo, ['-Exclude', 'keep.txt']), staged);
+    const excluded = fingerprint(repo, ['-Exclude', 'file.txt,keep.txt']);
+    writeFileSync(join(repo, 'file.txt'), 'three\n');
+    writeFileSync(join(repo, 'keep.txt'), 'changed\n');
+    assert.equal(fingerprint(repo, ['-Exclude', 'file.txt,keep.txt']), excluded);
+    git(repo, ['add', 'file.txt']);
+    assert.equal(fingerprint(repo, ['-Exclude', 'file.txt,keep.txt']), excluded);
+    assert.notEqual(fingerprint(repo), withKeep);
   } finally {
-    rmSync(repo, {recursive: true, force: true});
+    rmSync(repo, { recursive: true, force: true });
   }
 });

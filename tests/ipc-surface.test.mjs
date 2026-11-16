@@ -1,7 +1,7 @@
-import {readFileSync, readdirSync, statSync} from 'node:fs';
-import {join, dirname} from 'node:path';
-import {fileURLToPath} from 'node:url';
-import {test} from 'node:test';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -16,23 +16,62 @@ function extractInvokeNames(source) {
     const char = source[i];
     const next = source[i + 1];
     if (mode === 'code') {
-      if (char === '/' && next === '/') { mode = 'line'; i += 2; continue; }
-      if (char === '/' && next === '*') { mode = 'block'; i += 2; continue; }
-      if (char === "'") { mode = 'sq'; i++; continue; }
-      if (char === '"') { mode = 'dq'; i++; continue; }
-      if (char === '`') { mode = 'tpl'; i++; continue; }
-      if (source.startsWith('invoke', i) && (i === 0 || !/[A-Za-z0-9_]/.test(source[i - 1])) && !/[A-Za-z0-9_]/.test(source[i + 6] ?? '')) {
+      if (char === '/' && next === '/') {
+        mode = 'line';
+        i += 2;
+        continue;
+      }
+      if (char === '/' && next === '*') {
+        mode = 'block';
+        i += 2;
+        continue;
+      }
+      if (char === "'") {
+        mode = 'sq';
+        i++;
+        continue;
+      }
+      if (char === '"') {
+        mode = 'dq';
+        i++;
+        continue;
+      }
+      if (char === '`') {
+        mode = 'tpl';
+        i++;
+        continue;
+      }
+      if (
+        source.startsWith('invoke', i) &&
+        (i === 0 || !/[A-Za-z0-9_]/.test(source[i - 1])) &&
+        !/[A-Za-z0-9_]/.test(source[i + 6] ?? '')
+      ) {
         const name = readInvokeName(source, i + 6);
         if (name) names.add(name);
       }
       i++;
       continue;
     }
-    if (mode === 'line') { if (char === '\n') mode = 'code'; i++; continue; }
-    if (mode === 'block') { if (char === '*' && next === '/') { mode = 'code'; i += 2; continue; } i++; continue; }
+    if (mode === 'line') {
+      if (char === '\n') mode = 'code';
+      i++;
+      continue;
+    }
+    if (mode === 'block') {
+      if (char === '*' && next === '/') {
+        mode = 'code';
+        i += 2;
+        continue;
+      }
+      i++;
+      continue;
+    }
     if (mode === 'sq' || mode === 'dq' || mode === 'tpl') {
       const quote = mode === 'sq' ? "'" : mode === 'dq' ? '"' : '`';
-      if (char === '\\') { i += 2; continue; }
+      if (char === '\\') {
+        i += 2;
+        continue;
+      }
       if (char === quote) mode = 'code';
       i++;
     }
@@ -49,7 +88,10 @@ function readInvokeName(source, start) {
       if (source[j] === '<') depth++;
       else if (source[j] === '>') {
         depth--;
-        if (depth === 0) { j++; break; }
+        if (depth === 0) {
+          j++;
+          break;
+        }
       }
     }
     while (/\s/.test(source[j] ?? '')) j++;
@@ -73,20 +115,62 @@ function stripComments(source) {
     const char = source[i];
     const next = source[i + 1];
     if (mode === 'code') {
-      if (char === '/' && next === '/') { mode = 'line'; i += 2; continue; }
-      if (char === '/' && next === '*') { mode = 'block'; i += 2; continue; }
-      if (char === "'") { mode = 'sq'; out += char; i++; continue; }
-      if (char === '"') { mode = 'dq'; out += char; i++; continue; }
-      if (char === '`') { mode = 'tpl'; out += char; i++; continue; }
+      if (char === '/' && next === '/') {
+        mode = 'line';
+        i += 2;
+        continue;
+      }
+      if (char === '/' && next === '*') {
+        mode = 'block';
+        i += 2;
+        continue;
+      }
+      if (char === "'") {
+        mode = 'sq';
+        out += char;
+        i++;
+        continue;
+      }
+      if (char === '"') {
+        mode = 'dq';
+        out += char;
+        i++;
+        continue;
+      }
+      if (char === '`') {
+        mode = 'tpl';
+        out += char;
+        i++;
+        continue;
+      }
       out += char;
       i++;
       continue;
     }
-    if (mode === 'line') { if (char === '\n') { mode = 'code'; out += char; } i++; continue; }
-    if (mode === 'block') { if (char === '*' && next === '/') { mode = 'code'; i += 2; continue; } i++; continue; }
+    if (mode === 'line') {
+      if (char === '\n') {
+        mode = 'code';
+        out += char;
+      }
+      i++;
+      continue;
+    }
+    if (mode === 'block') {
+      if (char === '*' && next === '/') {
+        mode = 'code';
+        i += 2;
+        continue;
+      }
+      i++;
+      continue;
+    }
     out += char;
     const quote = mode === 'sq' ? "'" : mode === 'dq' ? '"' : '`';
-    if (char === '\\') { out += source[i + 1] ?? ''; i += 2; continue; }
+    if (char === '\\') {
+      out += source[i + 1] ?? '';
+      i += 2;
+      continue;
+    }
     if (char === quote) mode = 'code';
     i++;
   }
@@ -121,10 +205,22 @@ function extractHandlerKeys(source) {
     const char = text[i];
     const next = text[i + 1];
     if (mode === 'code') {
-      if (char === "'") { mode = 'sq'; continue; }
-      if (char === '"') { mode = 'dq'; continue; }
-      if (char === '`') { mode = 'tpl'; continue; }
-      if (char === '{') { depth++; continue; }
+      if (char === "'") {
+        mode = 'sq';
+        continue;
+      }
+      if (char === '"') {
+        mode = 'dq';
+        continue;
+      }
+      if (char === '`') {
+        mode = 'tpl';
+        continue;
+      }
+      if (char === '{') {
+        depth++;
+        continue;
+      }
       if (char === '}') {
         depth--;
         if (depth === 0) break;
@@ -141,7 +237,10 @@ function extractHandlerKeys(source) {
       continue;
     }
     const quote = mode === 'sq' ? "'" : mode === 'dq' ? '"' : '`';
-    if (char === '\\') { i++; continue; }
+    if (char === '\\') {
+      i++;
+      continue;
+    }
     if (char === quote) mode = 'code';
   }
   return keys;
@@ -151,7 +250,12 @@ function extractFence(markdown, info) {
   const pattern = new RegExp('```' + info + '\\r?\\n([\\s\\S]*?)```');
   const match = pattern.exec(markdown);
   assert.ok(match, `missing fence ${info}`);
-  return new Set(match[1].split(/\r?\n/).map(line => line.trim()).filter(line => line.length > 0));
+  return new Set(
+    match[1]
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0),
+  );
 }
 
 function rustSources(dir, found = []) {
@@ -164,7 +268,7 @@ function rustSources(dir, found = []) {
 }
 
 function diff(left, right) {
-  return [...left].filter(name => !right.has(name)).sort();
+  return [...left].filter((name) => !right.has(name)).sort();
 }
 
 test('invoke extraction ignores comments, strings, and repeated calls', () => {
@@ -188,7 +292,10 @@ test('registration extraction ignores comments and keeps the command name', () =
       player_get_state,
     ]
   `;
-  assert.deepEqual([...extractRegistered(sample)].sort(), ['desktop_preferences', 'player_get_state']);
+  assert.deepEqual([...extractRegistered(sample)].sort(), [
+    'desktop_preferences',
+    'player_get_state',
+  ]);
 });
 
 test('ipc names stay aligned across rust, frontend, harness, and the contract lists', () => {
@@ -196,8 +303,12 @@ test('ipc names stay aligned across rust, frontend, harness, and the contract li
   for (const path of rustSources(join(root, 'src-tauri', 'src'))) {
     for (const name of extractRegistered(readFileSync(path, 'utf8'))) registered.add(name);
   }
-  const frontend = extractInvokeNames(readFileSync(join(root, 'src', 'lib', 'services', 'music.ts'), 'utf8'));
-  const harness = extractHandlerKeys(readFileSync(join(root, 'tests', 'harness', 'mock-ipc.js'), 'utf8'));
+  const frontend = extractInvokeNames(
+    readFileSync(join(root, 'src', 'lib', 'services', 'music.ts'), 'utf8'),
+  );
+  const harness = extractHandlerKeys(
+    readFileSync(join(root, 'tests', 'harness', 'mock-ipc.js'), 'utf8'),
+  );
   const contract = readFileSync(join(root, 'docs', 'ipc-contract.md'), 'utf8');
   const documented = extractFence(contract, 'ipc-commands');
   const unused = extractFence(contract, 'ipc-unused');
@@ -205,8 +316,16 @@ test('ipc names stay aligned across rust, frontend, harness, and the contract li
 
   assert.deepEqual(diff(frontend, registered), [], 'frontend command is not registered');
   assert.deepEqual(diff(frontend, harness), [], 'frontend command has no harness handler');
-  assert.deepEqual(diff(documented, registered), [], 'contract lists a command that is not registered');
-  assert.deepEqual(diff(registered, documented), [], 'registered command is missing from the contract list');
+  assert.deepEqual(
+    diff(documented, registered),
+    [],
+    'contract lists a command that is not registered',
+  );
+  assert.deepEqual(
+    diff(registered, documented),
+    [],
+    'registered command is missing from the contract list',
+  );
   assert.deepEqual(unusedActual, [...expectedUnused].sort());
   assert.deepEqual([...unused].sort(), [...expectedUnused].sort());
 });

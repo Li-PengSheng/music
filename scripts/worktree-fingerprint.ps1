@@ -24,7 +24,7 @@ function Add-Text([string]$Text) {
 }
 
 $skip = @{}
-foreach ($item in @($Exclude)) {
+foreach ($item in @($Exclude | ForEach-Object { $_ -split ',' })) {
     if ([string]::IsNullOrWhiteSpace($item)) { continue }
     $key = ($item -replace '\\', '/').Trim()
     while ($key.StartsWith('./')) { $key = $key.Substring(2) }
@@ -33,10 +33,11 @@ foreach ($item in @($Exclude)) {
 }
 
 Add-Text "music-mine-worktree-v1`n"
+$diffPaths = @("--", ".") + @($skip.Keys | Sort-Object | ForEach-Object { ":(top,literal,exclude)$_" })
 Add-Text "staged`n"
-Add-Text (Get-GitText @("diff", "--cached"))
+Add-Text (Get-GitText (@("diff", "--cached") + $diffPaths))
 Add-Text "unstaged`n"
-Add-Text (Get-GitText @("diff"))
+Add-Text (Get-GitText (@("diff") + $diffPaths))
 Add-Text "untracked`n"
 
 $listed = & git -C $Repo -c core.quotepath=false ls-files --others --exclude-standard

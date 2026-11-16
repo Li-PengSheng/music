@@ -67,12 +67,17 @@ test('sidebar opens the main pages', async ({ page }) => {
   await side(page).getByRole('button', { name: /^歌曲/ }).click();
   await expect(mainHeading(page, '歌曲')).toBeVisible();
   await expect(page.locator('.track-row').first()).toBeVisible();
-  await expect(side(page).getByRole('button', { name: /^歌曲/ })).toHaveAttribute('aria-current', 'page');
+  await expect(side(page).getByRole('button', { name: /^歌曲/ })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
   await expect(page).toHaveScreenshot('songs-dark.png');
 
   const main = page.locator('.main');
   const head = page.locator('.track-head');
-  await main.evaluate((el) => { el.scrollTop = 900; });
+  await main.evaluate((el) => {
+    el.scrollTop = 900;
+  });
   const headBox = await head.boundingBox();
   const mainBox = await main.boundingBox();
   expect(headBox).toBeTruthy();
@@ -118,14 +123,21 @@ test('player bar shows the real volume and does not invent progress', async ({ p
   await expect(bar.getByRole('button', { name: '播放', exact: true })).toBeVisible();
 });
 
-test('queue overlays the page and closes from the button, Escape and the scrim', async ({ page }) => {
+test('queue overlays the page and closes from the button, Escape and the scrim', async ({
+  page,
+}) => {
   const main = page.locator('.main');
   const before = await main.evaluate((el) => el.getBoundingClientRect().width);
   const queue = await openQueue(page);
   const after = await main.evaluate((el) => el.getBoundingClientRect().width);
   expect(after).toBe(before);
   await expect(queue).toContainText('测试歌曲 1');
-  const transition = await page.locator('.queue').evaluate((el) => getComputedStyle(el).transitionProperty.split(',').map((part) => part.trim()).sort());
+  const transition = await page.locator('.queue').evaluate((el) =>
+    getComputedStyle(el)
+      .transitionProperty.split(',')
+      .map((part) => part.trim())
+      .sort(),
+  );
   expect(transition).toEqual(['opacity', 'transform', 'visibility']);
   await expect(page).toHaveScreenshot('queue-dark.png');
 
@@ -195,14 +207,19 @@ test('dialogs cancel without changing playlists and confirm a real create', asyn
   await expect(lists.getByRole('button', { name: /夜晚/ })).toBeVisible();
 });
 
-test('right-click menus differ for songs, the built-in collection, a playlist, an album and the queue', async ({ page }) => {
+test('right-click menus differ for songs, the built-in collection, a playlist, an album and the queue', async ({
+  page,
+}) => {
   await side(page).getByRole('button', { name: /^歌曲/ }).click();
   await page.locator('.track-row', { hasText: '测试歌曲 3' }).click({ button: 'right' });
   await expect(page.getByRole('menuitem', { name: '播放', exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
 
   const lists = playlists(page);
-  await lists.getByRole('button', { name: /本地/ }).filter({ hasNotText: '自建' }).click({ button: 'right' });
+  await lists
+    .getByRole('button', { name: /本地/ })
+    .filter({ hasNotText: '自建' })
+    .click({ button: 'right' });
   await expect(page.getByRole('menuitem', { name: '播放全部' })).toBeVisible();
   await expect(page.getByRole('menuitem', { name: '随机播放' })).toBeVisible();
   await expect(page.getByRole('menuitem', { name: /重命名|删除/ })).toHaveCount(0);
@@ -222,7 +239,9 @@ test('right-click menus differ for songs, the built-in collection, a playlist, a
   await expect(page.getByRole('menuitem', { name: '从队列移除' })).toBeVisible();
 });
 
-test('hover and selection use the semantic fills, and the queue stacks above Now Playing', async ({ page }) => {
+test('hover and selection use the semantic fills, and the queue stacks above Now Playing', async ({
+  page,
+}) => {
   const songs = side(page).getByRole('button', { name: /^歌曲/ });
   await songs.hover();
   await expect(songs).toHaveCSS('background-color', await tokenColor(songs, '--hover'));
@@ -249,8 +268,14 @@ test('hover and selection use the semantic fills, and the queue stacks above Now
   await expect(item).toHaveCSS('background-color', await tokenColor(item, '--selected'));
 
   const layers = await page.evaluate(() => {
-    const read = (selector: string) => Number(getComputedStyle(document.querySelector(selector)!).zIndex);
-    return { queue: read('.queue'), scrim: read('.queue-scrim'), immersive: read('.immersive-layer'), player: read('.player-bar') };
+    const read = (selector: string) =>
+      Number(getComputedStyle(document.querySelector(selector)!).zIndex);
+    return {
+      queue: read('.queue'),
+      scrim: read('.queue-scrim'),
+      immersive: read('.immersive-layer'),
+      player: read('.player-bar'),
+    };
   });
   expect(layers.queue).toBeGreaterThan(layers.scrim);
   expect(layers.scrim).toBeGreaterThan(layers.immersive);
@@ -260,5 +285,11 @@ test('hover and selection use the semantic fills, and the queue stacks above Now
   await page.reload();
   await expect(page.locator('.pb-volume-value')).toHaveText('70%');
   await openQueue(page);
-  await expect.poll(() => page.locator('.queue').evaluate((el) => getComputedStyle(el).getPropertyValue('--drawer-shift').trim())).toBe('0px');
+  await expect
+    .poll(() =>
+      page
+        .locator('.queue')
+        .evaluate((el) => getComputedStyle(el).getPropertyValue('--drawer-shift').trim()),
+    )
+    .toBe('0px');
 });

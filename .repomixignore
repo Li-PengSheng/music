@@ -1,0 +1,8 @@
+docs/history/**
+docs/tasks/done/**
+src-tauri/tests/fixtures/**
+src-tauri/gen/**
+tests/ui/snapshots/**
+tests/perf/out/**
+pnpm-lock.yaml
+src-tauri/Cargo.lock

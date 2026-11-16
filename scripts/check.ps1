@@ -4,6 +4,8 @@ $origin = (Get-Location).Path
 $code = 0
 try {
     Set-Location $root
+    & pnpm format:check
+    if ($LASTEXITCODE -ne 0) { $code = $LASTEXITCODE; throw "pnpm format:check exited $code" }
     & pnpm check
     if ($LASTEXITCODE -ne 0) { $code = $LASTEXITCODE; throw "pnpm check exited $code" }
     & pnpm test

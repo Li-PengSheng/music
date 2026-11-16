@@ -4,7 +4,7 @@
 
 | 层次 | 命令 | 能证明 | 不能证明 |
 |---|---|---|---|
-| 自动测试 | `pnpm check`、`pnpm test`；Rust 侧 `cargo fmt --check`、`cargo clippy --all-targets -- -D warnings`、`cargo test` | 类型、纯函数、从源码抽出的交互函数、Rust fixture | 布局、真实 IPC、Windows DPI |
+| 自动测试 | `pnpm format:check`、`pnpm check`、`pnpm test`；Rust 侧 `cargo fmt --check`、`cargo clippy --all-targets -- -D warnings`、`cargo test` | 格式、类型、纯函数、从源码抽出的交互函数、Rust fixture | 布局、真实 IPC、Windows DPI |
 | 浏览器验证 | `pnpm test:ui`，必要时 `pnpm test:ui:update` | harness 里的点击、键盘、主题、视口和截图 | Rust 出声、真实数据库、WebView2、DPI |
 | Windows Tauri 实机 | 按 `docs/isolation.md` 构建并启动。普通 debug exe 使用系统数据目录 | WebView2、真实 command、窗口尺寸、隔离目录里的持久化 | 未操作的硬件、托盘、DPI 或曲库规模 |
 
@@ -34,17 +34,17 @@ harness 设置 `window.isTauri`，因此壳层会显示连接成功。这只说�
 
 优先断言输入输出、DOM 行为和计算样式。可以从源码抽出真实函数再执行。
 
-不要新增只匹配空格、类名拼写或临时变量名的断言。这类断言已在 `5a7c9b3` 里删过一批。仍会读源码的检查包括：主题色允许列表、Modal 接线、层级 token、删除歌单的确认顺序、从 `App.svelte` 编译封面效果。白名单文件上的检查允许空白和换行。`App.svelte`、`Dialog.svelte`、`Select.svelte`、`Queue.svelte`、`tokens.css`、`app.css` 上的检查仍按当前拼写匹配，格式化这些文件前要先改测试。不要再增加这一类。
+不要新增只匹配空格、类名拼写或临时变量名的断言。这类断言已在 `5a7c9b3` 里删过一批。仍会读源码的检查包括：主题色允许列表、Modal 接线、层级 token、删除歌单的确认顺序、从 `App.svelte` 编译封面效果。源码检查允许空白、换行及 CSS 等价的小数和属性选择器引号写法，保留运行时行为断言。
 
 禁止把实现改回旧代码，只为了让过时字符串测试通过。
 
 ## 源码格式
 
-Prettier `3.10.1` 与 `prettier-plugin-svelte` `4.1.1` 在 devDependencies。配置是根目录 `.prettierrc`：插件启用 Svelte parser，2 空格，单引号，`printWidth` 100。`.prettierignore` 排除 `src-tauri/`、`docs/`、`tests/`、`dist*/`、`src/app.css`、`src/lib/styles/tokens.css`、`src/App.svelte`、`src/lib/components/Dialog.svelte`、`src/lib/components/Select.svelte`、`src/lib/layout/Queue.svelte`。
+Prettier `3.10.1` 与 `prettier-plugin-svelte` `4.1.1` 在 devDependencies。配置是根目录 `.prettierrc`：插件启用 Svelte parser，2 空格，单引号，`printWidth` 100。`.prettierignore` 仅排除 `node_modules/`、`dist*/`、`src-tauri/`、`docs/`、`pnpm-lock.yaml`。
 
-检查白名单时把这 17 个路径传给 `pnpm exec prettier --check`。不要运行 `prettier --write .`。
+`src/`、`public/`、`tests/` 全量受 Prettier 统一管理，没有源码白名单或豁免。运行 `pnpm format` 统一格式化，运行 `pnpm format:check` 检查。`scripts/check.ps1` 和调用它的 GitHub Actions CI 在 `pnpm check` 之前执行 `pnpm format:check`，失败立即退出。
 
-白名单：`src/lib/views/NowPlaying.svelte`、`src/lib/components/TrackDetails.svelte`、`Artwork.svelte`、`Cover.svelte`、`src/lib/actions.ts`、`src/lib/services/music.ts`、`src/lib/stores/preferences.ts`、`src/lib/stores/nav.svelte.ts`、`src/lib/utils/lyrics-view.ts`、`src/lib/utils/shortcuts.ts`、`src/lib/layout/PlayerBar.svelte`、`Sidebar.svelte`、`src/lib/views/SongsView.svelte`、`HomeView.svelte`、`GridView.svelte`、`SettingsView.svelte`、`src/lib/components/ContextMenu.svelte`。
+Playwright 截图检查使用 `maxDiffPixels: 0`、`threshold: 0`，要求零像素差异。本次格式化验收禁止更新快照。
 
 `tests/helpers/source-ast.mjs` 的 `extractFunction` 按函数名切出 `ContextMenu` 的 `key`，去掉参数类型和 `as` 断言后再交给 `new Function`。切不到函数就抛错。播放栏的 `trackId` / `$effect`、删除歌单的 `catch` 与 `deletePlaylist`、本地歌单路由和 `<Modal` 标签使用 `\s*`，保留原来的运行时断言。
 

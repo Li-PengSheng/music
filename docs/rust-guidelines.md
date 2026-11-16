@@ -40,6 +40,7 @@ Windows 上这个路径来自系统已知文件夹。把进程的 `APPDATA` 指�
 - cpal 输出回调中不做文件 IO、数据库 IO、阻塞等待、可阻塞 Mutex、线程 join、无界分配、网络和高频日志格式化。
 - 解码、读文件、Seek 和格式转换放在工作线程。回调只读取已经准备好的 PCM。
 - UI 轮询不得改变音频输出节奏。
+- SMTC 封面在后台媒体更新中复用 Store 的 320px JPEG 输出，按完整播放路径缓存 WinRT 引用（含无封面/失败结果）；暂停/继续只复用引用，停止时清空。封面失败不跳过文本 Update，不在音频回调或 Controller 锁内读封面或创建流。GIF/WebP 透传因尺寸未解码约束而不送入 SMTC。
 - 断音、暂停、切歌、Seek、EOF、播放模式、设备拔插、休眠恢复，有对应测试；真实设备不可用时写 `NOT RUN`。
 - 格式只认已启用的 Symphonia feature：`mp3`、`flac`、`wav`、`pcm`。现有 fixture 是 `tone.mp3`、`tone.flac`、`tone.wav`。
 - UI 任务不重写播放控制器。

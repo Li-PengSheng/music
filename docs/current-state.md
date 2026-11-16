@@ -9,19 +9,19 @@
 
 ## 核验基线
 
-- 核验 Commit：HEAD `10e733cb13267e7e5ae34bd08d29d567254cff24`，分支 `main`；开工时工作区干净，本次 TASK-11-AUDIO-OUTPUT-DEVICE 未提交。
-- 工作区指纹：`d9cdff6c14ea2b728ce3a2aa050ea9bfc9b2d7df61f7f15a683e490b769215b3`，验收前后相同；命令为 `pwsh -File scripts/worktree-fingerprint.ps1 -Exclude docs/current-state.md,docs/tasks/TASK-11-AUDIO-OUTPUT-DEVICE.md,docs/tasks/done/TASK-11-AUDIO-OUTPUT-DEVICE.md`。
-- 工作区内容：设置页支持枚举和选择音频输出，保留断开的首选项及系统默认项；实际输出名称读数在悬停/键盘聚焦时显示 Select。音频线程重开 cpal 共享输出并恢复曲目、帧时钟位置、音量与暂停状态，设备失效回退默认并记日志，失败保持错误且停止。首选设备保存到 desktop-v1.json，启动先应用偏好再恢复会话；旧配置缺失字段兼容。新增 IPC/harness/契约清单同步。没有新增依赖、表结构变更或回调 IO/锁/分配变更，未打开用户真实数据。
+- 核验 Commit：HEAD `416d4a1e7bde5a0e3ead4120aed3fd1b1375b9ec`，分支 `main`；开工时工作区干净，本次 TASK-12-SMTC-THUMBNAIL 未提交。
+- 工作区指纹：`bb873a50b245b596ce513991374611d23959a5af72c77b28a7ab08809e7ec6da`，验收前后相同；命令为 `pwsh -File scripts/worktree-fingerprint.ps1 -Exclude docs/current-state.md,docs/tasks/TASK-12-SMTC-THUMBNAIL.md,docs/tasks/done/TASK-12-SMTC-THUMBNAIL.md`。
+- 工作区内容：Windows SMTC 复用 Store 的 320px JPEG 缩略图，按完整播放路径缓存 WinRT 引用及无封面/失败结果；暂停/队列文本更新复用引用，停止或无封面切歌清图。封面准备和 SetThumbnail 失败时仍更新文本，不改音频引擎、回调、数据库或 IPC 形状。状态文案为「SMTC 已连接（含专辑封面）」。仅为锁定的 windows 0.58 新增 Storage_Streams feature，Cargo.lock 无解析变化且 --locked 检查通过。GIF/WebP 的透传图因尺寸未解码约束，不送入 SMTC，保留文本。未访问用户真实数据。
 - CSS 责任：`src/app.css` 仍为 1455 行；本轮十个指定组件的样式归位结果保留。
-- 自动测试：pnpm format、pnpm test:ui、pwsh -File scripts/check.ps1 均退出 0；格式检查通过、Svelte 0 error / 0 warning、前端单测 74/74、Rust fmt / clippy 通过、Rust 单元 87 通过与 1 ignored、音频/歌词集成 3/6 通过（空输出测试）。新增指定/未知设备回退、播放/暂停位置保持、恢复失败停止、空配置兼容及偏好写入失败回退覆盖。既有 Cargo PDB 文件名冲突警告仍在。
-- 浏览器验证：22/22 PASS、退出码 0，既有 8 张快照零像素差异且无更新；新增设备选择/系统默认、断开项、切换失败及枚举失败恢复。harness 不证明 Rust 播放。
-- Windows Tauri 实机：PASS（本任务范围，静音）。隔离 debug exe 的真实 cpal 共享输出枚举到 Speakers 与 Realtek Digital Output，经设置页 Select 切换到数字输出再恢复；暂停进度保持，播放中切换和未知设备回退通过。重启后首选 Speakers、暂停状态与 530ms 位置恢复；TEMP fixture 哈希不变。exe SHA-256 为 `F49EF5F9DB8E6D8EC3DE71E561310E97A4E469EC383AED3A6E6287764BBFB41B`，最终 check-source 为 OK。来源与结果见任务单及 `tests/perf/out/task11-native-result.json`；未测试实际出声、物理拔插、DPI/托盘。
+- 自动测试：pwsh -File scripts/check.ps1 退出 0；格式通过、Svelte 0 error / 0 warning、前端单测 74/74、Rust fmt / clippy 通过、Rust 单元 90 通过与 1 ignored、音频/歌词集成 3/6 通过（空输出测试）。新增完整路径去重、暂停/停止/无封面状态、320px 字节准备/缓存复用/损坏和缺失降级、文件不变及 WinRT writer/stream 释放后引用可读测试。既有 Cargo PDB 文件名冲突警告仍在。
+- 浏览器验证：pnpm test:ui 22/22 PASS、退出码 0，既有 8 张快照零像素差异且无更新。harness 不证明系统 SMTC 或 Rust 播放。
+- Windows Tauri 实机：PASS（系统会话 API 范围，NULL_OUTPUT）。隔离 exe 播放/暂停带封面的临时 FLAC，通过 Windows 全局媒体会话 API 验证标题和缩略图引用；无封面切歌/停止后缩略图为空，切回恢复。连续轮询封面请求保持 6→6，fixture 哈希不变。exe SHA-256 `29C601E5EC5A27D3D1F94483552DA36CAAF629548363070C73C62519EF7A5D29`，最终 check-source 为 OK；来源与结果见任务单及 `tests/perf/out/task12-native-result.json`。系统面板人工目视、实体媒体键、实际出声、DPI/托盘 NOT RUN。
 
 历史任务 09.5.3、09.5.5 的指纹仍为“未记录，无法重建”；本次结果不回填历史验收。
 
 ## 当前任务
 
-TASK-11 已完成并归档：[TASK-11-AUDIO-OUTPUT-DEVICE](tasks/done/TASK-11-AUDIO-OUTPUT-DEVICE.md)。未提交，等待检视；没有其他进行中的任务。TASK-10 曲库目录移除与歌单排序已包含在当前 HEAD `10e733c`。
+TASK-12 已完成并归档：[TASK-12-SMTC-THUMBNAIL](tasks/done/TASK-12-SMTC-THUMBNAIL.md)。未提交，等待检视；没有其他进行中的任务。TASK-11 输出设备选择/热切换已包含在当前 HEAD `416d4a1`。
 
 封面加载单元已经提交：
 

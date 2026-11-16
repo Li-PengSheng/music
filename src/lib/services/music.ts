@@ -44,6 +44,9 @@ export async function verifyConnection() {
   return reply;
 }
 export const getPlayerState = () => invoke<PlayerSnapshot>('player_get_state');
+export const outputDevices = () => invoke<string[]>('player_output_devices');
+export const setOutputDevice = (device: string | null) =>
+  invoke<PlayerSnapshot>('player_set_output_device', { device });
 export const openFile = () => invoke<PlayerSnapshot>('player_open_file');
 export const play = () => invoke<PlayerSnapshot>('player_play');
 export const pause = () => invoke<PlayerSnapshot>('player_pause');
@@ -240,6 +243,7 @@ export const reorderQueue = (path: string, target: number) => configure(null, nu
 export const playQueued = (path: string) => configure(null, null, path, null);
 
 export interface DesktopPreferences {
+  output_device: string | null;
   close_to_tray: boolean;
   queue_open: boolean;
   theme: string;

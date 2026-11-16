@@ -13,6 +13,7 @@ pub use playback::lyrics;
 
 use playback::controller::{Action, Controller, PlayerSnapshot};
 use std::sync::{Arc, Mutex};
+use tauri::Manager;
 type Shared = Arc<Mutex<Controller>>;
 async fn execute(state: Shared, action: Action) -> Result<PlayerSnapshot, String> {
     tauri::async_runtime::spawn_blocking(move || {
@@ -68,6 +69,29 @@ async fn player_set_volume(
     state: tauri::State<'_, Shared>,
 ) -> Result<PlayerSnapshot, String> {
     execute(state.inner().clone(), Action::Volume(volume)).await
+}
+#[tauri::command]
+async fn player_output_devices() -> Result<Vec<String>, String> {
+    tauri::async_runtime::spawn_blocking(player::list_output_devices)
+        .await
+        .map_err(|e| e.to_string())
+}
+#[tauri::command]
+async fn player_set_output_device(
+    device: Option<String>,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Shared>,
+) -> Result<PlayerSnapshot, String> {
+    let controller = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut controller = controller
+            .lock()
+            .map_err(|_| "播放器控制器不可用".to_string())?;
+        app.state::<platform::desktop::Desktop>()
+            .configure_output(&mut controller, device)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 #[derive(serde::Serialize)]
 struct BridgeReply {
@@ -170,12 +194,12 @@ pub fn run() {
                 directory.join("library-tauri-v1.sqlite"),
             )));
             app.manage(Arc::new(artwork::covers::Store::new(cache.join("covers"))));
+            platform::desktop::setup(app)?;
             if let Ok(mut controller) = app.state::<Shared>().lock() {
                 if let Err(error) = controller.attach_session(directory.join("playback-v1.json")) {
                     eprintln!("{error}");
                 }
             }
-            platform::desktop::setup(app)?;
             platform::media::setup(app);
             let handle = app.handle().clone();
             // Queue progression follows engine EOF on Rust's worker even with the UI hidden.
@@ -225,6 +249,8 @@ pub fn run() {
         .on_window_event(platform::desktop::window_event)
         .manage(Arc::new(Mutex::new(Controller::new())))
         .invoke_handler(tauri::generate_handler![
+            player_output_devices,
+            player_set_output_device,
             platform::desktop::desktop_preferences,
             platform::media::media_status,
             player_configure,

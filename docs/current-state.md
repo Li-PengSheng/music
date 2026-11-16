@@ -9,19 +9,19 @@
 
 ## 核验基线
 
-- 核验 Commit：HEAD `2f0f0170ebabf8fe9cd06f64a239be069fbac86e`，分支 `main`；本次 TASK-10-LIBRARY-PLAYLIST-MGMT 未提交，保留原有未跟踪 `repomix-output.md`。
-- 工作区指纹：`8c1a6104f3628122fc577eb3fd0a40856005038395d540ca14f90f211be0623e`，验收前后相同；命令为 `pwsh -File scripts/worktree-fingerprint.ps1 -Exclude docs/current-state.md,docs/tasks/TASK-10-LIBRARY-PLAYLIST-MGMT.md,docs/tasks/done/TASK-10-LIBRARY-PLAYLIST-MGMT.md`。
-- 工作区内容：设置页支持确认后移除已登记音乐目录，只删除数据库记录；目录名按字面量/分隔符边界匹配并在事务内删除。无搜索歌单支持上下移菜单及 Alt+方向键，校验边界、串行防重、刷新 library.revision、恢复行焦点并播报；搜索时禁用重排。IPC/harness/契约清单同步。没有表结构变更，没有修改音频引擎或用户真实文件。
+- 核验 Commit：HEAD `10e733cb13267e7e5ae34bd08d29d567254cff24`，分支 `main`；开工时工作区干净，本次 TASK-11-AUDIO-OUTPUT-DEVICE 未提交。
+- 工作区指纹：`d9cdff6c14ea2b728ce3a2aa050ea9bfc9b2d7df61f7f15a683e490b769215b3`，验收前后相同；命令为 `pwsh -File scripts/worktree-fingerprint.ps1 -Exclude docs/current-state.md,docs/tasks/TASK-11-AUDIO-OUTPUT-DEVICE.md,docs/tasks/done/TASK-11-AUDIO-OUTPUT-DEVICE.md`。
+- 工作区内容：设置页支持枚举和选择音频输出，保留断开的首选项及系统默认项；实际输出名称读数在悬停/键盘聚焦时显示 Select。音频线程重开 cpal 共享输出并恢复曲目、帧时钟位置、音量与暂停状态，设备失效回退默认并记日志，失败保持错误且停止。首选设备保存到 desktop-v1.json，启动先应用偏好再恢复会话；旧配置缺失字段兼容。新增 IPC/harness/契约清单同步。没有新增依赖、表结构变更或回调 IO/锁/分配变更，未打开用户真实数据。
 - CSS 责任：`src/app.css` 仍为 1455 行；本轮十个指定组件的样式归位结果保留。
-- 自动测试：pnpm format、pnpm test:ui、pwsh -File scripts/check.ps1 均退出 0；格式检查通过、Svelte 0 error / 0 warning、前端单测 73/73、Rust fmt / clippy 通过、Rust 单元 82 通过与 1 ignored、音频/歌词集成 3/6 通过（空输出测试）。新增目录字面匹配/事务回滚/命令操作与 reorder 参数边界覆盖。既有 Cargo PDB 文件名冲突警告仍在。
-- 浏览器验证：19/19 PASS、退出码 0，全部既有快照零像素差异且无更新；新增移除取消/失败/成功、排序边界/搜索禁用/失败及跨第 100 首分页、焦点与播报。harness 不证明 Rust 播放。
-- Windows Tauri 实机：PASS（本任务范围）。按 `scripts/build-isolated.ps1` 构建带 exe/config 哈希记录的 debug exe，通过 WebView2 CDP 调用真实 IPC 并操作实际界面：重排及 Alt+方向键/焦点、移除确认、空歌单/缺参/越界/重复移除拒绝。专用 TEMP 库内 fixture 记录移除，三个文件 SHA-256 未变。来源与结果位于 `tests/perf/out/task10-process.json`、`tests/perf/out/task10-native-result.json`；未测试真实音频/DPI/托盘。
+- 自动测试：pnpm format、pnpm test:ui、pwsh -File scripts/check.ps1 均退出 0；格式检查通过、Svelte 0 error / 0 warning、前端单测 74/74、Rust fmt / clippy 通过、Rust 单元 87 通过与 1 ignored、音频/歌词集成 3/6 通过（空输出测试）。新增指定/未知设备回退、播放/暂停位置保持、恢复失败停止、空配置兼容及偏好写入失败回退覆盖。既有 Cargo PDB 文件名冲突警告仍在。
+- 浏览器验证：22/22 PASS、退出码 0，既有 8 张快照零像素差异且无更新；新增设备选择/系统默认、断开项、切换失败及枚举失败恢复。harness 不证明 Rust 播放。
+- Windows Tauri 实机：PASS（本任务范围，静音）。隔离 debug exe 的真实 cpal 共享输出枚举到 Speakers 与 Realtek Digital Output，经设置页 Select 切换到数字输出再恢复；暂停进度保持，播放中切换和未知设备回退通过。重启后首选 Speakers、暂停状态与 530ms 位置恢复；TEMP fixture 哈希不变。exe SHA-256 为 `F49EF5F9DB8E6D8EC3DE71E561310E97A4E469EC383AED3A6E6287764BBFB41B`，最终 check-source 为 OK。来源与结果见任务单及 `tests/perf/out/task11-native-result.json`；未测试实际出声、物理拔插、DPI/托盘。
 
 历史任务 09.5.3、09.5.5 的指纹仍为“未记录，无法重建”；本次结果不回填历史验收。
 
 ## 当前任务
 
-TASK-10 已完成并归档：[TASK-10-LIBRARY-PLAYLIST-MGMT](tasks/done/TASK-10-LIBRARY-PLAYLIST-MGMT.md)。未提交，等待检视；没有其他进行中的任务。
+TASK-11 已完成并归档：[TASK-11-AUDIO-OUTPUT-DEVICE](tasks/done/TASK-11-AUDIO-OUTPUT-DEVICE.md)。未提交，等待检视；没有其他进行中的任务。TASK-10 曲库目录移除与歌单排序已包含在当前 HEAD `10e733c`。
 
 封面加载单元已经提交：
 

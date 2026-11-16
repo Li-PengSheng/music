@@ -32,6 +32,14 @@ Rust 是播放位置的权威。界面显示 `position_ms`。拖动进度条只�
 
 这三个封面命令的返回值：`null` 表示确定没有可用封面（无图片、格式不支持、超出尺寸限制、图片损坏），会缓存到文件变化为止；错误字符串是不含路径的代码，表示这次拿不到、稍后可能成功，不缓存：`cover-file-missing`、`cover-unreadable`，`library_queue_thumb` 另有 `cover-not-in-library`。前端经 `src/lib/utils/cover-loader.ts` 限并发、按优先级（当前曲目、可见行、预取）排队，可取消，暂时性错误最多重试两次。`library_cover_stats` 返回封面缓存计数和耗时（只有数字），用于诊断。
 
+## 音频输出设备
+
+- `player_output_devices()` 返回按名称排序、去重的可用输出设备名称；枚举不打开输出流。`MUSIC_MINE_NULL_OUTPUT` 存在时只返回 `['null']`，不访问系统设备。
+- `player_set_output_device({ device: string | null })` 返回权威 `PlayerSnapshot`，必须经 `control()` / `accept()` 接收。`null` 或空白名称表示跟随系统默认设备；非空名称精确匹配 cpal 输出设备。设备消失或打开失败时记录日志并尝试系统默认设备，`output_device_id` 始终表示实际打开的设备名称，不表示首选项。
+- 首选设备保存在 `desktop-v1.json` 的可选 `output_device` 字段；旧配置缺失时默认为 `null`。设备暂时断开时仍保存所选名称并在列表标记「已断开」。启动先应用设备偏好，再恢复暂停会话。现有 `desktop_preferences` 参数不变，返回值新增此字段；主题/窗口设置不会覆盖设备选择。
+- 切换在音频工作线程完成：停止旧回调并读取最终帧时钟，重开共享模式输出，再解码/Seek 恢复当前曲目、位置、音量和暂停状态。所有输出都不可用时保持错误并停止，返回快照中的 error，界面不显示成功；此时不保存新偏好。偏好写入失败则尝试恢复之前的选择并返回错误。
+- 设置页沿用实际输出名称的紧凑读数，鼠标悬停或键盘聚焦时显示现有 Select 控件；下拉框提供系统默认项和设备列表，切换后刷新列表与偏好。旧播放命令、volume 和 playback-v1.json 契约不变。
+
 ## 曲库文件夹与歌单管理
 
 - `library_remove_folder` 接收 `{ path: string }`，只接受 summary 中已登记的目录。与扫描共用 `Catalog.operation` 锁，在事务内移除目录记录及该路径下的曲目数据库记录，清理外键关联；按路径分隔符边界匹配，`%` / `_` 按字面量处理。绝不删除或修改磁盘文件，不改变当前 Rust 播放快照或队列。前端二次确认后调用 `removeFolder`，刷新 summary、封面缓存和 `coverEpoch`。
@@ -79,10 +87,12 @@ player_configure
 player_get_state
 player_lyrics
 player_open_file
+player_output_devices
 player_pause
 player_play
 player_seek
 player_set_volume
+player_set_output_device
 player_stop
 ```
 

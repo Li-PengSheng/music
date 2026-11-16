@@ -87,6 +87,9 @@ enum Cmd {
     SetVolume {
         volume: f32,
     },
+    SetOutputDevice {
+        device: Option<String>,
+    },
     ClearError,
     Synchronize(Sender<PlayerStatus>),
     Shutdown(Sender<()>),
@@ -186,6 +189,9 @@ impl Player {
     }
     pub fn set_volume(&self, volume: f32) {
         let _ = self.cmd_tx.send(Cmd::SetVolume { volume });
+    }
+    pub fn set_output_device(&self, device: Option<String>) {
+        let _ = self.cmd_tx.send(Cmd::SetOutputDevice { device });
     }
     pub fn clear_error(&self) {
         let _ = self.cmd_tx.send(Cmd::ClearError);
@@ -323,15 +329,88 @@ fn open_null_output(logs: &Arc<LogBuffer>, volume: f32) -> Output {
     }
 }
 
-fn open_output(logs: &Arc<LogBuffer>, volume: f32) -> Result<Output, String> {
+/// Sorted, distinct names; enumeration never opens a stream.
+pub fn list_output_devices() -> Vec<String> {
     if null_output_requested() {
-        return Ok(open_null_output(logs, volume));
+        return vec!["null".into()];
+    }
+    let _gate = cpal_gate();
+    cpal::default_host()
+        .output_devices()
+        .into_iter()
+        .flatten()
+        .filter_map(|device| device.name().ok())
+        .filter(|name| !name.trim().is_empty())
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
+// Keep selection/fallback independent of host enumeration so missing devices,
+// open failures and the null backend exercise the same policy.
+fn open_preferred_output<T>(
+    preferred: Option<&str>,
+    logs: &Arc<LogBuffer>,
+    requested: impl FnOnce(&str) -> Result<T, String>,
+    default: impl FnOnce() -> Result<T, String>,
+) -> Result<T, String> {
+    if let Some(name) = preferred.filter(|name| !name.trim().is_empty()) {
+        match requested(name) {
+            Ok(output) => return Ok(output),
+            Err(error) => logs.push(format!(
+                "首选音频设备「{name}」不可用：{error}；回退到系统默认设备"
+            )),
+        }
+    }
+    default()
+}
+
+fn open_output(
+    logs: &Arc<LogBuffer>,
+    volume: f32,
+    preferred_device: Option<&str>,
+) -> Result<Output, String> {
+    if null_output_requested() {
+        return open_preferred_output(
+            preferred_device,
+            logs,
+            |name| {
+                if name == "null" {
+                    Ok(open_null_output(logs, volume))
+                } else {
+                    Err("设备不存在".into())
+                }
+            },
+            || Ok(open_null_output(logs, volume)),
+        );
     }
     let _gate = cpal_gate();
     let host = cpal::default_host();
-    let device = host
-        .default_output_device()
-        .ok_or_else(|| "系统没有可用的音频输出设备".to_string())?;
+    open_preferred_output(
+        preferred_device,
+        logs,
+        |name| {
+            let device = host
+                .output_devices()
+                .map_err(|e| e.to_string())?
+                .find(|device| device.name().is_ok_and(|n| n == name))
+                .ok_or_else(|| "设备不存在或已断开".to_string())?;
+            open_device(&device, logs, volume)
+        },
+        || {
+            let device = host
+                .default_output_device()
+                .ok_or_else(|| "系统没有可用的音频输出设备".to_string())?;
+            open_device(&device, logs, volume)
+        },
+    )
+}
+
+fn open_device(
+    device: &cpal::Device,
+    logs: &Arc<LogBuffer>,
+    volume: f32,
+) -> Result<Output, String> {
     let device_name = device.name().unwrap_or_else(|_| "未知设备".to_string());
     logs.push(format!("音频输出设备: {device_name}"));
 
@@ -382,14 +461,14 @@ fn open_output(logs: &Arc<LogBuffer>, volume: f32) -> Result<Output, String> {
             volume,
         ));
         let built = match format {
-            SampleFormat::F32 => build::<f32>(&device, &config, shared.clone(), logs.clone()),
-            SampleFormat::F64 => build::<f64>(&device, &config, shared.clone(), logs.clone()),
-            SampleFormat::I16 => build::<i16>(&device, &config, shared.clone(), logs.clone()),
-            SampleFormat::I32 => build::<i32>(&device, &config, shared.clone(), logs.clone()),
-            SampleFormat::I8 => build::<i8>(&device, &config, shared.clone(), logs.clone()),
-            SampleFormat::U8 => build::<u8>(&device, &config, shared.clone(), logs.clone()),
-            SampleFormat::U16 => build::<u16>(&device, &config, shared.clone(), logs.clone()),
-            SampleFormat::U32 => build::<u32>(&device, &config, shared.clone(), logs.clone()),
+            SampleFormat::F32 => build::<f32>(device, &config, shared.clone(), logs.clone()),
+            SampleFormat::F64 => build::<f64>(device, &config, shared.clone(), logs.clone()),
+            SampleFormat::I16 => build::<i16>(device, &config, shared.clone(), logs.clone()),
+            SampleFormat::I32 => build::<i32>(device, &config, shared.clone(), logs.clone()),
+            SampleFormat::I8 => build::<i8>(device, &config, shared.clone(), logs.clone()),
+            SampleFormat::U8 => build::<u8>(device, &config, shared.clone(), logs.clone()),
+            SampleFormat::U16 => build::<u16>(device, &config, shared.clone(), logs.clone()),
+            SampleFormat::U32 => build::<u32>(device, &config, shared.clone(), logs.clone()),
             other => {
                 last_err = format!("不支持的采样格式: {other}");
                 continue;
@@ -436,19 +515,28 @@ struct Started {
     log_line: String,
 }
 
+struct OutputSettings<'a> {
+    volume: f32,
+    preferred_device: Option<&'a str>,
+}
+
 /// Open a file, seek to `position`, pre-fill the device buffer and put the
 /// engine in the requested state. Shared by Play and Prepare (session restore).
 fn begin_track(
     output: &mut Option<Output>,
     logs: &Arc<LogBuffer>,
-    volume: f32,
+    settings: &OutputSettings<'_>,
     path: &Path,
     duration_ms: u64,
     position: Duration,
     paused: bool,
 ) -> Result<Started, String> {
     if output.is_none() {
-        *output = Some(open_output(logs, volume)?);
+        *output = Some(open_output(
+            logs,
+            settings.volume,
+            settings.preferred_device,
+        )?);
     }
     let out = output.as_ref().unwrap();
     let name = path
@@ -624,6 +712,7 @@ fn engine_loop(
     let mut duration = Duration::ZERO;
     let mut current_path: Option<String> = None;
     let mut volume = 1.0f32;
+    let mut preferred_device: Option<String> = None;
     let mut error: Option<String> = None;
     let mut draining_since: Option<Instant> = None;
 
@@ -637,7 +726,7 @@ fn engine_loop(
 
     // Open the device up front so a missing/blocked output is visible before
     // the person presses play, instead of failing silently later.
-    match open_output(&logs, volume) {
+    match open_output(&logs, volume, preferred_device.as_deref()) {
         Ok(o) => output = Some(o),
         Err(e) => {
             logs.push(format!("音频输出不可用: {e}"));
@@ -654,7 +743,10 @@ fn engine_loop(
                     match begin_track(
                         &mut output,
                         &logs,
-                        volume,
+                        &OutputSettings {
+                            volume,
+                            preferred_device: preferred_device.as_deref(),
+                        },
                         &path,
                         duration_ms,
                         Duration::ZERO,
@@ -693,7 +785,10 @@ fn engine_loop(
                     match begin_track(
                         &mut output,
                         &logs,
-                        volume,
+                        &OutputSettings {
+                            volume,
+                            preferred_device: preferred_device.as_deref(),
+                        },
                         &path,
                         duration_ms,
                         position,
@@ -762,7 +857,10 @@ fn engine_loop(
                         match begin_track(
                             &mut output,
                             &logs,
-                            volume,
+                            &OutputSettings {
+                                volume,
+                                preferred_device: preferred_device.as_deref(),
+                            },
                             Path::new(path),
                             duration.as_millis() as u64,
                             Duration::from_secs_f64(target),
@@ -811,6 +909,64 @@ fn engine_loop(
                         o.shared
                             .volume_bits
                             .store(volume.to_bits(), Ordering::Relaxed);
+                    }
+                }
+                Ok(Cmd::SetOutputDevice { device }) => {
+                    preferred_device = device.filter(|name| !name.trim().is_empty());
+                    // Freeze the old callback before reading its frame clock. Stream
+                    // teardown, device IO and decoder seek all stay on this worker.
+                    let old_clock = output.as_ref().map(|out| {
+                        out.shared.paused.store(true, Ordering::SeqCst);
+                        out.shared.clone()
+                    });
+                    decoder = None;
+                    draining_since = None;
+                    drop(output.take());
+                    // Teardown has let any in-flight callback finish; include its
+                    // last delivered frames rather than losing one callback block.
+                    let position = old_clock
+                        .map_or(Duration::ZERO, |shared| {
+                            Duration::from_secs_f64(
+                                shared.frames_played.load(Ordering::SeqCst) as f64
+                                    / shared.rate as f64,
+                            )
+                        })
+                        .min(duration);
+                    let switched = open_output(&logs, volume, preferred_device.as_deref())
+                        .and_then(|out| {
+                            output = Some(out);
+                            if state != PlaybackState::Stopped {
+                                if let Some(path) = current_path.as_ref() {
+                                    let started = begin_track(
+                                        &mut output,
+                                        &logs,
+                                        &OutputSettings {
+                                            volume,
+                                            preferred_device: preferred_device.as_deref(),
+                                        },
+                                        Path::new(path),
+                                        duration.as_millis() as u64,
+                                        position,
+                                        state == PlaybackState::Paused,
+                                    )?;
+                                    decoder = started.decoder;
+                                    draining_since = started.draining_since;
+                                }
+                            }
+                            Ok(())
+                        });
+                    match switched {
+                        Ok(()) => {
+                            error = None;
+                            logs.push("音频输出设备已切换");
+                        }
+                        Err(msg) => {
+                            state = PlaybackState::Stopped;
+                            decoder = None;
+                            logs.push(format!("切换音频输出失败：{msg}"));
+                            error = Some(msg.clone());
+                            let _ = events.send(PlaybackEvent::Failed(msg));
+                        }
                     }
                 }
                 Ok(Cmd::ClearError) => {
@@ -1222,7 +1378,7 @@ pub fn output_selftest(millis: u64) -> Result<SelfTestReport, String> {
         return Err("MUSIC_MINE_NULL_OUTPUT：未打开真实设备".into());
     }
     let logs = Arc::new(LogBuffer::new(None));
-    let out = open_output(&logs, 1.0)?;
+    let out = open_output(&logs, 1.0, None)?;
     // Route the callback's samples into a capture buffer for inspection.
     out.shared
         .capture
@@ -1283,6 +1439,116 @@ pub fn output_selftest(millis: u64) -> Result<SelfTestReport, String> {
 #[cfg(test)]
 pub mod tests {
     use super::*;
+
+    #[test]
+    fn output_selection_falls_back_on_missing_or_unopenable_device() {
+        let logs = Arc::new(LogBuffer::new(None));
+        for failure in ["设备不存在", "设备无法打开"] {
+            let result = open_preferred_output(
+                Some("Headphones"),
+                &logs,
+                |_| Err(failure.into()),
+                || Ok("default"),
+            );
+            assert_eq!(result.unwrap(), "default");
+        }
+        assert_eq!(
+            open_preferred_output(
+                Some("Headphones"),
+                &logs,
+                |_| Ok("preferred"),
+                || Err("must not open default".into())
+            )
+            .unwrap(),
+            "preferred"
+        );
+        assert_eq!(
+            open_preferred_output(
+                Some(""),
+                &logs,
+                |_| Err("must not look up empty name".into()),
+                || Ok("default")
+            )
+            .unwrap(),
+            "default"
+        );
+        assert!(open_preferred_output::<()>(
+            Some("missing"),
+            &logs,
+            |_| Err("missing".into()),
+            || Err("no default".into())
+        )
+        .is_err());
+        assert!(logs.lines().iter().any(|line| line.contains("回退")));
+    }
+
+    #[test]
+    fn output_switch_preserves_paused_and_playing_position() {
+        if !null_output_requested() {
+            return;
+        }
+        assert_eq!(list_output_devices(), vec!["null"]);
+        let player = Player::new(None);
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/tone.flac");
+        player.set_volume(0.2);
+        player.prepare(path.clone(), 3000, 600);
+        let before = player.synchronize().unwrap();
+        for device in [Some("null".into()), Some("unplugged".into()), None] {
+            player.set_output_device(device);
+            let after = player.synchronize().unwrap();
+            assert_eq!(after.state, PlaybackState::Paused);
+            assert_eq!(after.current_path, before.current_path);
+            assert_eq!(after.duration, before.duration);
+            assert!(after.position.abs_diff(before.position) < Duration::from_millis(1));
+            assert_eq!(after.volume, 0.2);
+            assert_eq!(after.output.unwrap().device, "null");
+            assert!(after.error.is_none());
+        }
+        player.resume();
+        std::thread::sleep(Duration::from_millis(60));
+        let before = player.synchronize().unwrap();
+        player.set_output_device(None);
+        let after = player.synchronize().unwrap();
+        assert_eq!(after.state, PlaybackState::Playing);
+        assert_eq!(after.current_path, before.current_path);
+        assert!(after.position >= before.position);
+        assert!(after.position - before.position < Duration::from_millis(150));
+        player.stop();
+        player.set_output_device(Some("null".into()));
+        let idle = player.synchronize().unwrap();
+        assert_eq!(idle.state, PlaybackState::Stopped);
+        assert_eq!(idle.position, Duration::ZERO);
+        assert_eq!(idle.current_path, None);
+    }
+
+    #[test]
+    fn failed_track_restore_during_device_switch_stops_and_keeps_error() {
+        if !null_output_requested() {
+            return;
+        }
+        let path = std::env::temp_dir().join(format!(
+            "music-mine-output-failure-{}.flac",
+            std::process::id()
+        ));
+        std::fs::copy(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/tone.flac"),
+            &path,
+        )
+        .unwrap();
+        let player = Player::new(None);
+        player.prepare(path.clone(), 3000, 500);
+        assert_eq!(player.synchronize().unwrap().state, PlaybackState::Paused);
+        std::fs::remove_file(&path).unwrap();
+        player.set_output_device(Some("null".into()));
+        let failed = player.synchronize().unwrap();
+        assert_eq!(failed.state, PlaybackState::Stopped);
+        assert!(failed.error.is_some());
+        assert!(matches!(player.poll(), Some(PlaybackEvent::Failed(_))));
+        std::thread::sleep(Duration::from_millis(30));
+        let later = player.synchronize().unwrap();
+        assert_eq!(failed.position, later.position);
+        assert_eq!(failed.error, later.error);
+    }
 
     #[test]
     fn poisoned_status_remains_readable_and_engine_publishes() {

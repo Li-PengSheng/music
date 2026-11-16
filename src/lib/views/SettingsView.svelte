@@ -10,8 +10,10 @@
     cancelScan,
     removeFolder,
     clearCoverCaches,
+    outputDevices,
+    setOutputDevice,
   } from '../services/music';
-  import { player } from '../stores/player.svelte';
+  import { player, control } from '../stores/player.svelte';
   import { library, refreshSummary } from '../stores/library.svelte';
   import { ui, notify, notifyError, confirmAction } from '../stores/ui.svelte';
   import { importFolder, importLegacyDatabase } from '../actions';
@@ -25,6 +27,54 @@
   let importing = $state(false);
   let removing = $state<string | null>(null);
   let confirming = false;
+  let devices = $state<string[]>([]);
+  let outputChoice = $state('');
+  let selectedOutput = $state('');
+  let changingOutput = $state(false);
+  const outputOptions = $derived([
+    { value: '', label: '跟随系统默认设备' },
+    ...devices.map((name) => ({ value: name, label: name })),
+    ...(selectedOutput && !devices.includes(selectedOutput)
+      ? [{ value: selectedOutput, label: selectedOutput + '（已断开）' }]
+      : []),
+  ]);
+  const outputLabel = $derived(
+    selectedOutput
+      ? outputOptions.find((option) => option.value === selectedOutput)?.label
+      : (player.snapshot?.output_device_id ?? '尚未打开音频输出设备'),
+  );
+
+  async function refreshDevices() {
+    try {
+      devices = await outputDevices();
+    } catch (e) {
+      notifyError(e);
+    }
+  }
+
+  async function changeOutput(value: string) {
+    if (changingOutput) return;
+    changingOutput = true;
+    try {
+      if (await control(() => setOutputDevice(value || null))) {
+        if (!player.snapshot?.error) {
+          notify(
+            value && player.snapshot?.output_device_id !== value
+              ? '所选设备不可用，已回退到系统默认设备'
+              : '音频输出已切换',
+          );
+        }
+      }
+      const preferences = await desktopPreferences();
+      selectedOutput = preferences.output_device ?? '';
+    } catch (e) {
+      notifyError(e);
+    } finally {
+      outputChoice = selectedOutput;
+      await refreshDevices();
+      changingOutput = false;
+    }
+  }
 
   async function remove(folder: string) {
     if (confirming || removing !== null || scanning || !desktopAvailable) return;
@@ -56,12 +106,15 @@
 
   onMount(() => {
     if (!desktopAvailable) return;
+    void refreshDevices();
     void mediaStatus()
       .then((s) => (media = s))
       .catch(notifyError);
     void desktopPreferences()
       .then((p) => {
         closeToTray = p.close_to_tray;
+        selectedOutput = p.output_device ?? '';
+        outputChoice = selectedOutput;
         desktopReady = true;
       })
       .catch(notifyError);
@@ -157,7 +210,20 @@
     <dl class="settings-list">
       <div>
         <dt>音频输出</dt>
-        <dd>{player.snapshot?.output_device_id ?? '尚未打开音频输出设备'}</dd>
+        <dd>
+          <div class="output-picker" title="选择音频输出设备">
+            <span aria-hidden="true">{outputLabel}</span>
+            <div class="output-control">
+              <Select
+                label="音频输出设备"
+                bind:value={outputChoice}
+                options={outputOptions}
+                disabled={!desktopReady || changingOutput || player.busy}
+                onchange={changeOutput}
+              />
+            </div>
+          </div>
+        </dd>
       </div>
       <div>
         <dt>Windows 媒体控制</dt>
@@ -252,6 +318,30 @@
 </div>
 
 <style>
+  /* Retain the compact actual-device readout. Hover or keyboard focus reveals
+     the existing Select at the same position without changing the row height. */
+  .output-picker {
+    position: relative;
+  }
+  .output-control {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: min(260px, 45vw);
+    opacity: 0;
+  }
+  .output-control :global(.select-trigger) {
+    width: 100%;
+  }
+  .output-picker:hover .output-control,
+  .output-picker:focus-within .output-control {
+    opacity: 1;
+  }
+  .output-picker:hover > span,
+  .output-picker:focus-within > span {
+    visibility: hidden;
+  }
   :global {
     /* ============================================================ settings */
     .settings {

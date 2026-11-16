@@ -15,6 +15,31 @@ pub struct Track {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn output_device_action_keeps_queue_track_volume_and_transport() {
+        if std::env::var_os("MUSIC_MINE_NULL_OUTPUT").is_none() {
+            return;
+        }
+        let mut c = Controller::new();
+        c.execute(Action::Volume(0.2)).unwrap();
+        c.execute(Action::Open(fixture("tone.flac"))).unwrap();
+        let before = c.execute(Action::Seek(700.)).unwrap();
+        let after = c
+            .execute(Action::OutputDevice(Some("unplugged".into())))
+            .unwrap();
+        assert_eq!(after.playback_state, "paused");
+        assert_eq!(after.track_id, before.track_id);
+        assert_eq!(after.position_ms, before.position_ms);
+        assert_eq!(after.queue.len(), before.queue.len());
+        assert_eq!(after.volume, before.volume);
+        assert!(after.revision > before.revision);
+        assert_eq!(after.output_device_id.as_deref(), Some("null"));
+        c.execute(Action::Play).unwrap();
+        let after = c.execute(Action::OutputDevice(None)).unwrap();
+        assert_eq!(after.playback_state, "playing");
+        assert!(after.position_ms >= 700);
+        c.execute(Action::Stop).unwrap();
+    }
     fn fixture(name: &str) -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("tests/fixtures")
@@ -216,11 +241,12 @@ pub struct PlayerSnapshot {
     playback_mode: String,
     lyrics_offset_ms: i64,
     output_device_id: Option<String>,
-    error: Option<String>,
+    pub(crate) error: Option<String>,
     pub queue: Vec<Track>,
 }
 pub enum Action {
     State,
+    OutputDevice(Option<String>),
     Open(PathBuf),
     Start(PathBuf),
     Select(String),
@@ -467,6 +493,7 @@ impl Controller {
                 }
                 self.engine.set_volume(value as f32);
             }
+            Action::OutputDevice(device) => self.engine.set_output_device(device),
         }
         let status = match prepared_status {
             Some(status) => status,

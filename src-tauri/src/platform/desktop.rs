@@ -13,6 +13,7 @@ use tauri::{
 #[derive(Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Preferences {
+    pub output_device: Option<String>,
     pub close_to_tray: bool,
     pub queue_open: bool,
     /// "dark", "light" or "system"; files written before themes existed read as dark.
@@ -40,6 +41,25 @@ pub struct Desktop {
     pub exiting: AtomicBool,
 }
 impl Desktop {
+    pub fn configure_output(
+        &self,
+        controller: &mut crate::playback::controller::Controller,
+        device: Option<String>,
+    ) -> Result<crate::playback::controller::PlayerSnapshot, String> {
+        let mut guard = self.preferences.lock().map_err(|e| e.to_string())?;
+        let mut next = guard.clone();
+        next.output_device = device.filter(|name| !name.trim().is_empty());
+        let snapshot = controller.execute(Action::OutputDevice(next.output_device.clone()))?;
+        if snapshot.error.is_some() {
+            return Ok(snapshot);
+        }
+        if let Err(error) = self.save(&next) {
+            let _ = controller.execute(Action::OutputDevice(guard.output_device.clone()));
+            return Err(format!("保存音频设备偏好失败：{error}"));
+        }
+        *guard = next;
+        Ok(snapshot)
+    }
     fn save(&self, value: &Preferences) -> Result<(), String> {
         let data = serde_json::to_vec(value).map_err(|e| e.to_string())?;
         let temp = self.path.with_extension("tmp");
@@ -203,6 +223,11 @@ pub fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_default(),
         Err(_) => Preferences::default(),
     };
+    // Apply the output preference before the playback session is restored.
+    app.state::<Shared>()
+        .lock()
+        .map_err(|_| "播放器控制器不可用")?
+        .execute(Action::OutputDevice(preferences.output_device.clone()))?;
     app.manage(Desktop {
         preferences: Mutex::new(preferences.clone()),
         path,
@@ -363,6 +388,7 @@ mod tests {
         let p: Preferences = serde_json::from_str("{}").unwrap();
         assert!(!p.close_to_tray);
         assert!(!p.queue_open);
+        assert_eq!(p.output_device, None);
     }
     #[test]
     fn existing_users_keep_the_dark_title_bar() {
@@ -400,6 +426,50 @@ mod tests {
         std::fs::remove_dir_all(directory).unwrap();
     }
     #[test]
+    fn output_preference_saves_and_rolls_back_on_write_failure() {
+        if std::env::var_os("MUSIC_MINE_NULL_OUTPUT").is_none() {
+            return;
+        }
+        let directory = std::env::temp_dir().join(format!(
+            "music-mine-output-preference-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&directory).unwrap();
+        let mut controller = crate::playback::controller::Controller::new();
+        let state = Desktop {
+            preferences: Mutex::new(Preferences::default()),
+            path: directory.join("desktop.json"),
+            exiting: AtomicBool::new(false),
+        };
+        state
+            .configure_output(&mut controller, Some("Disconnected headphones".into()))
+            .unwrap();
+        let saved: Preferences =
+            serde_json::from_slice(&std::fs::read(&state.path).unwrap()).unwrap();
+        assert_eq!(
+            saved.output_device.as_deref(),
+            Some("Disconnected headphones")
+        );
+        assert!(!saved.close_to_tray);
+        state
+            .configure_output(&mut controller, Some("  ".into()))
+            .unwrap();
+        let saved: Preferences =
+            serde_json::from_slice(&std::fs::read(&state.path).unwrap()).unwrap();
+        assert_eq!(saved.output_device, None);
+        let failing = Desktop {
+            path: directory.join("missing/desktop.json"),
+            ..state
+        };
+        assert!(failing
+            .configure_output(&mut controller, Some("null".into()))
+            .err()
+            .unwrap()
+            .contains("保存音频设备偏好失败"));
+        assert_eq!(failing.preferences.lock().unwrap().output_device, None);
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+    #[test]
     fn shutdown_acknowledges_resource_release() {
         let player = crate::audio::player::Player::new(None);
         player.shutdown().unwrap();
@@ -411,12 +481,14 @@ mod tests {
             close_to_tray: true,
             queue_open: true,
             theme: "light".into(),
+            output_device: Some("Headphones".into()),
             bounds: Some((-1200, 30, 1000, 700)),
             maximized: true,
         };
         let q: Preferences = serde_json::from_slice(&serde_json::to_vec(&p).unwrap()).unwrap();
         assert_eq!(p.bounds, q.bounds);
         assert_eq!(q.theme, "light");
+        assert_eq!(q.output_device.as_deref(), Some("Headphones"));
         assert!(q.maximized && q.queue_open && q.close_to_tray);
     }
 }

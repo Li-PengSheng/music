@@ -63,7 +63,13 @@ let snapshot = {
   error: null,
   queue,
 };
-const prefs = { close_to_tray: false, queue_open: false, theme: null };
+const prefs = {
+  close_to_tray: false,
+  queue_open: false,
+  theme: null,
+  output_device: new URLSearchParams(location.search).get('outputDevice'),
+};
+window.__mockOutputDevices = ['Fixture output', 'Headphones'];
 const log = [];
 window.__mockLog = log;
 window.__mockSnapshot = () => snapshot;
@@ -86,6 +92,16 @@ function page(q) {
 const handlers = {
   bridge_probe: (a) => ({ nonce: a.nonce, backend: 'rust', snapshot }),
   player_get_state: () => snapshot,
+  player_output_devices: () => window.__mockOutputDevices,
+  player_set_output_device: ({ device }) => {
+    prefs.output_device = device || null;
+    snapshot = {
+      ...snapshot,
+      revision: snapshot.revision + 1,
+      output_device_id: window.__mockOutputDevices.includes(device) ? device : 'Fixture output',
+    };
+    return snapshot;
+  },
   desktop_preferences: (a) => {
     if (a.closeToTray != null) prefs.close_to_tray = a.closeToTray;
     if (a.queueOpen != null) prefs.queue_open = a.queueOpen;

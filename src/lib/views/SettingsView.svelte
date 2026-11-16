@@ -3,10 +3,17 @@
   import { FolderPlus, Database, X } from 'lucide-svelte';
   import Select from '../components/Select.svelte';
   import { shortcutHelp } from '../utils/shortcuts';
-  import { desktopAvailable, mediaStatus, desktopPreferences, cancelScan } from '../services/music';
+  import {
+    desktopAvailable,
+    mediaStatus,
+    desktopPreferences,
+    cancelScan,
+    removeFolder,
+    clearCoverCaches,
+  } from '../services/music';
   import { player } from '../stores/player.svelte';
-  import { library } from '../stores/library.svelte';
-  import { ui, notify, notifyError } from '../stores/ui.svelte';
+  import { library, refreshSummary } from '../stores/library.svelte';
+  import { ui, notify, notifyError, confirmAction } from '../stores/ui.svelte';
   import { importFolder, importLegacyDatabase } from '../actions';
   import { setReduceMotion, setTheme } from '../stores/preferences';
   import { parseTheme } from '../utils/theme';
@@ -16,6 +23,36 @@
   let desktopReady = $state(false);
   let saving = $state(false);
   let importing = $state(false);
+  let removing = $state<string | null>(null);
+  let confirming = false;
+
+  async function remove(folder: string) {
+    if (confirming || removing !== null || scanning || !desktopAvailable) return;
+    confirming = true;
+    try {
+      if (
+        !(await confirmAction({
+          title: '移除音乐文件夹？',
+          message: '仅从音乐库移除记录，不会删除磁盘上的任何音乐文件。',
+          detail: folder,
+          confirmLabel: '移除',
+          danger: true,
+        }))
+      )
+        return;
+      removing = folder;
+      await removeFolder(folder);
+      await refreshSummary();
+      clearCoverCaches();
+      library.coverEpoch++;
+      notify('已从音乐库移除文件夹，磁盘上的音乐文件未被删除');
+    } catch (e) {
+      notifyError(e);
+    } finally {
+      removing = null;
+      confirming = false;
+    }
+  }
 
   onMount(() => {
     if (!desktopAvailable) return;
@@ -68,7 +105,14 @@
     {#if library.summary.folders.length}
       <ul class="folder-list">
         {#each library.summary.folders as folder (folder)}<li class="mono" title={folder}>
-            {folder}
+            <span class="folder-path">{folder}</span>
+            <button
+              type="button"
+              class="btn btn-ghost btn-sm folder-remove"
+              aria-label={'移除音乐文件夹：' + folder}
+              disabled={scanning || removing !== null || !desktopAvailable}
+              onclick={() => remove(folder)}>移除</button
+            >
           </li>{/each}
       </ul>
     {:else}<p class="settings-note">尚未添加音乐文件夹。</p>{/if}
@@ -249,10 +293,27 @@
     }
 
     .folder-list li {
+      position: relative;
       padding: 8px 12px;
       border-radius: var(--radius-sm);
       background: var(--bg);
       color: var(--text-2);
+    }
+
+    .folder-path {
+      display: block;
+      padding-right: 64px;
+    }
+    .folder-remove {
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      opacity: 0;
+    }
+    .folder-list li:hover .folder-remove,
+    .folder-list li:focus-within .folder-remove {
+      opacity: 1;
     }
 
     .scan-status {

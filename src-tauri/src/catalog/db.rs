@@ -220,17 +220,26 @@ pub fn add_folder(conn: &Connection, path: &str) -> Result<(), String> {
     Ok(())
 }
 
-#[cfg(test)]
 pub fn remove_folder(conn: &Connection, path: &str) -> Result<(), String> {
-    conn.execute("DELETE FROM folders WHERE path = ?1", [path])
+    if path.trim().is_empty() {
+        return Err("缺少文件夹路径".into());
+    }
+    let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
+    tx.execute("DELETE FROM folders WHERE path = ?1", [path])
         .map_err(|e| e.to_string())?;
-    let prefix = format!("{}\\", path.trim_end_matches(['\\', '/']));
-    conn.execute(
-        "DELETE FROM tracks WHERE path = ?1 OR path LIKE ?2",
-        rusqlite::params![path, format!("{prefix}%")],
+    let normalized = path.replace('/', "\\");
+    let normalized = normalized.trim_end_matches('\\');
+    let prefix = format!("{normalized}\\")
+        .replace('!', "!!")
+        .replace('%', "!%")
+        .replace('_', "!_");
+    tx.execute(
+        "DELETE FROM tracks WHERE replace(path, '/', char(92)) = ?1 COLLATE NOCASE
+         OR replace(path, '/', char(92)) LIKE ?2 ESCAPE '!'",
+        rusqlite::params![normalized, format!("{prefix}%")],
     )
     .map_err(|e| e.to_string())?;
-    Ok(())
+    tx.commit().map_err(|e| e.to_string())
 }
 
 pub fn get_setting(conn: &Connection, key: &str) -> Option<String> {
@@ -272,6 +281,41 @@ mod tests {
             album_source: AlbumSource::Tag,
             added_at: 0,
         }
+    }
+
+    #[test]
+    fn remove_folder_treats_wildcards_and_boundaries_as_literal_paths() {
+        let conn = open_in_memory();
+        add_folder(&conn, r"C:\Music_100%").unwrap();
+        let paths = [
+            r"C:\Music_100%\a.flac",
+            r"C:\Music_100%\nested\b.flac",
+            r"C:\MusicA100X\keep.flac",
+            r"C:\Music_100%2\keep.flac",
+            r"C:/Music_100%/nested/c.flac",
+        ];
+        for path in paths {
+            upsert_tracks(&conn, &[sample_track(path, "Track")]).unwrap();
+        }
+        remove_folder(&conn, r"C:\Music_100%").unwrap();
+        let remaining: Vec<_> = load_tracks(&conn)
+            .unwrap()
+            .into_iter()
+            .map(|t| t.path)
+            .collect();
+        assert_eq!(remaining, vec![paths[2], paths[3]]);
+        assert!(load_folders(&conn).unwrap().is_empty());
+    }
+
+    #[test]
+    fn remove_folder_rolls_back_if_track_deletion_fails() {
+        let conn = open_in_memory();
+        add_folder(&conn, r"C:\Music").unwrap();
+        upsert_tracks(&conn, &[sample_track(r"C:\Music\a.flac", "Track")]).unwrap();
+        conn.execute_batch("CREATE TRIGGER block_delete BEFORE DELETE ON tracks BEGIN SELECT RAISE(ABORT, 'test failure'); END;").unwrap();
+        assert!(remove_folder(&conn, r"C:\Music").is_err());
+        assert_eq!(load_folders(&conn).unwrap(), vec![r"C:\Music"]);
+        assert_eq!(load_tracks(&conn).unwrap().len(), 1);
     }
 
     #[test]

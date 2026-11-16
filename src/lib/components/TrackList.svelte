@@ -3,10 +3,16 @@
   import { Ellipsis, Play, Clock3 } from 'lucide-svelte';
   import Cover from './Cover.svelte';
   import { tooltip } from './tooltip';
-  import { queryLibrary, playTrack, type LibraryQuery, type LibraryTrack } from '../services/music';
+  import {
+    queryLibrary,
+    playTrack,
+    reorderPlaylist,
+    type LibraryQuery,
+    type LibraryTrack,
+  } from '../services/music';
   import { player, perform } from '../stores/player.svelte';
   import { library } from '../stores/library.svelte';
-  import { openMenu, notifyError } from '../stores/ui.svelte';
+  import { ui, openMenu, notifyError } from '../stores/ui.svelte';
   import { memory } from '../stores/nav.svelte';
   import { songMenu, openDetails } from '../actions';
   import { visibleRange, pagesFor, scrollToRow } from '../utils/virtual-range';
@@ -42,6 +48,10 @@
   let selected = $state(-1);
   let host = $state<HTMLDivElement>();
   let generation = 0;
+  let moving = $state(false);
+  let announcement = $state('');
+  let refreshPromise: Promise<unknown> = Promise.resolve();
+  const canReorder = $derived(playlistId != null && !query.search?.trim() && !ui.query.trim());
   const inflight = new Map<number, number>();
 
   let queryKey = $derived(JSON.stringify(query));
@@ -107,7 +117,7 @@
       const gen = generation;
       const keep = Object.keys(pages).map(Number);
       if (!keep.length) keep.push(0);
-      for (const p of keep) void fetchPage(p, gen);
+      refreshPromise = Promise.all(keep.map((p) => fetchPage(p, gen)));
     });
   });
   $effect(() => {
@@ -158,7 +168,50 @@
   }
   function menu(e: MouseEvent | HTMLElement, t: LibraryTrack, i: number) {
     selected = i;
-    openMenu(e, songMenu(t, { playlistId, onDetails: () => openDetails(t) }), t.title + ' 操作');
+    const key = queryKey;
+    openMenu(
+      e,
+      songMenu(t, {
+        playlistId,
+        onDetails: () => openDetails(t),
+        ...(canReorder
+          ? { order: { index: i, total, moving, move: (to: number) => moveTrack(t, i, to, key) } }
+          : {}),
+      }),
+      t.title + ' 操作',
+    );
+  }
+
+  async function moveTrack(t: LibraryTrack, from: number, to: number, expectedQuery: string) {
+    if (
+      !canReorder ||
+      moving ||
+      playlistId == null ||
+      expectedQuery !== queryKey ||
+      to < 0 ||
+      to >= total ||
+      from === to
+    )
+      return;
+    if (pages[Math.floor(from / PAGE)]?.[from % PAGE]?.id !== t.id) return;
+    const id = playlistId;
+    moving = true;
+    try {
+      await reorderPlaylist(id, from, to);
+      library.revision++;
+      await tick();
+      await refreshPromise;
+      if (queryKey !== expectedQuery) return;
+      await fetchPage(Math.floor(to / PAGE), generation);
+      if (queryKey !== expectedQuery || pages[Math.floor(to / PAGE)]?.[to % PAGE]?.id !== t.id)
+        return;
+      await focusRow(to);
+      announcement = `已将「${t.title}」移至第 ${to + 1} 位`;
+    } catch (e) {
+      notifyError(e);
+    } finally {
+      moving = false;
+    }
   }
 
   async function focusRow(i: number) {
@@ -178,6 +231,12 @@
   }
   function key(e: KeyboardEvent, i: number, t: LibraryTrack | undefined) {
     if (e.isComposing || e.target !== e.currentTarget) return;
+    if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (t && !e.repeat) void moveTrack(t, i, i + (e.key === 'ArrowUp' ? -1 : 1), queryKey);
+      return;
+    }
     const page = Math.max(1, Math.floor((scroller()?.clientHeight ?? ROW * 8) / ROW) - 1);
     let next = -1;
     if (e.key === 'ArrowDown') next = Math.min(total - 1, i + 1);
@@ -252,6 +311,7 @@
           role="row"
           aria-rowindex={index + 2}
           aria-selected={selected === index}
+          aria-keyshortcuts={canReorder ? 'Alt+ArrowUp Alt+ArrowDown' : undefined}
           data-index={index}
           tabindex={selected === index || (selected < 0 && index === range.start) ? 0 : -1}
           class:selected={selected === index}
@@ -353,6 +413,8 @@
       >
     </p>{/if}
 </div>
+
+<p class="sr-only" role="status" aria-live="polite">{announcement}</p>
 
 <style>
   :global {

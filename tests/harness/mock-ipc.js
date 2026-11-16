@@ -22,6 +22,9 @@ const playlists = [
   { id: 8, name: '夜晚', count: 2 },
 ];
 const members = { 7: [], 8: [3, 5] };
+const playlistSize = Number(new URLSearchParams(location.search).get('playlistTracks'));
+if (playlistSize > 0) members[8] = tracks.slice(0, playlistSize).map((t) => t.id);
+const folders = ['C:\\Fixture'];
 function groups(kind) {
   const map = new Map();
   for (const t of tracks) {
@@ -66,14 +69,15 @@ window.__mockLog = log;
 window.__mockSnapshot = () => snapshot;
 function page(q) {
   let list = tracks;
-  if (q.playlist != null) list = (members[q.playlist] ?? []).map((id) => tracks[id - 1]);
+  if (q.playlist != null)
+    list = (members[q.playlist] ?? []).map((id) => tracks.find((t) => t.id === id)).filter(Boolean);
   if (q.search) {
     const s = q.search.toLowerCase();
     list = list.filter((t) => (t.title + t.artist + t.album).toLowerCase().includes(s));
   }
   if (q.artist) list = list.filter((t) => t.artist === q.artist);
   if (q.album) list = list.filter((t) => t.album === q.album);
-  if (q.sort === 'title')
+  if (q.playlist == null && q.sort === 'title')
     list = [...list].sort((a, b) => a.title.localeCompare(b.title) || a.id - b.id);
   const offset = q.offset ?? 0,
     limit = q.limit ?? 100;
@@ -101,10 +105,22 @@ const handlers = {
     tracks: tracks.length,
     albums: groups('album'),
     artists: groups('artist'),
-    folders: ['C:\\Fixture'],
+    folders: [...folders],
     playlists: playlists.map((p) => ({ ...p, count: (members[p.id] ?? []).length })),
   }),
   library_query: (a) => page(a.query),
+  library_remove_folder: ({ path }) => {
+    const index = folders.indexOf(path);
+    if (index < 0) throw '音乐文件夹不存在';
+    folders.splice(index, 1);
+    const prefix = path.replaceAll('/', '\\').replace(/[\\/]+$/, '') + '\\';
+    const deleted = new Set(
+      tracks.filter((t) => t.path.replaceAll('/', '\\').startsWith(prefix)).map((t) => t.id),
+    );
+    for (let i = tracks.length - 1; i >= 0; i--) if (deleted.has(tracks[i].id)) tracks.splice(i, 1);
+    for (const id of Object.keys(members)) members[id] = members[id].filter((t) => !deleted.has(t));
+    return null;
+  },
   library_home: () => ({
     recent: tracks.slice(0, 6),
     artists: groups('artist')
@@ -114,7 +130,7 @@ const handlers = {
   library_cover: () => null,
   library_thumb: () => null,
   library_queue_thumb: () => null,
-  library_track: (a) => tracks[a.id - 1],
+  library_track: (a) => tracks.find((t) => t.id === a.id),
   library_audio_info: () => ({ format: 'Flac', sample_rate: 44100, channels: 2, bitrate: 900 }),
   library_playlist: (a) => {
     if (a.name) {
@@ -129,6 +145,21 @@ const handlers = {
     return null;
   },
   library_playlist_edit: (a) => {
+    if (a.action === 'reorder') {
+      const list = members[a.playlistId];
+      if (!list) throw '歌单不存在';
+      if (
+        !Number.isInteger(a.from) ||
+        !Number.isInteger(a.to) ||
+        a.from < 0 ||
+        a.to < 0 ||
+        a.from >= list.length ||
+        a.to >= list.length
+      )
+        throw '歌曲位置超出歌单范围';
+      list.splice(a.to, 0, list.splice(a.from, 1)[0]);
+      return null;
+    }
     if (a.action === 'delete') {
       const i = playlists.findIndex((p) => p.id === a.playlistId);
       if (i >= 0) playlists.splice(i, 1);
@@ -192,6 +223,7 @@ window.__TAURI_INTERNALS__ = {
   },
   invoke: async (cmd, args = {}) => {
     log.push({ cmd, args });
+    if (window.__mockFailures?.[cmd]) throw window.__mockFailures[cmd];
     const h = handlers[cmd];
     if (cmd.startsWith('plugin:')) return null;
     if (!h) throw `mock: unhandled command ${cmd}`;

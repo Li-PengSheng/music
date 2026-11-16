@@ -105,6 +105,7 @@ export interface ScanProgress {
 export const queryLibrary = (query: LibraryQuery) =>
   invoke<LibraryPage>('library_query', { query });
 export const librarySummary = () => invoke<LibrarySummary>('library_summary');
+export const removeFolder = (path: string) => invoke<void>('library_remove_folder', { path });
 export const scanFolder = () => {
   clearCoverCaches();
   return invoke<void>('library_scan');
@@ -184,6 +185,8 @@ export const removeFromPlaylist = (playlistId: number, trackId: number) =>
     name: null,
     trackId,
   });
+export const reorderPlaylist = (playlistId: number, from: number, to: number) =>
+  invoke<void>('library_playlist_edit', { action: 'reorder', playlistId, from, to });
 export const importLegacy = () =>
   invoke<{ tracks: number; playlists: number; entries: number; warnings: string[] } | null>(
     'library_import',

@@ -10,6 +10,8 @@ import {
   MicVocal,
   ListMinus,
   Shuffle,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-svelte';
 import {
   playTrack,
@@ -108,7 +110,11 @@ async function addTo(playlist: Playlist, track: LibraryTrack) {
 
 export function songMenu(
   track: LibraryTrack,
-  options: { playlistId?: number | null; onDetails: () => void },
+  options: {
+    playlistId?: number | null;
+    onDetails: () => void;
+    order?: { index: number; total: number; moving: boolean; move: (to: number) => unknown };
+  },
 ): MenuItem[] {
   const items: MenuItem[] = [
     { label: '播放', icon: Play, action: () => perform(() => playTrack(track.id)) },
@@ -133,6 +139,30 @@ export function songMenu(
   items.push({ label: '新建歌单并添加…', icon: ListPlus, action: () => newPlaylist(track) });
   if (options.playlistId != null) {
     const id = options.playlistId;
+    if (options.order) {
+      const { index, total, moving, move } = options.order;
+      const up = moving || index <= 0 || index >= total;
+      const down = moving || index < 0 || index >= total - 1;
+      items.push(
+        { kind: 'separator' },
+        {
+          label: '上移一位',
+          icon: ArrowUp,
+          disabled: up,
+          action: () => {
+            if (!up) return move(index - 1);
+          },
+        },
+        {
+          label: '下移一位',
+          icon: ArrowDown,
+          disabled: down,
+          action: () => {
+            if (!down) return move(index + 1);
+          },
+        },
+      );
+    }
     items.push(
       { kind: 'separator' },
       {

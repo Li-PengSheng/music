@@ -254,6 +254,7 @@ pub fn run() {
             commands::catalog::library_favorite,
             commands::catalog::library_playlist,
             commands::catalog::library_playlist_edit,
+            commands::catalog::library_remove_folder,
             commands::catalog::library_import,
             commands::catalog::library_queue,
             commands::catalog::library_queue_tracks

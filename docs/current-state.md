@@ -9,20 +9,19 @@
 
 ## 核验基线
 
-- 核验 Commit：HEAD `b048cecb669042c6b8e9e95b31d7ead444573071`，分支 `main`；开工时工作区干净，本次改动未提交。
-- 工作区指纹：`9fa7f88abf51132580fd9ad42e797af3d50714d751ee249c642bbc1a4f88bc38`，验收前后相同；命令为 `pwsh -File scripts/worktree-fingerprint.ps1 -Exclude docs/current-state.md,docs/architecture.md`。
-- 工作区内容：TrackList（包括 container 规则）、HomeView、EmptyState 的 CSS 已移入对应组件 `<style>` 的 `:global` 块，选择器与声明逐块对比保持一致；共享 `.eq` 动画原样留在全局。NowPlaying 的两行截断规则补充 `line-clamp: 2`，消除兼容性警告。
-- CSS 责任：`src/app.css` 从 1926 行降至 1455 行，P2 全局 CSS 责任已完成本轮十个指定组件范围；基础/共享样式、`.eq`、跨组件响应式和减少动画仍在全局。
-- 工具与音量：旧 `menu-position.ts`、`source-ast.mjs` 已不存在且无引用；`modal.ts` 仍被 Modal 和真实遮罩单测引用，保留原生 dialog 遮罩命中、拖出及嵌套浮层保护。`amplitude_gain` 与 `fill_output` 已按三次方曲线映射：20% → 0.008，50% → 0.125，100% → 1.0；本次不改 Rust、IPC 或会话数据。
-- 自动测试：`pnpm format`、`pnpm format:check`、`pnpm check`、`pnpm test`、`pwsh -File scripts/check.ps1` 退出码均为 0；Svelte 检查 0 error / 0 warning，前端 71/71，Rust fmt / clippy 通过，Rust 单元测试 78 通过、1 ignored，音频/歌词集成 3/6 通过。`amplitude_gain_maps_perceived_volume_and_clamps_bounds` 与 `volume_scales_the_actual_callback_samples` 均在完整 cargo test 中通过。测试设置 `MUSIC_MINE_NULL_OUTPUT=1`，不证明真实设备出声；既有 Cargo PDB 文件名冲突警告仍在。CSS 源码检查已扫描所有 CSS 与 Svelte style 块，无需改变断言范围。
-- 浏览器验证：`pnpm test:ui` 16/16 通过，退出码 0；既有快照全部零像素差异，`tests/ui/snapshots/` 无改动。覆盖深浅主题、首页、歌曲/虚拟列表与 sticky 表头、队列、弹窗、菜单、Select、减少动画及 1280×800 / 960×700 / 900×640 视口。harness 不证明 Rust 播放。
-- Windows Tauri 实机：NOT RUN。
+- 核验 Commit：HEAD `2f0f0170ebabf8fe9cd06f64a239be069fbac86e`，分支 `main`；本次 TASK-10-LIBRARY-PLAYLIST-MGMT 未提交，保留原有未跟踪 `repomix-output.md`。
+- 工作区指纹：`8c1a6104f3628122fc577eb3fd0a40856005038395d540ca14f90f211be0623e`，验收前后相同；命令为 `pwsh -File scripts/worktree-fingerprint.ps1 -Exclude docs/current-state.md,docs/tasks/TASK-10-LIBRARY-PLAYLIST-MGMT.md,docs/tasks/done/TASK-10-LIBRARY-PLAYLIST-MGMT.md`。
+- 工作区内容：设置页支持确认后移除已登记音乐目录，只删除数据库记录；目录名按字面量/分隔符边界匹配并在事务内删除。无搜索歌单支持上下移菜单及 Alt+方向键，校验边界、串行防重、刷新 library.revision、恢复行焦点并播报；搜索时禁用重排。IPC/harness/契约清单同步。没有表结构变更，没有修改音频引擎或用户真实文件。
+- CSS 责任：`src/app.css` 仍为 1455 行；本轮十个指定组件的样式归位结果保留。
+- 自动测试：pnpm format、pnpm test:ui、pwsh -File scripts/check.ps1 均退出 0；格式检查通过、Svelte 0 error / 0 warning、前端单测 73/73、Rust fmt / clippy 通过、Rust 单元 82 通过与 1 ignored、音频/歌词集成 3/6 通过（空输出测试）。新增目录字面匹配/事务回滚/命令操作与 reorder 参数边界覆盖。既有 Cargo PDB 文件名冲突警告仍在。
+- 浏览器验证：19/19 PASS、退出码 0，全部既有快照零像素差异且无更新；新增移除取消/失败/成功、排序边界/搜索禁用/失败及跨第 100 首分页、焦点与播报。harness 不证明 Rust 播放。
+- Windows Tauri 实机：PASS（本任务范围）。按 `scripts/build-isolated.ps1` 构建带 exe/config 哈希记录的 debug exe，通过 WebView2 CDP 调用真实 IPC 并操作实际界面：重排及 Alt+方向键/焦点、移除确认、空歌单/缺参/越界/重复移除拒绝。专用 TEMP 库内 fixture 记录移除，三个文件 SHA-256 未变。来源与结果位于 `tests/perf/out/task10-process.json`、`tests/perf/out/task10-native-result.json`；未测试真实音频/DPI/托盘。
 
 历史任务 09.5.3、09.5.5 的指纹仍为“未记录，无法重建”；本次结果不回填历史验收。
 
 ## 当前任务
 
-没有进行中的任务。新任务从 `docs/tasks/TEMPLATE.md` 写起，完成后把记录放到 `docs/tasks/done/`。
+TASK-10 已完成并归档：[TASK-10-LIBRARY-PLAYLIST-MGMT](tasks/done/TASK-10-LIBRARY-PLAYLIST-MGMT.md)。未提交，等待检视；没有其他进行中的任务。
 
 封面加载单元已经提交：
 

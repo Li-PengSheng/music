@@ -19,6 +19,19 @@ pub async fn library_query(query: Query, state: State<'_>) -> Result<Page, Strin
 pub async fn library_summary(state: State<'_>) -> Result<Summary, String> {
     work(state.inner().clone(), |s| s.summary()).await
 }
+/// Removes catalog rows only; no filesystem mutation is performed.
+#[tauri::command]
+pub async fn library_remove_folder(path: String, state: State<'_>) -> Result<(), String> {
+    work(state.inner().clone(), move |s| remove_folder(s, &path)).await
+}
+fn remove_folder(s: &Catalog, path: &str) -> Result<(), String> {
+    let _guard = s.operation.lock().map_err(|e| e.to_string())?;
+    let conn = s.connection()?;
+    if !db::load_folders(&conn)?.iter().any(|folder| folder == path) {
+        return Err("音乐文件夹不存在".into());
+    }
+    db::remove_folder(&conn, path)
+}
 #[tauri::command]
 pub fn library_progress(state: State<'_>) -> Progress {
     state.progress.lock().unwrap().clone()
@@ -292,25 +305,53 @@ pub async fn library_playlist_edit(
     playlist_id: i64,
     name: Option<String>,
     track_id: Option<i64>,
+    from: Option<usize>,
+    to: Option<usize>,
     state: State<'_>,
 ) -> Result<(), String> {
     work(state.inner().clone(), move |s| {
         let _guard = s.operation.lock().map_err(|e| e.to_string())?;
         let conn = s.connection()?;
-        match action.as_str() {
-            "rename" => {
-                collections::rename_playlist(&conn, playlist_id, &name.ok_or("缺少歌单名称")?)
-            }
-            "delete" => collections::delete_playlist(&conn, playlist_id),
-            "remove_track" => collections::remove_from_playlist(
-                &conn,
-                playlist_id,
-                track_id.ok_or("缺少歌曲 ID")?,
-            ),
-            _ => Err("不支持的歌单操作".into()),
-        }
+        edit_playlist(&conn, &action, playlist_id, name, track_id, from, to)
     })
     .await
+}
+fn edit_playlist(
+    conn: &rusqlite::Connection,
+    action: &str,
+    playlist_id: i64,
+    name: Option<String>,
+    track_id: Option<i64>,
+    from: Option<usize>,
+    to: Option<usize>,
+) -> Result<(), String> {
+    match action {
+        "rename" => collections::rename_playlist(conn, playlist_id, &name.ok_or("缺少歌单名称")?),
+        "delete" => collections::delete_playlist(conn, playlist_id),
+        "remove_track" => {
+            collections::remove_from_playlist(conn, playlist_id, track_id.ok_or("缺少歌曲 ID")?)
+        }
+        "reorder" => {
+            let from = from.ok_or("缺少原始位置")?;
+            let to = to.ok_or("缺少目标位置")?;
+            let exists: bool = conn
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM playlists WHERE id=?1)",
+                    [playlist_id],
+                    |row| row.get(0),
+                )
+                .map_err(|e| e.to_string())?;
+            if !exists {
+                return Err("歌单不存在".into());
+            }
+            let count = collections::playlist_track_ids(conn, playlist_id).len();
+            if from >= count || to >= count {
+                return Err("歌曲位置超出歌单范围".into());
+            }
+            collections::move_in_playlist(conn, playlist_id, from, to)
+        }
+        _ => Err("不支持的歌单操作".into()),
+    }
 }
 #[tauri::command]
 pub async fn library_import(state: State<'_>) -> Result<Option<ImportReport>, String> {
@@ -336,4 +377,119 @@ pub async fn library_import(state: State<'_>) -> Result<Option<ImportReport>, St
 #[tauri::command]
 pub async fn library_home(state: State<'_>) -> Result<Home, String> {
     work(state.inner().clone(), |s| s.home()).await
+}
+
+#[cfg(test)]
+mod management_tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    struct Fixture {
+        root: PathBuf,
+        catalog: Catalog,
+    }
+    impl Fixture {
+        fn new() -> Self {
+            let unique = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos();
+            let root =
+                std::env::temp_dir().join(format!("mm-management-{}-{unique}", std::process::id()));
+            std::fs::create_dir_all(&root).unwrap();
+            let catalog = Catalog::new(root.join("fixture.sqlite"));
+            Self { root, catalog }
+        }
+    }
+    impl Drop for Fixture {
+        fn drop(&mut self) {
+            assert!(self.root.starts_with(std::env::temp_dir()));
+            let _ = std::fs::remove_dir_all(&self.root);
+        }
+    }
+    fn track(conn: &rusqlite::Connection, path: &str) -> i64 {
+        conn.execute("INSERT INTO tracks(path,title,artist,album,album_artist,genre,duration_ms) VALUES(?1,'Fixture','A','B','','',1000)", [path]).unwrap();
+        conn.last_insert_rowid()
+    }
+    fn reorder(
+        conn: &rusqlite::Connection,
+        id: i64,
+        from: Option<usize>,
+        to: Option<usize>,
+    ) -> Result<(), String> {
+        edit_playlist(conn, "reorder", id, None, None, from, to)
+    }
+    #[test]
+    fn remove_folder_command_operation_changes_rows_but_never_files() {
+        let fixture = Fixture::new();
+        let folder = fixture.root.join("music_100%");
+        let neighbor = fixture.root.join("music_100%2");
+        std::fs::create_dir_all(&folder).unwrap();
+        std::fs::create_dir_all(&neighbor).unwrap();
+        let file = folder.join("fixture.flac");
+        let keep = neighbor.join("fixture.flac");
+        std::fs::write(&file, b"fixture bytes").unwrap();
+        std::fs::write(&keep, b"neighbor bytes").unwrap();
+        let conn = fixture.catalog.connection().unwrap();
+        let folder = folder.to_str().unwrap();
+        db::add_folder(&conn, folder).unwrap();
+        db::add_folder(&conn, neighbor.to_str().unwrap()).unwrap();
+        let removed = track(&conn, file.to_str().unwrap());
+        let kept = track(&conn, keep.to_str().unwrap());
+        let playlist = collections::create_playlist(&conn, "Fixture").unwrap();
+        collections::add_to_playlist(&conn, playlist, removed).unwrap();
+        collections::add_to_playlist(&conn, playlist, kept).unwrap();
+        remove_folder(&fixture.catalog, folder).unwrap();
+        assert_eq!(
+            db::load_tracks(&conn)
+                .unwrap()
+                .iter()
+                .map(|t| t.id)
+                .collect::<Vec<_>>(),
+            vec![kept]
+        );
+        assert_eq!(collections::playlist_track_ids(&conn, playlist), vec![kept]);
+        assert_eq!(
+            db::load_folders(&conn).unwrap(),
+            vec![neighbor.to_str().unwrap()]
+        );
+        assert_eq!(std::fs::read(file).unwrap(), b"fixture bytes");
+        assert_eq!(std::fs::read(keep).unwrap(), b"neighbor bytes");
+        assert!(remove_folder(&fixture.catalog, folder).is_err());
+        assert!(remove_folder(&fixture.catalog, "").is_err());
+        assert!(remove_folder(&fixture.catalog, fixture.root.to_str().unwrap()).is_err());
+        assert_eq!(db::load_tracks(&conn).unwrap().len(), 1);
+    }
+    #[test]
+    fn reorder_branch_validates_empty_missing_and_out_of_range_positions() {
+        let conn = db::open_in_memory();
+        let id = collections::create_playlist(&conn, "Fixture").unwrap();
+        assert!(reorder(&conn, id, Some(0), Some(0)).is_err());
+        let ids: Vec<_> = (0..3)
+            .map(|i| track(&conn, &format!(r"C:\Fixture\{i}.flac")))
+            .collect();
+        for &track in &ids {
+            collections::add_to_playlist(&conn, id, track).unwrap();
+        }
+        for (from, to) in [
+            (None, Some(0)),
+            (Some(0), None),
+            (Some(3), Some(0)),
+            (Some(0), Some(3)),
+            (Some(usize::MAX), Some(0)),
+        ] {
+            assert!(reorder(&conn, id, from, to).is_err());
+            assert_eq!(collections::playlist_track_ids(&conn, id), ids);
+        }
+        assert!(reorder(&conn, -1, Some(0), Some(1)).is_err());
+        reorder(&conn, id, Some(0), Some(2)).unwrap();
+        assert_eq!(
+            collections::playlist_track_ids(&conn, id),
+            vec![ids[1], ids[2], ids[0]]
+        );
+        reorder(&conn, id, Some(2), Some(0)).unwrap();
+        reorder(&conn, id, Some(1), Some(1)).unwrap();
+        assert_eq!(collections::playlist_track_ids(&conn, id), ids);
+        assert_eq!(db::load_tracks(&conn).unwrap().len(), 3);
+    }
 }

@@ -1,5 +1,5 @@
 pub(crate) mod collections;
-mod db;
+pub(crate) mod db;
 pub(crate) mod library;
 pub(crate) mod metadata;
 use library::Track;

@@ -269,7 +269,6 @@ pub fn remove_from_playlist(
 }
 
 /// Moves the entry at `from` to index `to` (clamped), renumbering positions.
-#[cfg(test)]
 pub fn move_in_playlist(
     conn: &Connection,
     playlist_id: i64,

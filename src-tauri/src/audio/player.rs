@@ -50,6 +50,7 @@ pub struct PlayerStatus {
     pub position: Duration,
     pub duration: Duration,
     pub current_path: Option<String>,
+    /// Perceived UI volume ratio; converted to amplitude only in the output callback.
     pub volume: f32,
     pub output: Option<OutputInfo>,
     pub error: Option<String>,
@@ -539,6 +540,14 @@ where
         .map_err(|e| e.to_string())
 }
 
+/// Maps linear UI volume [0.0, 1.0] to amplitude gain using a cubic audio taper (x^3).
+/// 0% -> 0.0 (-inf dB), 20% -> 0.008 (-42 dB), 50% -> 0.125 (-18 dB), 100% -> 1.0 (0 dB).
+#[inline]
+pub fn amplitude_gain(volume: f32) -> f32 {
+    let v = volume.clamp(0.0, 1.0);
+    v * v * v
+}
+
 /// The audio callback. Public only so the self-test can drive it.
 fn fill_output<T>(data: &mut [T], shared: &Shared)
 where
@@ -551,7 +560,7 @@ where
         }
         return;
     }
-    let volume = f32::from_bits(shared.volume_bits.load(Ordering::Relaxed)).clamp(0.0, 1.0);
+    let gain = amplitude_gain(f32::from_bits(shared.volume_bits.load(Ordering::Relaxed)));
     let mut peak = 0.0f32;
     let mut missing = 0usize;
     let capturing = shared.capture.lock().map(|c| c.is_some()).unwrap_or(false);
@@ -565,7 +574,7 @@ where
         for s in data.iter_mut() {
             match ring.pop_front() {
                 Some(v) => {
-                    let v = (v * volume).clamp(-1.0, 1.0);
+                    let v = (v * gain).clamp(-1.0, 1.0);
                     peak = peak.max(v.abs());
                     *s = T::from_sample(v);
                     if capturing {
@@ -1443,17 +1452,42 @@ pub mod tests {
     }
 
     #[test]
+    fn amplitude_gain_maps_perceived_volume_and_clamps_bounds() {
+        for (volume, expected) in [
+            (-0.5, 0.0),
+            (0.0, 0.0),
+            (0.2, 0.008),
+            (0.5, 0.125),
+            (1.0, 1.0),
+            (1.5, 1.0),
+        ] {
+            assert!(
+                (amplitude_gain(volume) - expected).abs() < 0.000001,
+                "volume {volume}"
+            );
+        }
+    }
+
+    #[test]
     fn volume_scales_the_actual_callback_samples() {
-        let shared = Shared::new(48_000, 2, 0.25);
-        shared
-            .ring
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .extend([0.8, -0.8]);
-        let mut samples = [0.0f32; 2];
-        fill_output(&mut samples, &shared);
-        assert!((samples[0] - 0.2).abs() < 0.0001);
-        assert!((samples[1] + 0.2).abs() < 0.0001);
+        for (volume, expected) in [
+            (0.0, 0.0),
+            (0.2, 0.0064),
+            (0.25, 0.0125),
+            (0.5, 0.1),
+            (1.0, 0.8),
+        ] {
+            let shared = Shared::new(48_000, 2, volume);
+            shared
+                .ring
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .extend([0.8, -0.8]);
+            let mut samples = [0.0f32; 2];
+            fill_output(&mut samples, &shared);
+            assert!((samples[0] - expected).abs() < 0.000001, "volume {volume}");
+            assert!((samples[1] + expected).abs() < 0.000001, "volume {volume}");
+        }
     }
 
     #[test]

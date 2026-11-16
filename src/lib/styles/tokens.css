@@ -1,5 +1,5 @@
 /* Music Mine design tokens. Components read only these variables; no colour is hard-coded elsewhere.
-   :root is the dark theme (default); [data-theme=light] overrides the palette, set before first paint by public/theme-init.js. */
+   :root holds the dark palette; [data-theme=light] is the default, set before first paint by public/theme-init.js. */
 :root {
   color-scheme: dark;
 

@@ -16,9 +16,9 @@ export function parsePalette(value: unknown): Palette {
 export const THEME_KEY = 'music-mine-theme';
 export const THEME_COLOR: Record<Theme, string> = { dark: '#121414', light: '#F3F5F1' };
 
-/** Unknown or missing values are dark, so users from before themes existed see no change. */
+/** Missing or invalid choices use light; saved dark/system choices are preserved. */
 export function parseTheme(value: unknown): ThemeChoice {
-  return value === 'light' || value === 'system' ? value : 'dark';
+  return value === 'dark' || value === 'system' ? value : 'light';
 }
 export function resolveTheme(choice: ThemeChoice, systemDark: boolean): Theme {
   return choice === 'system' ? (systemDark ? 'dark' : 'light') : choice;

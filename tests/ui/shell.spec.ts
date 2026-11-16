@@ -4,6 +4,7 @@ const HARNESS = '/tests/harness/index.html';
 
 async function openApp(page: Page) {
   await page.addInitScript(() => {
+    localStorage.setItem('music-mine-theme', 'dark');
     const fixed = Date.parse('2026-11-14T15:30:00+08:00');
     const Original = Date;
     function FakeDate(this: Date, ...args: ConstructorParameters<typeof Date>) {

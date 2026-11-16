@@ -55,7 +55,14 @@
     onclick={() => go({ view: 'home' })}
     aria-label="Music Mine 音乐空间"
   >
-    <span class="brand-mark" aria-hidden="true"><Music2 size={18} strokeWidth={2.4} /></span>
+    <span class="brand-mark" aria-hidden="true">
+      <svg class="brand-glyph" viewBox="0 0 24 24" width="18" height="18">
+        <circle cx="8" cy="12" r="5.35" />
+        <circle cx="8" cy="12" r="3.05" />
+        <circle class="brand-spindle" cx="8" cy="12" r="1.25" />
+        <path d="M15.35 9.15v5.7M17.85 7.15v9.7M20.35 10.05v3.9" />
+      </svg>
+    </span>
     <span class="brand-name">Music Mine</span>
   </button>
 
@@ -204,6 +211,19 @@
       border-radius: var(--radius);
       background: var(--accent);
       color: var(--accent-ink);
+    }
+
+    .brand-glyph {
+      display: block;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.6;
+      stroke-linecap: round;
+    }
+
+    .brand-spindle {
+      fill: currentColor;
+      stroke: none;
     }
 
     .nav {

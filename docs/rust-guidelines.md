@@ -7,7 +7,7 @@
 - `lib.rs`：Tauri 启动、命令、应用数据目录、播放控制线程。
 - `audio/player.rs`：Symphonia 解码、cpal 输出、音频线程。
 - `playback/controller.rs`：播放控制、队列、会话文件。
-- `platform/media.rs`：Windows 媒体集成。`platform/desktop.rs`：窗口、主题、托盘、`desktop-v1.json`。
+- `platform/media.rs`：Windows 媒体集成。`platform/desktop.rs`：窗口、主题、托盘、桌面歌词窗口、`desktop-v1.json`。`platform/thumbbar.rs`：Windows 任务栏缩略图按钮。`ITaskbarList3` 只留在主线程；按钮点击经 `spawn_blocking` 进入控制器，不进音频回调。
 - `catalog/library.rs`、`catalog/mod.rs`、`commands/catalog.rs`、`catalog/collections.rs`：曲库、扫描、歌单。
 - `catalog/db.rs`：SQLite 连接、`CREATE TABLE IF NOT EXISTS`、`ensure_column`。
 - `playback/lyrics.rs`、`catalog/metadata.rs`：歌词和标签。`artwork/covers.rs`：封面缩略图、内存和磁盘缓存。`infrastructure/logging.rs`：日志。
@@ -52,5 +52,5 @@ Windows 上这个路径来自系统已知文件夹。把进程的 `APPDATA` 指�
 - 可预期的文件、设备和数据库错误不用 `unwrap` 或 `expect` 吞掉。
 - 现有命令返回 `Result<T, String>`。不为了统一风格改全部签名。
 - 主窗口 `capabilities/default.json` 除 `core:default`、`allow-set-theme` 外，TASK-14 授权加入窗口 minimize / toggle-maximize / close / start-dragging 四项权限；不授予文件系统或 shell 权限。桌面歌词窗口使用单独的 `capabilities/lyrics-overlay.json`，只允许 `core:window:allow-start-dragging`。路径和数值在 Rust 侧校验。
-- 新增 crate 前说明现有依赖为何不够、Windows 目标、feature、构建成本和替代方案。依赖变更带上 `Cargo.lock`。
+- 新增 crate 前说明现有依赖为何不够、Windows 目标、feature、构建成本和替代方案。依赖变更带上 `Cargo.lock`。任务栏按钮复用已有 `windows` 0.58，不升级版本，不新增 crate。补充的 feature 是 `Win32_UI_Shell`、`Win32_UI_WindowsAndMessaging`、`Win32_Graphics_Gdi`，以及 `Win32_System_Com`（`CoCreateInstance` 不在 Shell feature 中）。
 - Rust 改动按范围运行 `cargo fmt --check`、`cargo clippy --all-targets -- -D warnings` 和相关 `cargo test`。没跑就写 `NOT RUN`。

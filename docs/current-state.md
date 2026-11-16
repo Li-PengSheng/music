@@ -9,19 +9,18 @@
 
 ## 核验基线
 
-- 核验 Commit：HEAD `bad7f2ec8cf744adc04edd4627b9f701a5ee0d1a`，分支 `main`。开工时工作区已含未提交的 TASK-13、TASK-14；本次 TASK-15 也未提交。
-- 工作区指纹：`71eb641c8fcf9b17f877c4aca3a9105bab35cf4d6f2b0216c813de50ff608ec7`，验收前后相同。命令为 `pwsh -File scripts/worktree-fingerprint.ps1 -Exclude docs/current-state.md,docs/tasks/TASK-15-CHINESE-THEMES.md,docs/tasks/done/TASK-15-CHINESE-THEMES.md`。
-- 工作区内容：配色与明暗正交。`theme` 仍是深色、浅色或跟随系统；`data-theme` 仍只有 `dark` / `light`。新增 `palette`：`celadon`（默认，沿用原秘色）、`cinnabar`、`azure`、`amber`。值存在 `localStorage` 的 `music-mine-palette`，首屏脚本写入 `data-palette`。设置页可立即切换。不写 Rust 偏好，不改播放、音量或 IPC。未访问用户真实数据。
-- CSS：`src/app.css` 仍为 1455 行。新色系只加在 `tokens.css`。青瓷继续使用原来的 `:root` 与浅色覆盖。
-- 自动测试：`pnpm format` 与 `pwsh -File scripts/check.ps1` 退出 0。Prettier 通过，Svelte 0 error / 0 warning，前端 83/83，Rust fmt / clippy 通过，Rust 单元 92 通过、1 ignored，音频/歌词集成 3/6 通过。八组配色的主次文字对比度达到 4.5:1。既有 Cargo PDB 文件名冲突警告仍在。
-- 浏览器验证：`pnpm test:ui` 34/34，退出 0。朱砂深浅切换后音量仍是 70%、进度仍是 0:42，刷新后配色还在。默认青瓷下除设置页外的快照为零像素差异。设置页新增选择器，只更新了 `settings-dark.png`。
-- Windows Tauri 实机：NOT RUN。没有为这四套配色重新启动 exe。标题栏仍只跟深浅模式，不跟色系。
+- 核验 Commit：HEAD `f7cdaf4055eec1160dfed55d8a303094bd8869e8`，分支 `main`。工作区还有未提交的 TASK-16 图标与侧栏标记，以及本次 TASK-17。都未提交。
+- 工作区指纹：`c9ba3bae8e94dad90d0b1f1f024dd95daaf26b2f54dbc95868175f29b5bcaa49`。命令为 `pwsh -File scripts/worktree-fingerprint.ps1 -Exclude docs/current-state.md,docs/tasks/TASK-17-TRAY-AND-THUMBBAR.md,docs/tasks/done/TASK-17-TRAY-AND-THUMBBAR.md`。开工时的另一枚指纹还排除了架构文档，不能与这一枚直接对比。
+- 工作区内容：托盘右键菜单按曲目、播放状态、播放模式和桌面歌词状态更新。左键在显示与隐藏之间切换，隐藏不退出进程。Windows 任务栏缩略图有上一首、播放/暂停、停止、下一首，按钮 ID 为 1001–1004。`playback_mode` 改为公开字段，JSON 字段名不变。未访问用户真实数据。
+- 自动测试：`pnpm format` 与 `pwsh -File scripts/check.ps1` 退出 0。Prettier 通过，Svelte 0 error / 0 warning，前端 83/83，Rust fmt / clippy 通过，Rust 单元 93 通过、1 ignored，音频/歌词集成 3/6 通过。既有 Cargo PDB 文件名冲突警告仍在。`Cargo.lock` 未变。
+- 浏览器验证：`pnpm test:ui` 34/34，退出 0。本次没有改前端，既有快照零像素差异。
+- Windows Tauri 实机：NOT RUN。没有启动构建出的 exe，没有在真实任务栏上看见托盘菜单或缩略图按钮。
 
-历史任务 09.5.3、09.5.5 的指纹仍为“未记录，无法重建”。TASK-13、TASK-14 的记录留在各自任务单，本次指纹不回填它们。
+历史任务 09.5.3、09.5.5 的指纹仍为“未记录，无法重建”。更早任务的指纹不回填。
 
 ## 当前任务
 
-TASK-15 已完成并归档：[TASK-15-CHINESE-THEMES](tasks/done/TASK-15-CHINESE-THEMES.md)。未提交，等待检视。TASK-13 与 TASK-14 仍在同一份未提交工作区。
+TASK-17 已完成并归档：[TASK-17-TRAY-AND-THUMBBAR](tasks/done/TASK-17-TRAY-AND-THUMBBAR.md)。未提交，等待检视。TASK-16 的图标和侧栏标记仍在同一份未提交工作区。
 
 封面加载单元已经提交：
 
@@ -29,7 +28,7 @@ TASK-15 已完成并归档：[TASK-15-CHINESE-THEMES](tasks/done/TASK-15-CHINESE
 - 提交：`4352fc6`
 - 记录：[09.5.5](tasks/done/TASK-09.5.5-RC-FREEZE.md)，依赖 [09.5.3](tasks/done/TASK-09.5.3-QUEUE-COVER.md)
 - 下一步：没有指定的下一任务
-- 遗留事项的任务 ID：库外打开、WAV 经界面打开、托盘三态还没有单独的任务 ID
+- 遗留事项的任务 ID：库外打开、WAV 经界面打开还没有单独的任务 ID。托盘菜单和任务栏按钮是 TASK-17，实机仍是 NOT RUN
 
 ## 已知缺陷
 
@@ -42,15 +41,16 @@ TASK-15 已完成并归档：[TASK-15-CHINESE-THEMES](tasks/done/TASK-15-CHINESE
 
 NOT RUN 放在这里。它不是已知缺陷，也不表示可以放行。
 
-- 库外 `player_open_file`、WAV 经界面打开、托盘三态：09.5.5 写明未做。保持 NOT RUN。
-- 当前工作区的 Rust 自动检查和浏览器 harness 已记在核验基线。真实音频、扫描、DPI、托盘和系统媒体键的实机仍是 NOT RUN。四套配色没有在构建出的 exe 里看过，标题栏颜色也不随色系改变。历史无指纹记录不作为当前验收。
+- 库外 `player_open_file`、WAV 经界面打开：09.5.5 写明未做。保持 NOT RUN。
+- 托盘菜单和任务栏缩略图按钮已有代码和单元测试。真实托盘、任务栏按钮、DPI 和系统媒体键仍是 NOT RUN。
+- 当前工作区的 Rust 自动检查和浏览器 harness 已记在核验基线。真实音频、扫描和构建出的 exe 仍是 NOT RUN。标题栏颜色不随色系改变。历史无指纹记录不作为当前验收。
 - 浏览器 harness 不是 Rust 播放。
 
 ## 发布决定
 
 这是 2026-11-15 这次文档整理做出的决定，不是 09.5.3 或 09.5.5 当时已经写完的验收结论。
 
-库外打开、WAV 经界面打开、托盘三态这三项 NOT RUN，不阻塞 `4352fc6` 里的封面加载。它们仍阻塞把当前程序称为完整发布。
+库外打开、WAV 经界面打开，以及托盘和任务栏按钮的实机确认，仍是 NOT RUN。这些不阻塞 `4352fc6` 里的封面加载。它们仍阻塞把当前程序称为完整发布。
 
 ## 源码事实
 
@@ -66,6 +66,8 @@ NOT RUN 放在这里。它不是已知缺陷，也不表示可以放行。
 | 源码可见 | 队列用 `retainQueue`。宽屏队列覆盖页面 |
 | 源码可见 | 桌面歌词窗口标签 `lyrics-overlay`，地址带 `?window=lyrics`。主窗口 capability 未扩大 |
 | 源码可见 | 配色 `palette` 与明暗 `theme` 分开。默认 `celadon`。首屏脚本设置 `data-palette` |
+| 源码可见 | 未保存主题时默认浅色；初始音量为 20%。已有主题选择和播放会话音量继续恢复 |
+| 源码可见 | 托盘菜单含曲目、播放控制、桌面歌词和播放模式。Windows 任务栏缩略图按钮 ID 为 1001–1004 |
 
 `src/app.css` 的行数已在本次组件 CSS 搬迁后重数。
 

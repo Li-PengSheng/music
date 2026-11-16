@@ -34,6 +34,7 @@ src-tauri/src/lib.rs               命令注册与应用状态
         ├── playback/lyrics.rs / catalog/metadata.rs
         ├── artwork/covers.rs              封面读取、尺寸限制和磁盘缓存
         ├── platform/desktop.rs             窗口、主题、托盘、桌面歌词窗口、desktop-v1.json
+        ├── platform/thumbbar.rs            Windows 任务栏缩略图按钮（ITaskbarList3）
         └── infrastructure/logging.rs
 ```
 
@@ -74,6 +75,7 @@ src-tauri/src/lib.rs               命令注册与应用状态
 - 启用的解码 feature：`mp3`、`flac`、`wav`、`pcm`。fixture 在 `src-tauri/tests/fixtures/`：`tone.mp3`、`tone.flac`、`tone.wav`。
 - 主窗口默认 1280×850，最小 900×640。桌面歌词窗口默认约 640×108，最小 360×92，标签 `lyrics-overlay`。
 - 主窗口无系统装饰，保留 resizable / shadow。TopBar 和 NowPlaying 使用 WindowControls 调用官方窗口 API，只有顶部空白背景可拖动。主窗口关闭默认请求应用退出（包括隐藏歌词窗口），close-to-tray 开启时仍隐藏到托盘。
+- 托盘右键菜单展示当前曲目、显示主窗口、播放或暂停、停止、上一首、下一首、桌面歌词、播放模式和退出。歌词锁定时才插入「解锁桌面歌词穿透」。左键在显示与唤起之间切换，隐藏时不退出进程。Windows 任务栏缩略图有上一首、播放/暂停、停止、下一首四个按钮，命令进入同一个控制器。
 
 ## 改动分界
 

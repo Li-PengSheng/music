@@ -7,16 +7,16 @@
     choice = localStorage.getItem('music-mine-theme');
     palette = localStorage.getItem('music-mine-palette');
   } catch (e) {
-    /* storage unavailable: dark */
+    /* storage unavailable: light */
   }
   var theme =
-    choice === 'light'
-      ? 'light'
+    choice === 'dark'
+      ? 'dark'
       : choice === 'system' &&
           window.matchMedia &&
-          matchMedia('(prefers-color-scheme: light)').matches
-        ? 'light'
-        : 'dark';
+          matchMedia('(prefers-color-scheme: dark)').matches
+        ? 'dark'
+        : 'light';
   var root = document.documentElement;
   root.dataset.theme = theme;
   root.dataset.palette =

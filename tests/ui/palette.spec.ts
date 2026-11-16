@@ -2,7 +2,18 @@ import { expect, test } from '@playwright/test';
 
 const HARNESS = '/tests/harness/index.html';
 
+test('a fresh theme defaults to light even when the system is dark', async ({ page }) => {
+  await page.goto(HARNESS);
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(243, 245, 241)');
+  // The fixture's saved playback volume remains authoritative.
+  await expect(page.locator('.pb-volume-value')).toHaveText('70%');
+});
+
 test('palette preview is immediate, persistent, and leaves playback alone', async ({ page }) => {
+  await page.addInitScript(() => {
+    if (!localStorage.getItem('music-mine-theme')) localStorage.setItem('music-mine-theme', 'dark');
+  });
   await page.goto(HARNESS);
   await expect(page.locator('html')).toHaveAttribute('data-palette', 'celadon');
   await expect(page.locator('.pb-volume-value')).toHaveText('70%');

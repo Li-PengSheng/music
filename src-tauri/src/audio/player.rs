@@ -112,7 +112,7 @@ impl Player {
             position: Duration::ZERO,
             duration: Duration::ZERO,
             current_path: None,
-            volume: 1.0,
+            volume: 0.2,
             output: None,
             error: None,
             underruns: 0,
@@ -711,7 +711,7 @@ fn engine_loop(
     let mut state = PlaybackState::Stopped;
     let mut duration = Duration::ZERO;
     let mut current_path: Option<String> = None;
-    let mut volume = 1.0f32;
+    let mut volume = 0.2f32;
     let mut preferred_device: Option<String> = None;
     let mut error: Option<String> = None;
     let mut draining_since: Option<Instant> = None;

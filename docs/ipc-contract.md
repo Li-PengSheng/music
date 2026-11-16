@@ -50,7 +50,7 @@ Rust 是播放位置的权威。界面显示 `position_ms`。拖动进度条只�
 
 - `desktop_lyrics_window({ open: boolean | null, locked: boolean | null })` 返回窗口当前是否可见。
 - `open: true` 创建或显示标签为 `lyrics-overlay` 的无边框透明置顶窗口，地址是应用入口 `?window=lyrics`；已存在时只 `show()`。`false` 只 `hide()`，不销毁。`null` 不改变可见性。
-- `locked: true` 写入 `desktop-v1.json` 的 `lyrics_overlay_locked`，并调用 `set_ignore_cursor_events(true)`，鼠标穿透该窗口。`false` 恢复点击。`null` 不改变锁定。主窗口播放栏和托盘菜单「解锁桌面歌词」都可以解除锁定。
+- `locked: true` 写入 `desktop-v1.json` 的 `lyrics_overlay_locked`，并调用 `set_ignore_cursor_events(true)`，鼠标穿透该窗口。`false` 恢复点击。`null` 不改变锁定。主窗口播放栏和托盘菜单「解锁桌面歌词穿透」都可以解除锁定。该菜单项仅在锁定时出现。
 - 拖动和缩放后的外框位置与内框尺寸写入 `lyrics_overlay_bounds`。下次打开时，只有完整落在某一显示器工作区内、且不小于 `360×92` 的边界才会恢复，否则居中到默认 `640×108`。旧配置缺少这两个字段时，锁定为 `false`，边界为空。
 - 命令结束后 Rust 发出 `lyrics-overlay` 事件，载荷为 `{ open, locked }`，主窗口用它同步按钮。主进程退出时关闭该窗口。
 - 悬浮窗只轮询播放状态和歌词，不挂载曲库、队列或封面加载。

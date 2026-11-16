@@ -60,7 +60,7 @@ export const ui = $state({
   lyricsOverlayLocked: false,
   immersive: false,
   reduceMotion: false,
-  theme: 'dark' as ThemeChoice,
+  theme: 'light' as ThemeChoice,
   palette: 'celadon' as Palette,
   /** Track whose details dialog is open. */
   details: null as LibraryTrack | null,

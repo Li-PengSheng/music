@@ -1,5 +1,5 @@
 /** Rust's player volume is a 0.0–1.0 gain; the UI shows the same value as a whole percentage. */
-export const DEFAULT_PERCENT = 70;
+export const DEFAULT_PERCENT = 20;
 export const toPercent = (gain: number) =>
   Number.isFinite(gain) ? Math.round(Math.min(1, Math.max(0, gain)) * 100) : 0;
 export const toGain = (percent: number) => Math.min(100, Math.max(0, Math.round(percent))) / 100;

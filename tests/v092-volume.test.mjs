@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { toPercent, toGain, muteTarget, latest, DEFAULT_PERCENT } from '../src/lib/utils/volume.ts';
+import { toPercent, toGain, muteTarget, latest } from '../src/lib/utils/volume.ts';
 
 test('percent is a presentation of the same 0.0–1.0 gain Rust uses (no new curve)', () => {
   for (const p of [0, 1, 35, 50, 99, 100]) assert.equal(toPercent(toGain(p)), p, 'round-trips');
@@ -17,11 +17,7 @@ test('percent is a presentation of the same 0.0–1.0 gain Rust uses (no new cur
 test('mute keeps the previous level and unmute restores it', () => {
   assert.equal(muteTarget(35, 35), 0, 'audible -> mute');
   assert.equal(muteTarget(0, 35), 35, 'muted -> previous level');
-  assert.equal(
-    muteTarget(0, 0),
-    DEFAULT_PERCENT,
-    'nothing remembered -> sensible default, never stays silent',
-  );
+  assert.equal(muteTarget(0, 0), 20, 'nothing remembered -> sensible default, never stays silent');
 });
 
 /** Fake backend: each call resolves only when the test says so, like a slow IPC round-trip. */

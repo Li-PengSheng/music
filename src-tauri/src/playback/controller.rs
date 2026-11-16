@@ -21,6 +21,7 @@ mod tests {
             return;
         }
         let mut c = Controller::new();
+        assert_eq!(c.execute(Action::State).unwrap().volume, 0.2);
         c.execute(Action::Volume(0.2)).unwrap();
         c.execute(Action::Open(fixture("tone.flac"))).unwrap();
         let before = c.execute(Action::Seek(700.)).unwrap();
@@ -238,7 +239,7 @@ pub struct PlayerSnapshot {
     position_ms: u64,
     duration_ms: u64,
     volume: f32,
-    playback_mode: String,
+    pub playback_mode: String,
     lyrics_offset_ms: i64,
     output_device_id: Option<String>,
     pub(crate) error: Option<String>,

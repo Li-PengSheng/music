@@ -31,15 +31,12 @@ function boot(stored, systemLight, palette) {
   return root;
 }
 
-test('existing users and unknown values default to dark', () => {
-  for (const v of [null, undefined, '', 'Dark', 'blue']) assert.equal(parseTheme(v), 'dark');
+test('missing and unknown themes default to light while saved choices are preserved', () => {
+  for (const v of [null, undefined, '', 'Dark', 'blue']) assert.equal(parseTheme(v), 'light');
+  assert.equal(parseTheme('dark'), 'dark');
   assert.equal(parseTheme('light'), 'light');
   assert.equal(parseTheme('system'), 'system');
-  assert.equal(
-    boot(undefined, true).dataset.theme,
-    'dark',
-    'no saved choice stays dark even on a light system',
-  );
+  assert.equal(boot(undefined, true).dataset.theme, 'light', 'no saved choice defaults to light');
 });
 
 test('palette boot matches the parser for every mode, including old and invalid preferences', () => {
@@ -60,7 +57,7 @@ test('palette boot matches the parser for every mode, including old and invalid 
     },
   });
   assert.equal(root.dataset.palette, 'celadon');
-  assert.equal(root.dataset.theme, 'dark');
+  assert.equal(root.dataset.theme, 'light');
 });
 
 test('resolved theme follows the choice, and the system only for 跟随系统', () => {
@@ -121,7 +118,7 @@ test('choice persists locally and in desktop preferences, and system changes are
     /getCurrentWindow\(\)\.setTheme\(\s*choice\s*===\s*'system'\s*\?\s*null\s*:\s*choice\s*\)/,
   );
   assert.match(read('src-tauri/capabilities/default.json'), /"core:window:allow-set-theme"/);
-  assert.match(read('src-tauri/tauri.conf.json'), /"theme":"Dark","backgroundColor":"#121414"/);
+  assert.match(read('src-tauri/tauri.conf.json'), /"theme":"Light","backgroundColor":"#f3f5f1"/);
   const desktop = read('src-tauri/src/platform/desktop.rs');
   assert.match(desktop, /w\.set_theme\(window_theme\(&preferences\.theme\)\)\?/);
   const settings = read('src/lib/views/SettingsView.svelte');

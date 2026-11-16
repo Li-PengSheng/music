@@ -889,14 +889,14 @@ kbd {
 }
 
 .menu:popover-open,
-.select-panel:popover-open {
+.select-panel[data-state='open'] {
   display: flex;
   flex-direction: column;
   animation: pop-in var(--dur-fast) var(--ease);
 }
 
 .menu-item,
-.select-panel > button {
+.select-panel button {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -913,13 +913,35 @@ kbd {
 
 .menu-item:hover:not(:disabled),
 .menu-item:focus-visible,
-.select-panel > button:hover,
-.select-panel > button:focus-visible {
+.select-panel button:hover,
+.select-panel button:focus-visible {
   background: var(--surface-hover);
 }
 
 .menu-item:focus-visible,
-.select-panel > button:focus-visible {
+.select-panel button:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+
+/* Bits UI positions the wrapper and exposes the anchor/available size. */
+.select-panel {
+  position: relative;
+  z-index: var(--z-toast);
+  min-width: max(160px, var(--bits-select-anchor-width));
+  max-height: min(320px, var(--bits-select-content-available-height));
+  overflow: hidden;
+}
+
+.select-viewport {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.select-panel button[data-highlighted] {
+  background: var(--surface-hover);
   box-shadow: inset 0 0 0 1px var(--accent-line);
 }
 
@@ -976,11 +998,11 @@ kbd {
   flex-shrink: 0;
 }
 
-.select-panel > button {
+.select-panel button {
   justify-content: space-between;
 }
 
-.select-panel > button[aria-selected='true'] {
+.select-panel button[aria-selected='true'] {
   color: var(--accent);
 }
 

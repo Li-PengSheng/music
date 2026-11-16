@@ -3,59 +3,6 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { extractFunction } from './helpers/source-ast.mjs';
 
-test('selector actual key handler navigates, ignores IME and restores focus on Escape/Tab', () => {
-  const source = readFileSync('src/lib/components/Select.svelte', 'utf8');
-  const start = source.search(/function key\s*\(/);
-  const end = source.indexOf('onMount(', start);
-  const handler = source
-    .slice(start, end)
-    .replace(/function key\s*\([^)]*\)/, 'function key(e)')
-    .replace(/\s+as\s+[A-Za-z0-9_]+/g, '');
-  const doc = { activeElement: null };
-  let restored = 0,
-    closed = 0;
-  const items = ['顺序播放', '随机播放', '单曲循环', '列表循环'].map((label) => ({
-    label,
-    focus() {
-      doc.activeElement = this;
-    },
-  }));
-  const options = items.map((o) => ({ label: o.label }));
-  const key = new Function('panel', 'document', 'options', 'close', handler + ';return key;')(
-    { querySelectorAll: () => items },
-    doc,
-    options,
-    (restore) => {
-      closed++;
-      if (restore) restored++;
-    },
-  );
-  const event = (value, extra = {}) => ({
-    key: value,
-    isComposing: false,
-    preventDefault() {
-      this.prevented = true;
-    },
-    stopPropagation() {},
-    ...extra,
-  });
-  items[0].focus();
-  key(event('ArrowUp'));
-  assert.equal(doc.activeElement, items[3]);
-  key(event('Home'));
-  assert.equal(doc.activeElement, items[0]);
-  key(event('End'));
-  assert.equal(doc.activeElement, items[3]);
-  key(event('ArrowDown'));
-  assert.equal(doc.activeElement, items[0]);
-  key(event('ArrowDown', { isComposing: true }));
-  assert.equal(doc.activeElement, items[0]);
-  key(event('Escape'));
-  key(event('Tab'));
-  assert.equal(closed, 2);
-  assert.equal(restored, 2);
-});
-
 test('context menu key handler: arrows wrap, typeahead, IME ignored, Escape/Tab close and restore focus', () => {
   const source = readFileSync('src/lib/components/ContextMenu.svelte', 'utf8');
   const handler = extractFunction(source, 'key', 'run');

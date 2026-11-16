@@ -157,7 +157,7 @@ test('queue overlays the page and closes from the button, Escape and the scrim',
 
 test('theme switch and a narrower window keep the shell usable', async ({ page }) => {
   await side(page).getByRole('button', { name: '设置' }).click();
-  await page.getByRole('button', { name: '主题' }).click();
+  await page.getByRole('combobox', { name: '主题' }).click();
   await page.getByRole('option', { name: '浅色' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   await expect(page.locator('.pb-volume-value')).toHaveText('70%');
@@ -165,7 +165,7 @@ test('theme switch and a narrower window keep the shell usable', async ({ page }
   await expect(page).toHaveScreenshot('home-light.png');
 
   await side(page).getByRole('button', { name: '设置' }).click();
-  await page.getByRole('button', { name: '主题' }).click();
+  await page.getByRole('combobox', { name: '主题' }).click();
   await page.getByRole('option', { name: '深色' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 

@@ -23,7 +23,7 @@
 
 ## 现有组件
 
-通用交互目前是手写的：`Select.svelte`、`Modal.svelte`、`Dialog.svelte`、`ContextMenu.svelte`、`Slider.svelte`。播放栏、队列、歌词、专辑卡片和歌曲表保持业务组件。
+`Select.svelte` 已使用 Bits UI；`Modal.svelte`、`Dialog.svelte`、`ContextMenu.svelte`、`Slider.svelte` 仍为手写组件。播放栏、队列、歌词、专辑卡片和歌曲表保持业务组件。
 
 歌曲表使用 `src/lib/utils/virtual-range.ts`。TanStack Virtual 没有接入。
 
@@ -31,7 +31,7 @@
 
 ## 组件库选型
 
-`docs/decisions.md` 的 ADR-005 记录了后续方向：通用交互用 shadcn-svelte，更底层的焦点和定位用 Bits UI。这两个包都没有安装，也没有开始迁移。
+`docs/decisions.md` 的 ADR-005 已启动 Select 试点：`bits-ui 2.21.0` 已安装，`Select.svelte` 的 Props 与调用点保持原样，保留 `.select-trigger` / `.select-panel` 和项目 tokens。库负责定位、列表键盘导航与关闭；触发器使用原生 button 和库提供的 `combobox` 角色，以 `aria-activedescendant` 表达高亮选项。shadcn-svelte 未安装。
 
 没有单独写出「迁移 Select」的任务时：
 
@@ -39,7 +39,7 @@
 - 不运行 shadcn-svelte 或其他会重写 `src/app.css` 的初始化命令。
 - 不把页面改成组件库的默认外观。
 
-若将来有单独的试点任务：先在临时目录看安装器会改哪些文件；保留现有 `[data-theme]` 和 tokens；第一批只做 Select，并保持现有调用点的 props；浏览器和 Windows 窗口都验收之后再考虑下一个组件。
+Select 试点只通过包管理器安装，无样式初始化。保留现有 `[data-theme]` 和 tokens；原生 dialog 内的列表 portal 到所属 dialog，Modal 识别库的打开状态，确保 Escape 和遮罩先关闭列表。手写键盘处理的源码抽取测试已迁移到 `tests/ui/select.spec.ts`，覆盖绑定、回调、键盘、IME、主题、定位和弹窗。浏览器和 Windows 隔离窗口都验收之后再考虑下一个组件；本次 Windows Tauri 实机为 `NOT RUN`。
 
 ## 改界面时要看的状态
 

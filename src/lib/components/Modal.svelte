@@ -22,12 +22,14 @@
   let node: HTMLDialogElement;
   let dismissal: ReturnType<typeof createDismissal> | undefined;
   let destroyed = false;
+  const popoverOpen = () =>
+    !!document.querySelector('.menu:popover-open,.select-panel[data-state="open"]');
 
   onMount(() => {
     const previous = document.activeElement;
     dismissal = createDismissal(node, {
       canDismiss: () => dismissible,
-      popoverOpen: () => !!document.querySelector('.menu:popover-open,.select-panel:popover-open'),
+      popoverOpen,
       dismiss: () => onclose(),
     });
     node.showModal();
@@ -58,7 +60,9 @@
   {...rest}
   onpointerdown={(e) => dismissal?.pointerdown(e)}
   onclick={(e) => dismissal?.click(e)}
-  onkeydown={(e) => dismissal?.keydown(e)}
+  onkeydown={(e) => {
+    if (!popoverOpen()) dismissal?.keydown(e);
+  }}
   oncancel={(e) => dismissal?.cancel(e)}
   onclose={closed}
 >

@@ -10,7 +10,7 @@
 
 ## ADR-002 — 先修测试，再谈组件迁移
 
-- 状态：测试部分已做。组件迁移未开始。
+- 状态：测试部分已做；Select 的 Bits UI 试点已实施，Windows 隔离实机验收待完成。
 - 决定：先用行为测试和截图基线稳住界面，再单独考虑通用组件。
 - 证据：`5a7c9b3` 替换了格式化即失败的字符串断言。`9f141df` 加入 Playwright 和基准截图。
 
@@ -28,10 +28,11 @@
 
 ## ADR-005 — 通用组件后续用 shadcn-svelte 与 Bits UI
 
-- 状态：方向已记录。包未安装，迁移未开始。
+- 状态：已安装 `bits-ui 2.21.0`（Svelte 5），`Select.svelte` 试点已迁移；shadcn-svelte 未安装。
 - 决定：将来的通用交互优先 shadcn-svelte；焦点、键盘和浮层原语用 Bits UI。外观仍用本项目 tokens。播放器业务组件保持自定义。
 - 约束：没有单独的迁移任务时，继续用手写组件。初始化命令不得覆盖 `src/app.css`。
 - 试点顺序：只先做 `src/lib/components/Select.svelte`。浏览器和 Windows 窗口都通过后再决定下一项。
+- 试点实现：使用 Bits UI Select 的 Root、Trigger、Portal、Content、Item，保留原 Props、样式类、选项按钮与 tokens。定位和键盘导航由库处理；触发器采用库的 `combobox` / `aria-activedescendant` 语义，测试按真实 DOM 行为验证。仅保留 IME 保护及原生 dialog / 外部菜单的兼容接线；不运行样式初始化 CLI。
 
 ## ADR-006 — 一份根约定，按模块展开
 

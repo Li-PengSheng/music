@@ -37,6 +37,7 @@ export function watchScans() {
   async function poll() {
     try {
       const next = await scanProgress();
+      if (disposed) return;
       const was = library.progress?.running;
       library.progress = next;
       if (was && !next.running) {

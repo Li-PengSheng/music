@@ -28,6 +28,7 @@ async fn execute(state: Shared, action: Action) -> Result<PlayerSnapshot, String
             .lock()
             .map_err(|_| "播放器控制器不可用".to_string())?
             .execute(action)
+            .map_err(|e| infrastructure::logging::redact_paths(&e))
     })
     .await
     .map_err(|e| e.to_string())?
@@ -91,11 +92,8 @@ async fn player_set_output_device(
 ) -> Result<PlayerSnapshot, String> {
     let controller = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let mut controller = controller
-            .lock()
-            .map_err(|_| "播放器控制器不可用".to_string())?;
         app.state::<platform::desktop::Desktop>()
-            .configure_output(&mut controller, device)
+            .configure_output(&controller, device)
     })
     .await
     .map_err(|e| e.to_string())?
@@ -312,6 +310,9 @@ pub fn run() {
             if matches!(event, tauri::RunEvent::ExitRequested { .. }) {
                 platform::media::shutdown(app);
                 platform::desktop::shutdown(app);
+            }
+            if matches!(event, tauri::RunEvent::Exit) {
+                platform::scrobble::shutdown(app);
             }
         }),
         Err(error) => {

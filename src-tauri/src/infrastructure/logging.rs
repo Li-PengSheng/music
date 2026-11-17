@@ -77,7 +77,7 @@ impl LogBuffer {
 
 /// Strip absolute directory prefixes, including quoted paths containing spaces.
 /// Applied at the IPC boundary so the original diagnostic file stays intact.
-fn redact_paths(line: &str) -> String {
+pub(crate) fn redact_paths(line: &str) -> String {
     let mut out = String::with_capacity(line.len());
     let mut i = 0;
     while i < line.len() {

@@ -8,6 +8,7 @@
 - 共享状态放在 `src/lib/stores/*.svelte.ts`。播放状态来自 Rust 快照。
 - 页面负责组合。IPC 留在 `src/lib/services/music.ts`。
 - 定时器、观察器和订阅在组件销毁时清理。
+- 异步读取在 effect 清理/销毁后丢弃成功和错误；重载时较旧请求不能覆盖新结果。收起动画会暂停 effect 而延迟销毁，因此响应回调还要检查实际打开状态（NowPlaying 歌词已按此处理）。AbortSignal 只停止后续动作，不能撤销已在途的 Tauri invoke 或已完成写入。
 - 队列轮询用 `retainQueue` 保留未变化的数组。不要为了少渲染再引入一套互相冲突的缓存。
 
 ## 布局与样式

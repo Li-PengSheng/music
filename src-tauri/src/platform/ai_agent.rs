@@ -359,6 +359,9 @@ pub async fn ai_chat_turn(
     tools: Vec<Value>,
 ) -> Result<AiTurnResponse, String> {
     tauri::async_runtime::spawn_blocking(move || {
+        if app.state::<Desktop>().exiting.load(Ordering::SeqCst) {
+            return Err("AI_STOPPED".into());
+        }
         let agent = app.state::<Agent>();
         agent
             .in_flight
@@ -413,6 +416,9 @@ pub async fn ai_chat_turn(
                 return Err("AI_CONFIG_CHANGED".into());
             }
             let turn = decode_response(response, key)?;
+            if app.state::<Desktop>().exiting.load(Ordering::SeqCst) {
+                return Err("AI_STOPPED".into());
+            }
             if agent.revision.load(Ordering::SeqCst) != revision {
                 return Err("AI_CONFIG_CHANGED".into());
             }

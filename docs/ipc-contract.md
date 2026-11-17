@@ -4,7 +4,8 @@
 
 ## 当前事实
 
-- 前端只在 `music.ts` 里调用 `invoke` 和窗口主题 API。没有 tauri-specta，类型是手写的。
+- 前端业务 `invoke` 只在 `music.ts`。窗口主题/歌词事件也由该文件封装，WindowControls 直接使用官方窗口 API（非业务 invoke）。没有 tauri-specta，类型是手写的。
+- TASK-25 核对基线：`main` / HEAD `d5f69abf2da382d58822b99e0e1293a152ad9669` 上的当前工作区，41 个注册命令，39 个业务封装，2 个例外。完整结果见任务报告。
 - `PlayerSnapshot` 字段见 `docs/architecture.md`。`accept()` 拒绝更小的 `revision`。`control()` 同时只跑一个播放命令。
 - `volume` 是 `0.0..=1.0` 的用户感知音量比例；`PlayerStatus`、`PlayerSnapshot`、前端和 `playback-v1.json` 保留原始比例，音频回调按三次方曲线（`x^3`）映射为 PCM 振幅增益。例如 20% 仍传输并保存 `0.2`，输出增益为 `0.008`；50% 的增益为 `0.125`。未加载会话时的 Rust 初始音量保持 `1.0`。
 - `App.svelte` 用 `setTimeout(refresh, 200)` 轮询 `player_get_state`。
@@ -42,6 +43,8 @@ Rust 是播放位置的权威。界面显示 `position_ms`。拖动进度条只�
 - 收听历史仍按原有后台 200ms 检查时序记录，用于最近播放与常听艺术家排序；TASK-20 不更改写入规则或数据库 schema。没有面向 UI 的播放次数事件/订阅。`library_home` 的艺术家元组形状保留，界面只用姓名，并从 `library_summary.artists[].count` 显示库内歌曲数；数量为 0 时不展示副标题。
 
 ## 音频输出设备
+
+- `desktop_preferences({ closeToTray?: boolean | null, queueOpen?: boolean | null, theme?: 'dark' | 'light' | 'system' | null }) -> Preferences`：全空/null 只读内存，不写盘。更新时合并当前偏好保存；`listenbrainz_token` 和 `ai_api_key` 在返回副本中固定为 null，专用配置只返回 token_configured / has_key。其余 Rust 字段为 output_device、close_to_tray、queue_open、theme（旧文件可为空字符串）、bounds、maximized、lyrics_overlay_bounds、lyrics_overlay_locked、listenbrainz_enabled、listenbrainz_username、ai_enabled、ai_base_url、ai_model；前端类型使用其中子集。文件保存失败返回固定中文错误，不含绝对路径或配置正文。
 
 - `player_output_devices()` 返回按名称排序、去重的可用输出设备名称；枚举不打开输出流。`MUSIC_MINE_NULL_OUTPUT` 存在时只返回 `['null']`，不访问系统设备。
 - `player_set_output_device({ device: string | null })` 返回权威 `PlayerSnapshot`，必须经 `control()` / `accept()` 接收。`null` 或空白名称表示跟随系统默认设备；非空名称精确匹配 cpal 输出设备。设备消失或打开失败时记录日志并尝试系统默认设备，`output_device_id` 始终表示实际打开的设备名称，不表示首选项。
@@ -92,6 +95,12 @@ Rust 是播放位置的权威。界面显示 `position_ms`。拖动进度条只�
 现有 `Result<T, String>` 保持不变。新的复杂命令可以在单独任务里使用可序列化的 `code`、`message`、可选 `details`。不在无关的 UI 任务里批量替换错误类型。
 
 日志可以保留调试上下文。界面和记录里不额外散播用户绝对路径、歌词正文或整库内容。
+
+TASK-25 在公共播放 execute 与 Catalog work 错误边界复用绝对目录脱敏；桌面配置保存返回固定错误。曲库 track/path、扫描当前目录与用户显式选择路径属于本地功能契约，仍在 WebView 内使用，不发送给模型。此变更不保证任意用户文本/音频快照 error 内永远没有路径，也不改为结构化错误协议。AI/ListenBrainz 网络错误仍固定码，密钥不在返回 DTO；HTTP 服务可用意味着用户选择远端 HTTP 时凭证会以未加密链路传送，推荐 HTTPS 或本机服务。
+
+## Harness 覆盖边界
+
+`tests/ipc-surface.test.mjs` 比对注册/封装/mock/本文命令名，不能证明所有参数校验等价。新服务 DTO、camelCase 参数、null/清除凭证与禁用路径由服务单测、AI/ListenBrainz 浏览器用例和 Rust 模块单测分层覆盖。mock 只模拟服务开关与结果，不做真实 Token 验证、网络限流/TLS、outbox 持久化或 Rust 响应体安全验证；这些不能被称为已在 WebView2 验收。TASK-25 补全 desktop_preferences mock 的公开字段和两种 null 密钥字段。
 
 ## 命令清单
 

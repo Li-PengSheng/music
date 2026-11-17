@@ -7,6 +7,7 @@
   let apiKey = $state('');
   let busy = $state(false);
   let message = $state('');
+  let disposed = false;
   onMount(() => {
     let alive = true;
     if (desktopAvailable)
@@ -22,6 +23,7 @@
         });
     return () => {
       alive = false;
+      disposed = true;
       apiKey = '';
     };
   });
@@ -29,13 +31,15 @@
     if (busy || !config) return;
     busy = true;
     try {
-      config = await aiConfig(null, baseUrl, apiKey || null, model);
+      const result = await aiConfig(null, baseUrl, apiKey || null, model);
+      if (disposed) return;
+      config = result;
       baseUrl = config.base_url;
       model = config.model;
       apiKey = '';
       message = 'AI 设置已保存';
     } catch (e) {
-      message = String(e);
+      if (!disposed) message = String(e);
     } finally {
       busy = false;
     }
@@ -44,10 +48,12 @@
     if (busy || !config) return;
     busy = true;
     try {
-      config = await aiConfig(enabled);
+      const result = await aiConfig(enabled);
+      if (disposed) return;
+      config = result;
       message = enabled ? 'AI 助手已开启' : 'AI 助手已关闭';
     } catch (e) {
-      message = String(e);
+      if (!disposed) message = String(e);
     } finally {
       busy = false;
     }
@@ -56,11 +62,13 @@
     if (busy) return;
     busy = true;
     try {
-      config = await aiConfig(false, null, '');
+      const result = await aiConfig(false, null, '');
+      if (disposed) return;
+      config = result;
       apiKey = '';
       message = '已清除密钥并关闭 AI 助手';
     } catch (e) {
-      message = String(e);
+      if (!disposed) message = String(e);
     } finally {
       busy = false;
     }
@@ -83,7 +91,7 @@
         onchange={async (event) => {
           const input = event.currentTarget;
           await toggle(input.checked);
-          input.checked = config?.enabled ?? false;
+          if (!disposed) input.checked = config?.enabled ?? false;
         }}
       />
       <span aria-hidden="true"></span><span class="sr-only">启用 AI 助手</span></label

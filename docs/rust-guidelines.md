@@ -8,6 +8,7 @@
 - `audio/player.rs`：Symphonia 解码、cpal 输出、音频线程。
 - `playback/controller.rs`：播放控制、队列、会话文件。
 - `platform/media.rs`：Windows 媒体集成。`platform/desktop.rs`：窗口、主题、托盘、桌面歌词窗口、`desktop-v1.json`。`platform/thumbbar.rs`：Windows 任务栏缩略图按钮。`ITaskbarList3` 只留在主线程；按钮点击经 `spawn_blocking` 进入控制器，不进音频回调。
+- `platform/scrobble.rs`：独立 observer/network、账户绑定 outbox、配置验证、推荐匹配；`platform/ai_agent.rs`：有界 HTTP 代理和配置版本检查，不执行模型工具。HTTP 前释放 Controller/Catalog/偏好 guard，网络错误仅固定码，凭证在日志所有出口前脱敏。
 - `catalog/library.rs`、`catalog/mod.rs`、`commands/catalog.rs`、`catalog/collections.rs`：曲库、扫描、歌单。
 - `catalog/db.rs`：SQLite 连接、`CREATE TABLE IF NOT EXISTS`、`ensure_column`。
 - `playback/lyrics.rs`、`catalog/metadata.rs`：歌词和标签。`artwork/covers.rs`：封面缩略图、内存和磁盘缓存。`infrastructure/logging.rs`：日志。
@@ -42,8 +43,12 @@ Windows 上这个路径来自系统已知文件夹。把进程的 `APPDATA` 指�
 - UI 轮询不得改变音频输出节奏。
 - SMTC 封面在后台媒体更新中复用 Store 的 320px JPEG 输出，按完整播放路径缓存 WinRT 引用（含无封面/失败结果）；暂停/继续只复用引用，停止时清空。封面失败不跳过文本 Update，不在音频回调或 Controller 锁内读封面或创建流。GIF/WebP 透传因尺寸未解码约束而不送入 SMTC。
 - 断音、暂停、切歌、Seek、EOF、播放模式、设备拔插、休眠恢复，有对应测试；真实设备不可用时写 `NOT RUN`。
-- 格式只认已启用的 Symphonia feature：`mp3`、`flac`、`wav`、`pcm`。现有 fixture 是 `tone.mp3`、`tone.flac`、`tone.wav`。
+- Symphonia 禁用默认集合，显式保留 `mp3`、`flac`、`wav`、`pcm`、`adpcm`；ADPCM 保留既有 WAV 能力，但没有专用 fixture。现有 fixture 是 `tone.mp3`、`tone.flac`、`tone.wav`，不承诺所有 WAV 变体。
 - UI 任务不重写播放控制器。
+
+TASK-25 已将输出设备的桌面偏好写盘移出 Controller 锁，扫描结束日志移出进度锁。Controller 自身 execute/会话保存与标签读取仍在串行锁内，Catalog 初始化/operation 锁仍保护磁盘事务；不要把“网络不持锁”和“音频回调不做 I/O”误写成“全程序锁内零 I/O”。后续拆分会话持久化须保留 revision、EOF、失败传播及落盘顺序，并用 fixture 和隔离 exe 验证。
+
+TASK-25 的 PCM 回调使用 ring/capture try_lock；竞争时填静音并计欠载，保留 poison ring 恢复语义。采样只写预分配容量，不扩容；cpal 错误回调只置原子标志，工作线程记录一次中断。回调通过原子计数登记进入/退出；Pause、Stop、Seek/切歌的时钟重置及输出切换/释放在工作线程先暂停并等已进入回调发布最终帧，再确认状态。回调自身不等待该屏障。新增锁竞争、采样容量和受控在途回调测试，真实设备的断音/拔插仍须单独验收。
 
 ## 错误、权限与依赖
 

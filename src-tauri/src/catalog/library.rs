@@ -53,13 +53,6 @@ pub struct Track {
     pub added_at: i64,
 }
 
-#[derive(Default)]
-#[allow(dead_code)]
-pub struct Library {
-    pub tracks: Vec<Track>,
-    pub folders: Vec<String>,
-}
-
 const EXTENSIONS: &[&str] = &["mp3", "flac", "wav"];
 
 /// Recursively scan a folder for supported audio files and read their tags.

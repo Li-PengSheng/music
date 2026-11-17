@@ -9,7 +9,7 @@ use rusqlite::{params, Connection};
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     sync::{
         atomic::{AtomicU64, Ordering},
         mpsc, Arc, Mutex,
@@ -188,6 +188,7 @@ enum Job {
     },
 }
 pub struct Scrobbler {
+    workers: Mutex<Vec<std::thread::JoinHandle<()>>>,
     jobs: mpsc::SyncSender<Job>,
     revision: AtomicU64,
     collection_revision: AtomicU64,
@@ -325,17 +326,28 @@ fn normalized(s: &str) -> String {
 }
 fn match_local(conn: &Connection, candidates: &[Candidate]) -> Result<Vec<LibraryTrack>, String> {
     let tracks = catalog::db::load_tracks(conn)?;
+    let keys: Vec<_> = candidates
+        .iter()
+        .map(|c| (normalized(&c.title), normalized(&c.artist)))
+        .collect();
+    let wanted: HashSet<_> = keys.iter().cloned().collect();
+    let mut matched = HashMap::new();
+    // Normalize each local track once instead of for every remote candidate.
+    for track in &tracks {
+        let key = (normalized(&track.title), normalized(&track.artist));
+        if wanted.contains(&key) {
+            matched.entry(key).or_insert(track);
+        }
+    }
     let mut seen = HashSet::new();
     Ok(candidates
         .iter()
-        .filter_map(|c| {
+        .zip(&keys)
+        .filter_map(|(c, key)| {
             if c.title.is_empty() || c.artist.is_empty() {
                 return None;
             }
-            tracks.iter().find(|t| {
-                normalized(&t.title) == normalized(&c.title)
-                    && normalized(&t.artist) == normalized(&c.artist)
-            })
+            matched.get(key).copied()
         })
         .filter(|t| seen.insert(t.id))
         .cloned()
@@ -652,6 +664,7 @@ fn fetch_candidates(
 pub fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let (tx, rx) = mpsc::sync_channel(32);
     app.manage(Scrobbler {
+        workers: Mutex::new(Vec::new()),
         jobs: tx.clone(),
         revision: AtomicU64::new(0),
         collection_revision: AtomicU64::new(0),
@@ -664,7 +677,7 @@ pub fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let player = app.state::<Shared>().inner().clone();
     let observer_app = handle.clone();
     let observer_catalog = catalog.clone();
-    std::thread::Builder::new()
+    let observer = std::thread::Builder::new()
         .name("listenbrainz-observer".into())
         .spawn(move || {
             let mut tracker = Tracker::default();
@@ -765,7 +778,12 @@ pub fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
                 std::thread::sleep(Duration::from_millis(200));
             }
         })?;
-    std::thread::Builder::new().name("listenbrainz-network".into()).spawn(move || {
+    app.state::<Scrobbler>()
+        .workers
+        .lock()
+        .map_err(|_| "WORKER_LOCK")?
+        .push(observer);
+    let network = std::thread::Builder::new().name("listenbrainz-network".into()).spawn(move || {
         let mut http = Http::new();
         let mut cache: Option<(String,Instant,Vec<Candidate>)> = None;
         let mut retry = Instant::now();
@@ -822,7 +840,26 @@ pub fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     })?;
+    app.state::<Scrobbler>()
+        .workers
+        .lock()
+        .map_err(|_| "WORKER_LOCK")?
+        .push(network);
     Ok(())
+}
+
+/// Called after ExitRequested has signalled Desktop.exiting and the event loop exits.
+/// No UI-thread dispatch is used by these workers. In-flight HTTP is bounded by its timeout.
+pub fn shutdown(app: &tauri::AppHandle) {
+    let Some(service) = app.try_state::<Scrobbler>() else {
+        return;
+    };
+    let workers = std::mem::take(&mut *service.workers.lock().unwrap_or_else(|e| e.into_inner()));
+    for worker in workers {
+        if worker.join().is_err() {
+            log(app, "shutdown", "WORKER_PANIC");
+        }
+    }
 }
 
 #[cfg(test)]

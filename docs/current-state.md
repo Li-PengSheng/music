@@ -1,110 +1,73 @@
 # 当前事实与验收记录
 
-进度只看本页。四个入口：
-
-- [当前任务](#当前任务)
-- [已知缺陷](#已知缺陷)
-- [验收缺口](#验收缺口)
-- [发布决定](#发布决定)
+进度以本页为准；目标与历史记录不能替代源码和当前验收。
 
 ## 核验基线
 
-- 核验 Commit：HEAD `b2c35e73d6814677639ac413cdb4370ccac26716`，分支 `main`。TASK-24在此前未提交工作上增量修改Console输入区；TASK-22/23源码/测试/归档及npm.cmd删除均保留，无自动提交。
-- 工作区指纹：`6d653ca07fc2f456548f4223e11f1b77298c36101feacf128a2e594b203d6b7d`。命令 `pwsh -File scripts/worktree-fingerprint.ps1 -Exclude docs/tasks/TASK-24-CONSOLE-INPUT-DISTINCTION.md,docs/tasks/done/TASK-24-CONSOLE-INPUT-DISTINCTION.md,docs/current-state.md`，最终验收前后及归档前后相同。
-- 工作区内容：Console日志页显示Terminal/本地短命令/说明、等宽输入与执行次按钮；AI页显示Sparkles/AI对话指令/当前模型或未启用徽章、正文输入与accent-line边框、发送/发送中主按钮。长模型名截断并保留完整title。复用2秒诊断轮询只读AI配置，关闭后忽略响应；日志自然语言自动切AI，AI页统一发送对话。旧短命令执行、工具闭环和取消机制保留。Rust/数据库/权限/依赖/主配置未改，未访问真实用户数据；此前旧版导入全链路删除和AI/ListenBrainz实现均保留。
-- 自动测试：pnpm format、pwsh -File scripts/check.ps1均退出0。Svelte 0 errors/0 warnings，前端95/95，Rust fmt/clippy、单元114 passed/1 ignored、音频集成3/3、歌词集成6/6，Null输出。本轮未重现TASK-23记录的暂停时钟单次失败，未改音频代码/断言，不称为已修复。既有Cargo PDB警告保留。
-- 浏览器验证：pnpm test:ui 62/62退出0，既有快照零像素差异，无更新。新增3项输入区回归先失败再通过，覆盖标签/占位符/字体/边框/按钮/模型和未启用状态、发送中/自动切AI及工具执行；1280×800/900×640、浅深主题和超长模型名均通过，窄窗截图已查看。原AI/Console定向14/14，其他既有用例全部通过。
-- Windows Tauri 实机：本轮NOT RUN，纯前端变更未运行构建exe；不使用旧来源产物验证当前修改。TASK-23已记录debug exe占用导致隔离构建失败，当前仍保留该验收缺口，不打扰已有进程。此前TASK-22的较早指纹模拟验收不能代替本轮；真实WebView2/DPI/硬件和外部服务未验证。
-
-历史任务 09.5.3、09.5.5 的指纹仍为“未记录，无法重建”。更早任务的指纹不回填。
+- 时间：2026-11-17。分支 `main`，HEAD `d5f69abf2da382d58822b99e0e1293a152ad9669`，TASK-25 开工时工作区干净；本轮修改未提交。
+- 工作区指纹：`eb1ed01dcd47151b5fa5cd342d12357d7c1fc5c95a57736d9ee5ca83a76d17a3`。命令 `pwsh -File scripts/worktree-fingerprint.ps1 -Exclude docs/tasks/TASK-25-FULL-REVIEW.md,docs/tasks/done/TASK-25-FULL-REVIEW.md,docs/current-state.md,docs/architecture.md`，验收前后及归档前后核对。
+- 工作区内容：全量边界与文档 Review；PCM 回调改为 try_lock，竞争时静音/underrun，诊断采样只用预分配容量，错误回调仅置原子标志并由工作线程记录；暂停/时钟重置增加工作线程屏障，等待已进入回调发布最终帧，修复本轮复现的暂停时钟晚增问题。输出设备偏好写盘移出 Controller 锁、只读 desktop_preferences 不写盘、主要 IPC 错误路径脱敏、扫描结束日志移出进度锁、ListenBrainz 线程退出收拢与推荐匹配减少重复归一化；首页/设置/歌词与服务设置页异步过期保护、收起动画期间歌词错误抑制。显式收敛 Symphonia features 并保留既有 ADPCM WAV 能力；删除未使用 Library 容器。解码算法、数据库 schema、权限及主 Tauri 配置未改，未打开用户数据。
+- 自动测试：pnpm format、pwsh -File scripts/check.ps1 退出0；Svelte 0 errors/0 warnings，前端95/95、Rust fmt/clippy、单元118通过/1 ignored、音频3/3、歌词6/6，Null输出。首轮暂停时钟失败未被复跑覆盖：已增加受控红/绿回归并修复在途回调屏障；既有Cargo PDB警告保留。
+- 浏览器验证：pnpm test:ui 68/68、退出0；既有快照 maxDiffPixels=0 / threshold=0 全通过且基准文件无 diff，未更新快照。新增6项覆盖旧请求/关闭响应与4页面×2尺寸×40主题字体组合（320状态）；已查看4张900×640截图。harness 只证明前端，不证明 Rust 播放。
+- Windows Tauri 实机：本轮 NOT RUN；没有构建、启动 exe，不使用旧产物作为本轮证明。
 
 ## 当前任务
 
-TASK-24已完成并归档：[TASK-24-CONSOLE-INPUT-DISTINCTION](tasks/done/TASK-24-CONSOLE-INPUT-DISTINCTION.md)。三项指定门禁全部0、既有快照未改，无自动提交；当前无后续指定任务。Windows实机和此前未覆盖项继续保留为NOT RUN。
+TASK-25-FULL-REVIEW 审查与本轮修复完成并归档：[审查报告](tasks/done/TASK-25-FULL-REVIEW.md)。三项指定门禁均0，未自动 commit。R11–R13 和实机缺口保留，不代表全项架构或完整发布放行。
 
-封面加载单元已经提交：
+## 已知缺陷与架构债务
 
-- 状态：完成
-- 提交：`4352fc6`
-- 记录：[09.5.5](tasks/done/TASK-09.5.5-RC-FREEZE.md)，依赖 [09.5.3](tasks/done/TASK-09.5.3-QUEUE-COVER.md)
-- 下一步：没有指定的下一任务
-- 遗留事项的任务 ID：库外打开、WAV 经界面打开还没有单独的任务 ID。托盘菜单和任务栏按钮是 TASK-17，实机仍是 NOT RUN
-
-## 已知缺陷
-
-这些是任务记录里已经写明的行为，不是 NOT RUN。
-
-- 会话中替换文件里的封面、又没有重新扫描时，页面会继续显示旧图，直到重新扫描或重启。Rust 按 mtime 和长度失效。见 09.5.3。
-- 超过 512 KB 的 WebP/GIF，以及 BMP、TIFF、AVIF、HEIC，仍显示为没有封面。见 09.5.3。
+- **Controller 锁内 I/O 尚存**：execute 包含标签读取、音频线程屏障和同步 playback-v1.json 保存，State 也可能处理 EOF。已移出的只是额外桌面偏好写盘，不能称为全局零锁内 I/O。拆分需保留 revision、EOF 与落盘顺序。
+- Catalog 初始化/operation 锁刻意覆盖 schema 与写事务；网络不在这些锁内。主控制线程依 exiting 停止但未 join，AI 在途 spawn_blocking 不能强制取消；真实退出时序尚未验收。
+- 会话内替换封面而不重新扫描时，页面可继续显示旧图，直到重新扫描或重启；缓存按 mtime 和长度失效。
+- 超过 512KB 的 WebP/GIF，以及 BMP、TIFF、AVIF、HEIC 仍不展示封面。
+- 凭证在 desktop-v1.json 明文保存，未接入系统凭据库；LogBuffer 文件出口若启用会保留原始路径，当前 Controller 的 Player::new(None) 未启用该出口。Console 返回绝对目录脱敏，专用配置不返回凭证。自选远端 HTTP AI 服务的链路不加密，宜使用 HTTPS 或本机。
 
 ## 验收缺口
 
-NOT RUN 放在这里。它不是已知缺陷，也不表示可以放行。
+NOT RUN 不是已知缺陷，也不代表发布放行。
 
-- 库外 `player_open_file`、WAV 经界面打开：09.5.5 写明未做。保持 NOT RUN。
-- 托盘菜单和任务栏缩略图按钮已有代码和单元测试。真实托盘、任务栏按钮、DPI 和系统媒体键仍是 NOT RUN。
-- 当前工作区自动检查和浏览器已通过；TASK-23 Windows实机因已有debug进程占用无法构建，旧入口/IPC移除尚未在隔离exe确认。首轮Null暂停时钟单次失败根因未定位，后续复跑通过不等同修复。AI真实厂商/Key/外网TLS/非标准扩展、ListenBrainz真实账户/TLS/上传/限流/推荐、ClearType主观锐度、跨WebView2字体同步、硬件音频、原生选择/扫描与DPI仍NOT RUN。标题栏颜色不随色系改变；历史无指纹记录不作为当前验收。
-- 浏览器 harness 不是 Rust 播放。
+- **真实外网 Scrobble**：ListenBrainz 真实账户、Token、TLS、上传确认/重启重复提交窗口、限流/退避、推荐元数据与网络故障恢复均为实机外部依赖项，NOT RUN。
+- **真实 AI API**：真实厂商、Key、外网 TLS、计费/配额及非标准扩展兼容为实机外部依赖项，NOT RUN。Mock 的工具闭环、取消和脱敏测试不证明外网成功。
+- 当前修复的真实 IPC、偏好写盘回退、后台退出、WebView2 字体同步、ClearType、125%/150% DPI、硬件音频、原生选择/扫描、托盘、任务栏按钮与系统媒体键均需隔离 exe，NOT RUN。
+- 库外 player_open_file 与 WAV 经界面打开仍无当前实机证据。本轮复现 Null 暂停时钟漂移，已定位并修复“在途回调晚提交帧”竞态，受控回归经历失败/通过；不能回填历史无指纹事件，也不能由此证明真实设备无其他暂停问题。
+- 旧任务 09.5.3 / 09.5.5 没有指纹，仍为“未记录，无法重建”；较早隔离 exe 与模拟服务结果不能代替本轮。
 
 ## 发布决定
 
-这是 2026-11-15 这次文档整理做出的决定，不是 09.5.3 或 09.5.5 当时已经写完的验收结论。
-
-库外打开、WAV 经界面打开，以及托盘和任务栏按钮的实机确认，仍是 NOT RUN。这些不阻塞 `4352fc6` 里的封面加载。它们仍阻塞把当前程序称为完整发布。
+Review 和自动/浏览器门禁不构成完整发布。上述 Windows 与外网依赖验收缺口仍阻止把当前程序称为完整发布；本轮不操作真实凭证、曲库或设置。
 
 ## 源码事实
 
-| 状态 | 事实 |
+| 领域 | 当前事实 |
 |---|---|
-| 源码可见 | Svelte 5、TypeScript、Vite、Tailwind v4、Tauri v2、Rust |
-| 源码可见 | 产品版本 `0.1.0`。`docs/tasks/done/` 里的 V0.9.x 是任务编号，不是安装包版本 |
-| 源码可见 | IPC 在 `src/lib/services/music.ts`。播放快照有 `revision` |
-| 源码可见 | `src/app.css` 1461 行。Select / ContextMenu / Modal 使用 Bits UI，Slider 使用原生 range |
-| 源码可见 | `package.json` 有 `@playwright/test` 和 `bits-ui`。没有 shadcn-svelte、Vitest、WebdriverIO、tauri-specta、TanStack Virtual |
-| 源码可见 | Symphonia feature 为 mp3、flac、wav、pcm |
-| 源码可见 | 数据库演进是 `db.rs` 的建表和 `ensure_column` |
-| 源码可见 | 设置页旧版迁移与library_import全链路已删除；当前库schema升级保留；rusqlite仅启用bundled，未保留backup feature |
-| 源码可见 | ListenBrainz 默认关闭；desktop 偏好保存凭证；scrobble_outbox 按用户名持久化待传记录；后台采集与网络调度位于 platform/scrobble.rs |
-| 源码可见 | AI助手默认关闭，Rust platform/ai_agent.rs代理单轮Chat Completions，Console前端最多5轮执行六类允许工具；凭证不返回WebView，AI上下文不含本地路径 |
-| 源码可见 | 队列用 `retainQueue`。宽屏队列覆盖页面 |
-| 源码可见 | 桌面歌词窗口标签 `lyrics-overlay`，地址带 `?window=lyrics`。主窗口 capability 未扩大 |
-| 源码可见 | 配色 `palette` 与明暗 `theme` 分开。默认 `celadon`。首屏脚本设置 `data-palette` |
-| 源码可见 | 字体 `font` 与主题/配色独立，默认 `harmony`。`music-mine-font` 保存本机字体预设，首屏设置 `data-font`，已打开歌词窗口监听 storage 更新 |
-| 源码可见 | 未保存主题时默认浅色；初始音量为 20%。已有主题选择和播放会话音量继续恢复 |
-| 源码可见 | 托盘菜单含曲目、播放控制、桌面歌词和播放模式。Windows 任务栏缩略图按钮 ID 为 1001–1004 |
+| 技术栈与版本 | Rust、Tauri v2、Svelte 5 Runes、TypeScript、Vite、Tailwind v4，产品版本 0.1.0 |
+| UI 基础 | bits-ui 适配 Select / ContextMenu / Modal，原生 range Slider，Floating UI tooltip；无 shadcn-svelte、Vitest、WebdriverIO、TanStack Virtual、tauri-specta |
+| 播放权威 | Rust 带 revision 快照，经 player.accept 接收；约 200ms 轮询，前端不插值推进进度；control 防并发播放命令 |
+| IPC | 业务 invoke 集中 music.ts；41 个注册、39 个前端封装，例外 library_cover / library_favorite；WindowControls 直接使用官方窗口 API |
+| 本地曲库 | 扫描、搜索、歌曲/专辑/艺术家、歌单管理与排序、移除文件夹库内记录；旧版数据库导入全链路删除，schema 增量升级保留 |
+| 解码能力 | Symphonia default-features=false，显式 mp3 / flac / wav / pcm / adpcm；MP3/FLAC/PCM WAV fixture 已有，ADPCM 没有专用 fixture，不承诺所有 WAV 编码 |
+| 外观 | palette 与 theme 独立：celadon / cinnabar / azure / amber × light/dark/system；默认浅色 celadon。font 独立：harmony / puhuiti / serif / kaiti / system，仅使用本机字体及回退 |
+| 样式 | 颜色位于 tokens.css；组件独有 CSS 留在组件，共享样式在 app.css，不以行数作为稳定契约 |
+| 队列与歌词 | retainQueue 保留未变化队列；宽屏队列覆盖；桌面歌词标签 lyrics-overlay，独立 capability，只轮询状态和歌词 |
+| 桌面 | 无边框窗口、输出设备选择、会话恢复、托盘与 SMTC；任务栏缩略图按钮 ID 1001–1004。初始音量20%，已有会话保留 |
+| Console | 最多1000行内存日志、清空仅内存、复制脱敏摘要、2秒诊断、本地短命令与AI分视图 |
+| ListenBrainz | 默认关闭，observer/network 独立；scrobble_outbox 绑定账户，成功确认后删除；推荐按艺术家+曲名匹配当前本地曲库；无独立 Last.fm API |
+| AI | 默认关闭，Rust 有界单轮 Chat Completions；Console 最多5轮、六类允许工具、取消/配置过期保护；不向工具投影路径、封面、歌词或日志 |
+| 凭证与依赖 | 配置查询不返回 Key/Token，日志凭证先脱敏；ureq 2.12.1 禁默认 feature，仅 json/tls（Rustls）；rusqlite 仅 bundled，无 backup |
 
-`src/app.css` 的行数已在本次组件 CSS 搬迁后重数。
+## 文档边界
 
-## 已记录的验证
-
-这些是 `da5fe14` 提交前的结果。指纹：未记录，无法重建。不能用来勾掉 `decbefb` 及更晚提交。
-
-| 层次 | 结果 |
-|---|---|
-| 自动测试 | `pnpm test`：50 通过，0 失败。`pnpm check`：0 error，0 warning |
-| 浏览器验证 | `pnpm test:ui`：7 通过。覆盖侧栏页面、播放栏、队列、弹窗、主题和 960×700 窄窗。截图与 `tests/ui/snapshots/` 一致 |
-| Windows Tauri 实机 | 部分通过。临时 `appDirectoriesOverride` 指向空目录后构建 debug exe。空曲库中确认：连接指示在线、主题切换、新建歌单取消与创建、播放栏显示「未在播放」、队列可 Escape 关闭、980×720 时音量百分比隐藏并在 1280×850 恢复。随后覆盖项已删除并重新构建 |
-| 未跑 | `cargo fmt`、`cargo clippy`、`cargo test`。实机没有播放真实音频，没有扫描文件夹，没有测 DPI、托盘或系统媒体键 |
-
-浏览器 harness 使用内存夹具。实机用的是隔离空库。两者都没有打开用户正在使用的 `library-tauri-v1.sqlite` 做实验。曾有一次未隔离启动把桌面主题偏好写成深色，随后已按原文件恢复。以后的实机检查按 `docs/isolation.md`。
-
-上面的实机做法是当时的记录：改主配置再删掉重编。这个做法已经停止，见 ADR-008。
-
-## 文档与代码不一致
-
-- `docs/RFC-v2.0.md` 写自动化测试是 cargo test + Vitest。当前命令是 `pnpm test` 和 `pnpm test:ui`。RFC 仍是产品目标，测试一行过时。
-- RFC 写前端用单调时钟对播放进度做平滑插值。当前界面只显示快照里的 `position_ms`，拖动时另有松开前的草稿。约定禁止用定时器推进进度。
-- `docs/tasks/done/TASK-V0.9.2-VISUAL-POLISH.md` 写宽屏正在播放会为队列让出宽度。当前 CSS 是队列覆盖，`min-width: 1200px` 时非沉浸页隐藏遮罩。
-- `docs/history/` 和 `docs/tasks/done/` 是历史交接，可能落后于后续提交。其中没有进行中的任务。
-- 规范包 `music-mine-ai-guidelines-v3-project-wide/` 基于 `2d8d8d2`，其中「测试仍因格式化失败」「尚未安装 Playwright」「README 仍是 Task 02」已过时。以本仓库文档为准。该目录未纳入版本管理。
+- architecture / ipc-contract / rust-guidelines / README 已按当前源码刷新，详细分级发现与验收证据见 TASK-25 报告。
+- AGENTS 中过时的“无 AI / 未安装 Bits UI”已校正，保留默认关闭、工具允许列表、数据与权限边界。
+- RFC-v2.0 是目标，其 Vitest 与前端时钟插值描述不能覆盖当前实现。
+- docs/tasks/done 和 docs/history 是历史基线，不改写旧验收；本轮没有用其结果勾掉当前缺口。
 
 ## 后续优先级
 
-| 优先级 | 事项 | 完成标志 |
+| 优先级 | 事项 | 完成证据 |
 |---|---|---|
-| P1 | 实机播放与扫描 | 隔离目录里播放一条 fixture 或扫描一个临时文件夹，并记录 IPC 结果 |
-| P1 | 实机窗口外观 | DPI 125% 或 150%，以及托盘行为有记录 |
-| P2 | 全局 CSS 责任 | 本轮十个指定组件区块已搬迁，规则逐块对比一致；共享样式仍由全局管理 |
-| P2 | Select 组件库试点 | Select、ContextMenu 和 Modal 已接入 `bits-ui 2.21.0`；本次范围已完成，Windows 隔离窗口验收仍为 NOT RUN |
-
-P2 全局 CSS 责任已完成本轮十组件范围；实机相关缺口仍未完成。自动检查结果在核验基线。
+| P1 | 隔离 exe 验证本轮 Rust/IPC 与退出路径 | 哈希绑定来源、数据目录、命令结果及退出记录 |
+| P1 | Controller 会话/标签 I/O 解耦 | 保留时序语义的设计、并发/错误 fixture、Windows 播放验收 |
+| P1 | 真实外部服务与硬件/扫描 | 用户专门授权凭证及隔离数据后的实际记录 |
+| P2 | 系统凭据库、结构化错误与日志隐私边界 | 独立设计和迁移/回归证据，不覆盖用户设置 |

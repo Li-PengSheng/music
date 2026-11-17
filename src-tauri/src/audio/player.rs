@@ -14,7 +14,7 @@ use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, TryLockError};
 use std::time::{Duration, Instant};
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
@@ -217,6 +217,7 @@ struct Shared {
     rate: u32,
     volume_bits: AtomicU32,
     paused: AtomicBool,
+    callbacks: AtomicU32,
     /// True while a track is loaded (playing or draining its tail). The
     /// playback clock only advances then.
     clock_on: AtomicBool,
@@ -239,6 +240,7 @@ impl Shared {
             rate,
             volume_bits: AtomicU32::new(volume.to_bits()),
             paused: AtomicBool::new(false),
+            callbacks: AtomicU32::new(0),
             clock_on: AtomicBool::new(false),
             active: AtomicBool::new(false),
             frames_played: AtomicU64::new(0),
@@ -259,6 +261,29 @@ impl Shared {
 
     fn reset_clock(&self) {
         self.frames_played.store(0, Ordering::SeqCst);
+    }
+
+    fn pause_callbacks(&self) {
+        self.paused.store(true, Ordering::SeqCst);
+        // Worker-side barrier: a callback that already saw paused=false must
+        // publish its final frames before Pause/Seek/reset can be acknowledged.
+        // Callbacks entering later see paused=true and only write silence.
+        while self.callbacks.load(Ordering::SeqCst) != 0 {
+            std::thread::yield_now();
+        }
+    }
+}
+
+struct CallbackGuard<'a>(&'a AtomicU32);
+impl<'a> CallbackGuard<'a> {
+    fn enter(callbacks: &'a AtomicU32) -> Self {
+        callbacks.fetch_add(1, Ordering::SeqCst);
+        Self(callbacks)
+    }
+}
+impl Drop for CallbackGuard<'_> {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::SeqCst);
     }
 }
 
@@ -284,7 +309,7 @@ fn cpal_gate() -> std::sync::MutexGuard<'static, ()> {
 impl Drop for Output {
     fn drop(&mut self) {
         self.shared.active.store(false, Ordering::SeqCst);
-        self.shared.paused.store(true, Ordering::SeqCst);
+        self.shared.pause_callbacks();
         if let Some(stop) = self.stop_pump.take() {
             stop.store(true, Ordering::SeqCst);
         }
@@ -465,14 +490,14 @@ fn open_device(
             volume,
         ));
         let built = match format {
-            SampleFormat::F32 => build::<f32>(device, &config, shared.clone(), logs.clone()),
-            SampleFormat::F64 => build::<f64>(device, &config, shared.clone(), logs.clone()),
-            SampleFormat::I16 => build::<i16>(device, &config, shared.clone(), logs.clone()),
-            SampleFormat::I32 => build::<i32>(device, &config, shared.clone(), logs.clone()),
-            SampleFormat::I8 => build::<i8>(device, &config, shared.clone(), logs.clone()),
-            SampleFormat::U8 => build::<u8>(device, &config, shared.clone(), logs.clone()),
-            SampleFormat::U16 => build::<u16>(device, &config, shared.clone(), logs.clone()),
-            SampleFormat::U32 => build::<u32>(device, &config, shared.clone(), logs.clone()),
+            SampleFormat::F32 => build::<f32>(device, &config, shared.clone()),
+            SampleFormat::F64 => build::<f64>(device, &config, shared.clone()),
+            SampleFormat::I16 => build::<i16>(device, &config, shared.clone()),
+            SampleFormat::I32 => build::<i32>(device, &config, shared.clone()),
+            SampleFormat::I8 => build::<i8>(device, &config, shared.clone()),
+            SampleFormat::U8 => build::<u8>(device, &config, shared.clone()),
+            SampleFormat::U16 => build::<u16>(device, &config, shared.clone()),
+            SampleFormat::U32 => build::<u32>(device, &config, shared.clone()),
             other => {
                 last_err = format!("不支持的采样格式: {other}");
                 continue;
@@ -561,7 +586,7 @@ fn begin_track(
         position.as_secs_f64()
     );
 
-    out.shared.paused.store(true, Ordering::SeqCst);
+    out.shared.pause_callbacks();
     out.shared.clear_ring();
     out.shared.reset_clock();
     if position > Duration::ZERO {
@@ -613,15 +638,13 @@ fn build<T>(
     device: &cpal::Device,
     config: &cpal::StreamConfig,
     shared: Arc<Shared>,
-    logs: Arc<LogBuffer>,
 ) -> Result<cpal::Stream, String>
 where
     T: SizedSample + FromSample<f32> + Send + 'static,
 {
     let error_shared = shared.clone();
-    let error_logs = logs;
-    let err_fn = move |e: cpal::StreamError| {
-        error_logs.push(format!("音频流错误: {e}"));
+    let err_fn = move |_: cpal::StreamError| {
+        // The worker observes stream_dead and logs once, outside the cpal callback.
         error_shared.stream_dead.store(true, Ordering::SeqCst);
     };
     let data_fn = move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
@@ -645,8 +668,9 @@ fn fill_output<T>(data: &mut [T], shared: &Shared)
 where
     T: SizedSample + FromSample<f32>,
 {
+    let _callback = CallbackGuard::enter(&shared.callbacks);
     let channels = shared.channels.max(1);
-    if shared.paused.load(Ordering::Relaxed) {
+    if shared.paused.load(Ordering::SeqCst) {
         for s in data.iter_mut() {
             *s = T::from_sample(0.0f32);
         }
@@ -655,44 +679,38 @@ where
     let gain = amplitude_gain(f32::from_bits(shared.volume_bits.load(Ordering::Relaxed)));
     let mut peak = 0.0f32;
     let mut missing = 0usize;
-    let capturing = shared.capture.lock().map(|c| c.is_some()).unwrap_or(false);
-    let mut captured: Vec<f32> = if capturing {
-        Vec::with_capacity(data.len())
-    } else {
-        Vec::new()
-    };
+    // Diagnostic capture is optional and preallocated by the requesting thread.
+    let mut capture = shared.capture.try_lock().ok();
+    let mut captured = capture.as_mut().and_then(|guard| guard.as_mut());
     {
-        let mut ring = shared.ring.lock().unwrap_or_else(|e| e.into_inner());
+        let mut ring = match shared.ring.try_lock() {
+            Ok(guard) => Some(guard),
+            Err(TryLockError::Poisoned(error)) => Some(error.into_inner()),
+            Err(TryLockError::WouldBlock) => None,
+        };
         for s in data.iter_mut() {
-            match ring.pop_front() {
+            let value = match ring.as_mut().and_then(|ring| ring.pop_front()) {
                 Some(v) => {
                     let v = (v * gain).clamp(-1.0, 1.0);
                     peak = peak.max(v.abs());
-                    *s = T::from_sample(v);
-                    if capturing {
-                        captured.push(v);
-                    }
+                    v
                 }
                 None => {
                     missing += 1;
-                    *s = T::from_sample(0.0f32);
-                    if capturing {
-                        captured.push(0.0);
-                    }
+                    0.0
+                }
+            };
+            *s = T::from_sample(value);
+            if let Some(buf) = captured.as_mut() {
+                // Never grow a Vec or allocate on the real-time thread.
+                if buf.len() < buf.capacity().min(480_000) {
+                    buf.push(value);
                 }
             }
         }
     }
     if missing > 0 && shared.active.load(Ordering::Relaxed) {
         shared.underruns.fetch_add(1, Ordering::Relaxed);
-    }
-    if capturing {
-        if let Ok(mut cap) = shared.capture.lock() {
-            if let Some(buf) = cap.as_mut() {
-                let room = 480_000usize.saturating_sub(buf.len());
-                buf.extend(captured.into_iter().take(room));
-            }
-        }
     }
     shared.peak_bits.store(peak.to_bits(), Ordering::Relaxed);
     if shared.clock_on.load(Ordering::Relaxed) {
@@ -822,7 +840,7 @@ fn engine_loop(
                     if state == PlaybackState::Playing {
                         state = PlaybackState::Paused;
                         if let Some(o) = &output {
-                            o.shared.paused.store(true, Ordering::SeqCst);
+                            o.shared.pause_callbacks();
                             o.shared.active.store(false, Ordering::SeqCst);
                         }
                         logs.push("已暂停");
@@ -847,7 +865,7 @@ fn engine_loop(
                             state = PlaybackState::Stopped;
                             error = None;
                             if let Some(o) = &output {
-                                o.shared.paused.store(true, Ordering::SeqCst);
+                                o.shared.pause_callbacks();
                                 o.shared.clear_ring();
                                 o.shared.clock_on.store(false, Ordering::SeqCst);
                                 o.shared.active.store(false, Ordering::SeqCst);
@@ -900,6 +918,7 @@ fn engine_loop(
                     current_path = None;
                     draining_since = None;
                     if let Some(o) = &output {
+                        o.shared.pause_callbacks();
                         o.shared.clear_ring();
                         o.shared.reset_clock();
                         o.shared.paused.store(false, Ordering::SeqCst);
@@ -920,7 +939,7 @@ fn engine_loop(
                     // Freeze the old callback before reading its frame clock. Stream
                     // teardown, device IO and decoder seek all stay on this worker.
                     let old_clock = output.as_ref().map(|out| {
-                        out.shared.paused.store(true, Ordering::SeqCst);
+                        out.shared.pause_callbacks();
                         out.shared.clone()
                     });
                     decoder = None;
@@ -989,7 +1008,7 @@ fn engine_loop(
         if state == PlaybackState::Stopped && error.is_some() {
             draining_since = None;
             if let Some(o) = &output {
-                o.shared.paused.store(true, Ordering::SeqCst);
+                o.shared.pause_callbacks();
                 o.shared.clock_on.store(false, Ordering::SeqCst);
                 o.shared.active.store(false, Ordering::SeqCst);
                 o.shared.clear_ring();
@@ -1388,7 +1407,7 @@ pub fn output_selftest(millis: u64) -> Result<SelfTestReport, String> {
         .capture
         .lock()
         .unwrap_or_else(|e| e.into_inner())
-        .replace(Vec::with_capacity(48_000 * 2));
+        .replace(Vec::with_capacity(480_000));
 
     let rate = out.shared.rate as f32;
     let channels = out.shared.channels;
@@ -1443,6 +1462,89 @@ pub fn output_selftest(millis: u64) -> Result<SelfTestReport, String> {
 #[cfg(test)]
 pub mod tests {
     use super::*;
+
+    #[test]
+    fn pause_acknowledges_the_final_frame_of_an_in_flight_callback() {
+        let shared = Arc::new(Shared::new(48_000, 2, 1.0));
+        // Hold the same critical section used by fill_output after it saw paused=false.
+        // The test controls when its final frames are published, without scheduling a huge buffer.
+        let callback = CallbackGuard::enter(&shared.callbacks);
+        let worker_shared = shared.clone();
+        let (tx, rx) = mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            worker_shared.pause_callbacks();
+            tx.send(worker_shared.frames_played.load(Ordering::SeqCst))
+                .unwrap();
+        });
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while !shared.paused.load(Ordering::SeqCst) {
+            assert!(Instant::now() < deadline, "pause did not start");
+            std::thread::yield_now();
+        }
+        let early_ack = rx.recv_timeout(Duration::from_millis(100));
+        shared.frames_played.fetch_add(240, Ordering::SeqCst);
+        drop(callback);
+        worker.join().unwrap();
+        assert!(
+            early_ack.is_err(),
+            "pause acknowledged before the in-flight callback finished"
+        );
+        let acknowledged = rx.recv_timeout(Duration::from_secs(1)).unwrap();
+        assert_eq!(
+            shared.frames_played.load(Ordering::SeqCst),
+            acknowledged,
+            "pause returned before the already-running callback published its final frame"
+        );
+    }
+
+    #[test]
+    fn callback_never_waits_for_producer_or_diagnostic_locks() {
+        for held in ["ring", "capture"] {
+            let shared = Arc::new(Shared::new(48_000, 2, 1.0));
+            shared.active.store(true, Ordering::SeqCst);
+            shared.ring.lock().unwrap().extend([0.5; 8]);
+            let ring_guard = (held == "ring").then(|| shared.ring.lock().unwrap());
+            let capture_guard = (held == "capture").then(|| shared.capture.lock().unwrap());
+            let callback_shared = shared.clone();
+            let (tx, rx) = mpsc::channel();
+            let callback = std::thread::spawn(move || {
+                let mut samples = [1.0f32; 8];
+                fill_output(&mut samples, &callback_shared);
+                tx.send(samples).unwrap();
+            });
+            let completed = rx.recv_timeout(Duration::from_secs(1));
+            // Release first so a regression fails without leaving a blocked test worker.
+            drop(ring_guard);
+            drop(capture_guard);
+            callback.join().unwrap();
+            let samples = completed.expect("callback blocked on a producer/diagnostic lock");
+            if held == "ring" {
+                assert_eq!(samples, [0.0; 8]);
+                assert_eq!(shared.underruns.load(Ordering::SeqCst), 1);
+                assert_eq!(shared.ring.lock().unwrap().len(), 8);
+            } else {
+                assert_eq!(samples, [0.5; 8]);
+            }
+        }
+    }
+
+    #[test]
+    fn callback_capture_stops_at_preallocated_capacity() {
+        let shared = Shared::new(48_000, 2, 1.0);
+        shared
+            .capture
+            .lock()
+            .unwrap()
+            .replace(Vec::with_capacity(4));
+        shared.ring.lock().unwrap().extend([0.5; 8]);
+        let mut samples = [0.0f32; 8];
+        fill_output(&mut samples, &shared);
+        let guard = shared.capture.lock().unwrap();
+        let captured = guard.as_ref().unwrap();
+        assert_eq!(captured.capacity(), 4);
+        assert_eq!(captured.as_slice(), &[0.5; 4]);
+        assert_eq!(samples, [0.5; 8]);
+    }
 
     #[test]
     fn output_selection_falls_back_on_missing_or_unopenable_device() {

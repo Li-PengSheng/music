@@ -11,7 +11,7 @@
 - Windows 上进程环境变量 `APPDATA` 不会改变这个目录。需要隔离时按 `docs/isolation.md` 用 CLI 合并配置，不修改 `src-tauri/tauri.conf.json`。没有与 exe 哈希绑定的构建来源记录，就不把那个 exe 当作隔离构建。
 - 播放状态以 Rust 快照为准。前端通过 `src/lib/stores/player.svelte.ts` 的 `accept()` 接收带 `revision` 的快照。禁止用 UI 定时器推进进度，或把 Mock 成功说成 Rust 播放成功。
 - 前端 `invoke` 只放在 `src/lib/services/music.ts`。
-- 产品范围不接入 AI 服务，不重写解码器。这里的范围边界沿用 RFC 的 V1.0，不是 `package.json` 里的 `0.1.0`。格式支持以 `src-tauri/Cargo.toml` 里启用的 Symphonia feature 和已有 fixture 为准。
+- 现有 AI Console 与 ListenBrainz 均默认关闭，只有用户显式启用才连接配置的服务。维护现有六类 AI 工具允许列表，不擅自扩大服务、工具或数据外发范围；不重写解码器。格式支持以 `src-tauri/Cargo.toml` 里显式启用的 Symphonia feature 和已有 fixture 为准，产品版本仍是 `0.1.0`。
 - 音频回调里不做磁盘、数据库、阻塞锁、无界分配或高频日志。UI 任务不改音频引擎和数据库。细则见 `docs/rust-guidelines.md`。
 - 未经当前任务明确授权，不 `git commit`、不 `git push`、不 `git reset --hard`、不 `git clean -fd`。先给出 diff 和检查结果。
 
@@ -28,7 +28,7 @@
 
 ## 组件库
 
-shadcn-svelte 和 Bits UI 没有安装。没有单独的迁移任务时，继续用仓库里的手写组件。禁止在功能任务里运行会覆盖 `src/app.css` 的初始化命令。
+Bits UI 已接入 Select / ContextMenu / Modal 适配层，shadcn-svelte 未安装。继续维护仓库里的现有适配层和手写业务组件；没有单独迁移任务时不扩大迁移。禁止在功能任务里运行会覆盖 `src/app.css` 的初始化命令。
 
 ## 改这份约定
 

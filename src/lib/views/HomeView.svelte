@@ -53,20 +53,21 @@
     };
   });
 
-  async function load() {
+  async function load(signal: AbortSignal) {
     if (!desktopAvailable) {
       loading = false;
       return;
     }
     try {
       const [h, a] = await Promise.all([homeData(), queryLibrary({ limit: 12, sort: 'added' })]);
+      if (signal.aborted) return;
       recent = h.recent;
       artists = h.artists;
       added = a.tracks;
     } catch (e) {
-      notifyError(e);
+      if (!signal.aborted) notifyError(e);
     } finally {
-      loading = false;
+      if (!signal.aborted) loading = false;
     }
   }
   // Reload when the library changes or a different song starts (recent plays move).
@@ -74,7 +75,9 @@
   $effect(() => {
     library.revision;
     trackId;
-    void load();
+    const request = new AbortController();
+    void load(request.signal);
+    return () => request.abort();
   });
 
   let s = $derived(player.snapshot);

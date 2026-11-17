@@ -32,6 +32,7 @@
   let outputChoice = $state('');
   let selectedOutput = $state('');
   let changingOutput = $state(false);
+  let disposed = false;
   const outputOptions = $derived([
     { value: '', label: '跟随系统默认设备' },
     ...devices.map((name) => ({ value: name, label: name })),
@@ -47,17 +48,19 @@
 
   async function refreshDevices() {
     try {
-      devices = await outputDevices();
+      const result = await outputDevices();
+      if (!disposed) devices = result;
     } catch (e) {
-      notifyError(e);
+      if (!disposed) notifyError(e);
     }
   }
 
   async function changeOutput(value: string) {
-    if (changingOutput) return;
+    if (changingOutput || disposed) return;
     changingOutput = true;
     try {
       if (await control(() => setOutputDevice(value || null))) {
+        if (disposed) return;
         if (!player.snapshot?.error) {
           notify(
             value && player.snapshot?.output_device_id !== value
@@ -67,13 +70,16 @@
         }
       }
       const preferences = await desktopPreferences();
+      if (disposed) return;
       selectedOutput = preferences.output_device ?? '';
     } catch (e) {
-      notifyError(e);
+      if (!disposed) notifyError(e);
     } finally {
-      outputChoice = selectedOutput;
-      await refreshDevices();
-      changingOutput = false;
+      if (!disposed) {
+        outputChoice = selectedOutput;
+        await refreshDevices();
+        changingOutput = false;
+      }
     }
   }
 
@@ -91,14 +97,15 @@
         }))
       )
         return;
+      if (disposed) return;
       removing = folder;
       await removeFolder(folder);
       await refreshSummary();
       clearCoverCaches();
       library.coverEpoch++;
-      notify('已从音乐库移除文件夹，磁盘上的音乐文件未被删除');
+      if (!disposed) notify('已从音乐库移除文件夹，磁盘上的音乐文件未被删除');
     } catch (e) {
-      notifyError(e);
+      if (!disposed) notifyError(e);
     } finally {
       removing = null;
       confirming = false;
@@ -109,27 +116,39 @@
     if (!desktopAvailable) return;
     void refreshDevices();
     void mediaStatus()
-      .then((s) => (media = s))
-      .catch(notifyError);
+      .then((s) => {
+        if (!disposed) media = s;
+      })
+      .catch((e) => {
+        if (!disposed) notifyError(e);
+      });
     void desktopPreferences()
       .then((p) => {
+        if (disposed) return;
         closeToTray = p.close_to_tray;
         selectedOutput = p.output_device ?? '';
         outputChoice = selectedOutput;
         desktopReady = true;
       })
-      .catch(notifyError);
+      .catch((e) => {
+        if (!disposed) notifyError(e);
+      });
+    return () => {
+      disposed = true;
+    };
   });
 
   async function changeClose(value: string) {
+    if (saving || disposed) return;
     saving = true;
     try {
       const enabled = value === 'tray';
       const p = await desktopPreferences(enabled);
+      if (disposed) return;
       closeToTray = p.close_to_tray;
       if (enabled) notify('关闭窗口后音乐继续播放；右键托盘图标选择“退出”可结束程序。');
     } catch (e) {
-      notifyError(e);
+      if (!disposed) notifyError(e);
     } finally {
       saving = false;
     }

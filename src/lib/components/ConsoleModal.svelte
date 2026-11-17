@@ -156,9 +156,9 @@
           .filter(Boolean)
           .join('\n'),
       );
-      feedback = '已复制诊断摘要与脱敏日志';
+      if (!disposed) feedback = '已复制诊断摘要与脱敏日志';
     } catch (error) {
-      feedback = `复制失败：${errorText(error)}`;
+      if (!disposed) feedback = `复制失败：${errorText(error)}`;
     }
   }
 
@@ -214,7 +214,7 @@
             });
         },
       });
-      if (!disposed && !request.signal.aborted) {
+      if (!disposed && generation === chatGeneration && !request.signal.aborted) {
         history = result;
         historyRevision = revision;
         feedback = 'AI 对话已完成';
@@ -224,7 +224,7 @@
     }
   }
   async function execute() {
-    if (busy) return;
+    if (busy || disposed) return;
     const text = command.trim();
     if (!text) return;
     busy = true;
@@ -282,7 +282,7 @@
       command = '';
       void refresh();
     } catch (error) {
-      feedback = errorText(error);
+      if (!disposed) feedback = errorText(error);
     } finally {
       busy = false;
     }

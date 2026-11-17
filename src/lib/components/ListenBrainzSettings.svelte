@@ -7,6 +7,7 @@
   let token = $state('');
   let busy = $state(false);
   let message = $state('');
+  let disposed = false;
 
   onMount(() => {
     if (!desktopAvailable) return;
@@ -22,6 +23,7 @@
       });
     return () => {
       alive = false;
+      disposed = true;
       token = '';
     };
   });
@@ -31,13 +33,15 @@
     busy = true;
     message = '正在验证连接…';
     try {
-      config = await listenbrainzConfig(null, username, token || null);
+      const result = await listenbrainzConfig(null, username, token || null);
+      if (disposed) return;
+      config = result;
       username = config.username ?? '';
       token = '';
       message = '连接成功，设置已保存';
     } catch (error) {
       // Rust exposes only sanitized errors. Never echo the entered credential.
-      message = String(error);
+      if (!disposed) message = String(error);
     } finally {
       busy = false;
     }
@@ -46,12 +50,14 @@
     if (!config || busy) return;
     busy = true;
     try {
-      config = await listenbrainzConfig(enabled);
+      const result = await listenbrainzConfig(enabled);
+      if (disposed) return;
+      config = result;
       message = config.enabled
         ? '已启用听歌记录与本地推荐'
         : '已关闭：停止采集与上传，待传记录保留';
     } catch (error) {
-      message = String(error);
+      if (!disposed) message = String(error);
     } finally {
       busy = false;
     }
@@ -60,12 +66,14 @@
     if (busy) return;
     busy = true;
     try {
-      config = await listenbrainzConfig(false, '', '');
+      const result = await listenbrainzConfig(false, '', '');
+      if (disposed) return;
+      config = result;
       username = '';
       token = '';
       message = '已关闭并清除凭证，待传记录保留在本地';
     } catch (error) {
-      message = String(error);
+      if (!disposed) message = String(error);
     } finally {
       busy = false;
     }
@@ -88,7 +96,7 @@
         onchange={async (event) => {
           const input = event.currentTarget;
           await toggle(input.checked);
-          input.checked = config?.enabled ?? false;
+          if (!disposed) input.checked = config?.enabled ?? false;
         }}
       />
       <span aria-hidden="true"></span><span class="sr-only">启用 Scrobble</span>

@@ -30,7 +30,6 @@
   let manual = $state(false);
   let layout = $state('split');
   let container = $state<HTMLDivElement>();
-  let request = 0;
   let trackId = $derived(snapshot?.track_id);
   let audio = $state<AudioInfo | null>(null);
   $effect(() => {
@@ -61,21 +60,27 @@
       : [],
   );
   $effect(() => {
-    const path = trackId;
-    const ticket = ++request;
+    const path = ui.immersive ? trackId : null;
+    let cancelled = false;
     lyrics = null;
     manual = false;
+    loading = !!path;
     if (path) {
-      loading = true;
       getLyrics()
         .then((l) => {
-          if (ticket === request) lyrics = l;
+          if (!cancelled && ui.immersive) lyrics = l;
         })
-        .catch(notifyError)
+        .catch((e) => {
+          // Svelte pauses effects during the closing transition before destruction.
+          if (!cancelled && ui.immersive) notifyError(e);
+        })
         .finally(() => {
-          if (ticket === request) loading = false;
+          if (!cancelled && ui.immersive) loading = false;
         });
     }
+    return () => {
+      cancelled = true;
+    };
   });
 
   // Ambient colour: computed once per song from the already-loaded cover, never per progress tick.
@@ -98,6 +103,7 @@
     img
       .decode()
       .then(() => {
+        if (cancelled) return;
         const canvas = document.createElement('canvas');
         canvas.width = canvas.height = 24;
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -181,6 +187,9 @@
         });
       });
     }
+    return () => {
+      scrollVersion++;
+    };
   });
   async function jump(time: number) {
     await control(() =>

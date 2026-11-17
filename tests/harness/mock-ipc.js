@@ -68,7 +68,10 @@ let lyricsOpen = !!lyricsBoot.lyrics_overlay_open;
 const prefs = {
   close_to_tray: false,
   queue_open: false,
-  theme: null,
+  theme: '',
+  bounds: null,
+  maximized: false,
+  lyrics_overlay_bounds: null,
   output_device: new URLSearchParams(location.search).get('outputDevice'),
   lyrics_overlay_locked: !!lyricsBoot.lyrics_overlay_locked,
 };
@@ -186,8 +189,20 @@ const handlers = {
   desktop_preferences: (a) => {
     if (a.closeToTray != null) prefs.close_to_tray = a.closeToTray;
     if (a.queueOpen != null) prefs.queue_open = a.queueOpen;
-    if (a.theme !== undefined && a.theme !== null) prefs.theme = a.theme;
-    return { ...prefs };
+    if (a.theme != null) {
+      if (!['dark', 'light', 'system'].includes(a.theme)) throw '未知的外观主题';
+      prefs.theme = a.theme;
+    }
+    return {
+      ...prefs,
+      listenbrainz_enabled: listenBrainz.enabled,
+      listenbrainz_username: listenBrainz.username,
+      listenbrainz_token: null,
+      ai_enabled: ai.enabled,
+      ai_base_url: ai.base_url,
+      ai_model: ai.model,
+      ai_api_key: null,
+    };
   },
   desktop_lyrics_window: (a) => {
     if (a.locked != null) prefs.lyrics_overlay_locked = a.locked;

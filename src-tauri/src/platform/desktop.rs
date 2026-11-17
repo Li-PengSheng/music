@@ -61,6 +61,13 @@ impl Default for Preferences {
         }
     }
 }
+impl Preferences {
+    fn public(mut self) -> Self {
+        self.listenbrainz_token = None;
+        self.ai_api_key = None;
+        self
+    }
+}
 /// Native title bar theme; `None` lets Windows follow the system setting.
 fn window_theme(theme: &str) -> Option<tauri::Theme> {
     match theme {
@@ -76,6 +83,7 @@ fn window_background(theme: tauri::Theme) -> tauri::window::Color {
     }
 }
 pub struct Desktop {
+    output_operation: Mutex<()>,
     lyrics_operation: Mutex<()>,
     preferences: Mutex<Preferences>,
     path: std::path::PathBuf,
@@ -118,28 +126,45 @@ impl Desktop {
     }
     pub fn configure_output(
         &self,
-        controller: &mut crate::playback::controller::Controller,
+        controller: &Shared,
         device: Option<String>,
     ) -> Result<crate::playback::controller::PlayerSnapshot, String> {
-        let mut guard = self.preferences.lock().map_err(|e| e.to_string())?;
-        let mut next = guard.clone();
-        next.output_device = device.filter(|name| !name.trim().is_empty());
-        let snapshot = controller.execute(Action::OutputDevice(next.output_device.clone()))?;
+        let _operation = self
+            .output_operation
+            .lock()
+            .map_err(|_| "音频设备操作锁不可用")?;
+        let previous = self.scrobble_preferences()?.output_device;
+        let device = device.filter(|name| !name.trim().is_empty());
+        let snapshot = controller
+            .lock()
+            .map_err(|_| "播放器控制器不可用")?
+            .execute(Action::OutputDevice(device.clone()))?;
         if snapshot.error.is_some() {
             return Ok(snapshot);
         }
-        if let Err(error) = self.save(&next) {
-            let _ = controller.execute(Action::OutputDevice(guard.output_device.clone()));
-            return Err(format!("保存音频设备偏好失败：{error}"));
+        // Serialize preference writes, but never hold Controller across desktop file I/O.
+        let saved = (|| {
+            let mut guard = self.preferences.lock().map_err(|_| "偏好不可用")?;
+            let mut next = guard.clone();
+            next.output_device = device;
+            self.save(&next)?;
+            *guard = next;
+            Ok::<_, String>(())
+        })();
+        if saved.is_err() {
+            let _ = controller
+                .lock()
+                .map_err(|_| "播放器控制器不可用")?
+                .execute(Action::OutputDevice(previous));
+            return Err("保存音频设备偏好失败".into());
         }
-        *guard = next;
         Ok(snapshot)
     }
     fn save(&self, value: &Preferences) -> Result<(), String> {
         let data = serde_json::to_vec(value).map_err(|e| e.to_string())?;
         let temp = self.path.with_extension("tmp");
-        std::fs::write(&temp, data).map_err(|e| e.to_string())?;
-        std::fs::rename(temp, &self.path).map_err(|e| e.to_string())
+        std::fs::write(&temp, data).map_err(|_| "桌面偏好写入失败".to_string())?;
+        std::fs::rename(temp, &self.path).map_err(|_| "桌面偏好替换失败".to_string())
     }
 }
 #[tauri::command]
@@ -151,6 +176,7 @@ pub fn desktop_preferences(
 ) -> Result<Preferences, String> {
     let state = app.state::<Desktop>();
     let mut guard = state.preferences.lock().map_err(|e| e.to_string())?;
+    let changed = close_to_tray.is_some() || queue_open.is_some() || theme.is_some();
     let mut next = guard.clone();
     if let Some(v) = close_to_tray {
         next.close_to_tray = v;
@@ -160,15 +186,15 @@ pub fn desktop_preferences(
     }
     if let Some(v) = theme {
         if !matches!(v.as_str(), "dark" | "light" | "system") {
-            return Err(format!("未知的外观主题: {v}"));
+            return Err("未知的外观主题".into());
         }
         next.theme = v;
     }
-    state.save(&next)?;
-    *guard = next.clone();
-    next.listenbrainz_token = None;
-    next.ai_api_key = None;
-    Ok(next)
+    if changed {
+        state.save(&next)?;
+        *guard = next.clone();
+    }
+    Ok(next.public())
 }
 
 #[derive(Clone, Serialize)]
@@ -547,6 +573,7 @@ pub fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         .map_err(|_| "播放器控制器不可用")?
         .execute(Action::OutputDevice(preferences.output_device.clone()))?;
     app.manage(Desktop {
+        output_operation: Mutex::new(()),
         lyrics_operation: Mutex::new(()),
         preferences: Mutex::new(preferences.clone()),
         path,
@@ -1168,6 +1195,7 @@ mod tests {
             std::env::temp_dir().join(format!("music-mine-desktop-test-{}", std::process::id()));
         std::fs::create_dir_all(&directory).unwrap();
         let state = Desktop {
+            output_operation: Mutex::new(()),
             lyrics_operation: Mutex::new(()),
             preferences: Mutex::new(Preferences::default()),
             path: directory.join("desktop.json"),
@@ -1186,6 +1214,21 @@ mod tests {
         std::fs::remove_dir_all(directory).unwrap();
     }
     #[test]
+    fn public_preferences_never_serialize_credentials() {
+        let private = Preferences {
+            listenbrainz_token: Some("private-listen-token".into()),
+            ai_api_key: Some("private-ai-key".into()),
+            ..Preferences::default()
+        };
+        let public = serde_json::to_value(private.clone().public()).unwrap();
+        assert!(public["listenbrainz_token"].is_null());
+        assert!(public["ai_api_key"].is_null());
+        let serialized = public.to_string();
+        assert!(!serialized.contains("private-listen-token"));
+        assert!(!serialized.contains("private-ai-key"));
+        assert!(private.ai_api_key.is_some());
+    }
+    #[test]
     fn ai_configuration_persists_and_rejects_invalid_changes_without_overwriting_other_preferences()
     {
         use super::super::ai_agent::ConfigPatch;
@@ -1202,6 +1245,7 @@ mod tests {
             ..Preferences::default()
         };
         let state = Desktop {
+            output_operation: Mutex::new(()),
             lyrics_operation: Mutex::new(()),
             preferences: Mutex::new(p),
             path: path.clone(),
@@ -1261,15 +1305,17 @@ mod tests {
             std::process::id()
         ));
         std::fs::create_dir_all(&directory).unwrap();
-        let mut controller = crate::playback::controller::Controller::new();
+        let controller =
+            std::sync::Arc::new(Mutex::new(crate::playback::controller::Controller::new()));
         let state = Desktop {
+            output_operation: Mutex::new(()),
             lyrics_operation: Mutex::new(()),
             preferences: Mutex::new(Preferences::default()),
             path: directory.join("desktop.json"),
             exiting: AtomicBool::new(false),
         };
         state
-            .configure_output(&mut controller, Some("Disconnected headphones".into()))
+            .configure_output(&controller, Some("Disconnected headphones".into()))
             .unwrap();
         let saved: Preferences =
             serde_json::from_slice(&std::fs::read(&state.path).unwrap()).unwrap();
@@ -1279,7 +1325,7 @@ mod tests {
         );
         assert!(!saved.close_to_tray);
         state
-            .configure_output(&mut controller, Some("  ".into()))
+            .configure_output(&controller, Some("  ".into()))
             .unwrap();
         let saved: Preferences =
             serde_json::from_slice(&std::fs::read(&state.path).unwrap()).unwrap();
@@ -1289,7 +1335,7 @@ mod tests {
             ..state
         };
         assert!(failing
-            .configure_output(&mut controller, Some("null".into()))
+            .configure_output(&controller, Some("null".into()))
             .err()
             .unwrap()
             .contains("保存音频设备偏好失败"));

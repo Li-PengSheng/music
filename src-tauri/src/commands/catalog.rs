@@ -8,9 +8,11 @@ async fn work<T: Send + 'static>(
     catalog: Arc<Catalog>,
     f: impl FnOnce(&Catalog) -> Result<T, String> + Send + 'static,
 ) -> Result<T, String> {
-    tauri::async_runtime::spawn_blocking(move || f(&catalog))
-        .await
-        .map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || {
+        f(&catalog).map_err(|e| crate::infrastructure::logging::redact_paths(&e))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 #[tauri::command]
 pub async fn library_query(query: Query, state: State<'_>) -> Result<Page, String> {
@@ -71,18 +73,21 @@ pub async fn library_scan(
     logs.push("[scan] started");
     tauri::async_runtime::spawn_blocking(move || {
         let result = catalog.scan(folder);
-        let mut p = catalog.progress.lock().unwrap();
-        p.running = false;
-        if let Err(e) = result {
-            p.errors.push(e);
-        }
-        logs.push(format!(
-            "[scan] finished visited={} imported={} cancelled={} errors={}",
-            p.visited,
-            p.imported,
-            p.cancelled,
-            p.errors.len()
-        ));
+        let summary = {
+            let mut p = catalog.progress.lock().unwrap();
+            p.running = false;
+            if let Err(e) = result {
+                p.errors.push(e);
+            }
+            format!(
+                "[scan] finished visited={} imported={} cancelled={} errors={}",
+                p.visited,
+                p.imported,
+                p.cancelled,
+                p.errors.len()
+            )
+        };
+        logs.push(summary);
     });
     Ok(())
 }

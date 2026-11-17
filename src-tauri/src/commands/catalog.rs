@@ -4,6 +4,73 @@ use base64::Engine;
 use metadata::{read_audio_info, AudioInfo};
 use std::sync::{atomic::Ordering, Arc};
 type State<'a> = tauri::State<'a, Arc<Catalog>>;
+#[tauri::command]
+pub async fn metadata_set_enrichment_ignored(
+    track_id: i64,
+    ignored: bool,
+    state: State<'_>,
+) -> Result<(), String> {
+    let catalog = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        enrichment::set_ignored(&catalog, track_id, ignored)
+    })
+    .await
+    .map_err(|_| "METADATA_WORKER".to_string())?
+}
+#[tauri::command]
+pub async fn metadata_track_statuses(
+    track_ids: Vec<i64>,
+    state: State<'_>,
+) -> Result<Vec<enrichment::MetadataStatus>, String> {
+    let catalog = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || enrichment::track_statuses(&catalog, &track_ids))
+        .await
+        .map_err(|_| "METADATA_WORKER".to_string())?
+}
+#[tauri::command]
+pub async fn metadata_search_candidates(
+    track_id: i64,
+    title_query: Option<String>,
+    artist_query: Option<String>,
+    force_refresh: Option<bool>,
+    state: State<'_>,
+) -> Result<enrichment::EnrichmentCandidates, String> {
+    let catalog = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        enrichment::search(
+            &catalog,
+            track_id,
+            title_query,
+            artist_query,
+            force_refresh.unwrap_or(false),
+        )
+    })
+    .await
+    .map_err(|_| "METADATA_WORKER".to_string())?
+}
+#[tauri::command]
+pub async fn metadata_apply_enrichment(
+    payload: enrichment::ApplyEnrichmentRequest,
+    state: State<'_>,
+    covers: tauri::State<'_, Arc<crate::artwork::covers::Store>>,
+    player: tauri::State<'_, Shared>,
+) -> Result<library::Track, String> {
+    let catalog = state.inner().clone();
+    let covers = covers.inner().clone();
+    let player = player.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let track = enrichment::apply(&catalog, payload)?;
+        covers.invalidate_track(track.id, std::path::Path::new(&track.path));
+        // The write already succeeded. Player refresh is best effort and must not report a
+        // failed write or restart playback. The frontend fetches the authoritative snapshot.
+        if let Ok(mut controller) = player.lock() {
+            let _ = controller.execute(Action::RefreshMetadata(queue_track(track.clone())));
+        }
+        Ok(track)
+    })
+    .await
+    .map_err(|_| "METADATA_WORKER".to_string())?
+}
 async fn work<T: Send + 'static>(
     catalog: Arc<Catalog>,
     f: impl FnOnce(&Catalog) -> Result<T, String> + Send + 'static,

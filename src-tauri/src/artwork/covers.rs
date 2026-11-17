@@ -259,6 +259,23 @@ impl Store {
             .unwrap_or_else(|e| e.into_inner())
             .clear();
     }
+    pub fn invalidate_track(&self, id: i64, path: &Path) {
+        self.clear_memory();
+        let prefixes = [
+            format!("{CACHE_VERSION}-1-{}-", id as u64),
+            format!("{CACHE_VERSION}-2-{}-", path_key(path)),
+        ];
+        if let Ok(entries) = std::fs::read_dir(&self.dir) {
+            for entry in entries.flatten() {
+                if prefixes
+                    .iter()
+                    .any(|prefix| entry.file_name().to_string_lossy().starts_with(prefix))
+                {
+                    let _ = std::fs::remove_file(entry.path());
+                }
+            }
+        }
+    }
     /// Thumbnail for a track row already loaded from the library. `path` is the stored path.
     /// `Ok(None)` means the file has no usable cover; errors are worth retrying later.
     pub fn for_track(&self, id: i64, path: &Path, edge: u32) -> Result<Option<String>, CoverError> {
@@ -289,17 +306,32 @@ impl Store {
             self.stats.transient.fetch_add(1, Ordering::Relaxed);
             return Err(CoverError::FileMissing);
         }
-        let mtime_ns = meta
+        let mut mtime_ns = meta
             .modified()
             .ok()
             .and_then(|m| m.duration_since(UNIX_EPOCH).ok())
             .map(|d| d.as_nanos())
             .unwrap_or(0);
+        let mut len = meta.len();
+        // Sidecar changes must invalidate negative/embedded cache entries even though the
+        // audio file remains byte-for-byte unchanged. No sidecar preserves existing keys.
+        for sidecar_path in crate::catalog::enrichment::cover_paths(path) {
+            if let Ok(sidecar) = std::fs::metadata(sidecar_path) {
+                len = len.wrapping_add(sidecar.len());
+                mtime_ns ^= sidecar
+                    .modified()
+                    .ok()
+                    .and_then(|m| m.duration_since(UNIX_EPOCH).ok())
+                    .map(|d| d.as_nanos())
+                    .unwrap_or(1)
+                    .rotate_left(1);
+            }
+        }
         let key = Key {
             kind,
             id,
             mtime_ns,
-            len: meta.len(),
+            len,
             edge,
         };
         let Some(image) = self.load(key, path, edge)? else {
@@ -522,6 +554,21 @@ fn data_url(mime: &str, bytes: &[u8]) -> String {
 }
 
 fn encode_file(path: &Path, edge: u32, stats: &Stats) -> Result<Result<Image, Absent>, CoverError> {
+    for sidecar in crate::catalog::enrichment::cover_paths(path) {
+        if let Ok(file) = std::fs::File::open(&sidecar) {
+            use std::io::Read;
+            let mut bytes = Vec::new();
+            if file
+                .take(MAX_SOURCE_BYTES as u64 + 1)
+                .read_to_end(&mut bytes)
+                .is_ok()
+            {
+                if let Ok(image) = encode_source(&bytes, edge, stats) {
+                    return Ok(Ok(image));
+                }
+            }
+        }
+    }
     use crate::catalog::metadata::CoverReadError;
     match crate::catalog::metadata::read_cover_checked(path) {
         Ok(Some(source)) => Ok(encode_source(&source, edge, stats)),
@@ -529,6 +576,10 @@ fn encode_file(path: &Path, edge: u32, stats: &Stats) -> Result<Result<Image, Ab
         Err(CoverReadError::Tags) => Ok(Err(Absent::Unsupported)),
         Err(CoverReadError::Io) => Err(CoverError::Unreadable),
     }
+}
+/// Same local display policy as thumbnails, without writing memory or disk cache entries.
+pub(crate) fn has_usable_cover(path: &Path) -> Result<bool, CoverError> {
+    encode_file(path, MIN_EDGE, &Stats::default()).map(|image| image.is_ok())
 }
 
 /// JPEG thumbnail of a JPEG or PNG picture. Other inputs give `None`.

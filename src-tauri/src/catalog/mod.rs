@@ -1,5 +1,6 @@
 pub(crate) mod collections;
 pub(crate) mod db;
+pub(crate) mod enrichment;
 pub(crate) mod library;
 pub(crate) mod metadata;
 use library::Track;
@@ -60,6 +61,7 @@ pub struct Query {
     pub playlist: Option<i64>,
     pub album: Option<String>,
     pub artist: Option<String>,
+    pub enrichment_ignored: Option<bool>,
 }
 impl Default for Query {
     fn default() -> Self {
@@ -72,6 +74,7 @@ impl Default for Query {
             playlist: None,
             album: None,
             artist: None,
+            enrichment_ignored: None,
         }
     }
 }
@@ -229,7 +232,7 @@ impl Catalog {
             "duration" => "t.duration_ms,t.id",
             _ => "t.added_at DESC,t.id DESC",
         };
-        let filter = "FROM tracks t WHERE (t.title LIKE ?1 ESCAPE '!' OR t.artist LIKE ?1 ESCAPE '!' OR t.album LIKE ?1 ESCAPE '!') AND (?2=0 OR EXISTS(SELECT 1 FROM favorites f WHERE f.track_id=t.id)) AND (?3 IS NULL OR EXISTS(SELECT 1 FROM playlist_tracks p WHERE p.track_id=t.id AND p.playlist_id=?3)) AND (?4 IS NULL OR t.id IN (SELECT value FROM json_each(?4))) AND (?5 IS NULL OR t.artist=?5)";
+        let filter = "FROM tracks t WHERE (t.title LIKE ?1 ESCAPE '!' OR t.artist LIKE ?1 ESCAPE '!' OR t.album LIKE ?1 ESCAPE '!') AND (?2=0 OR EXISTS(SELECT 1 FROM favorites f WHERE f.track_id=t.id)) AND (?3 IS NULL OR EXISTS(SELECT 1 FROM playlist_tracks p WHERE p.track_id=t.id AND p.playlist_id=?3)) AND (?4 IS NULL OR t.id IN (SELECT value FROM json_each(?4))) AND (?5 IS NULL OR t.artist=?5) AND (?6 IS NULL OR COALESCE((SELECT ignored FROM enrichment_cache e WHERE e.track_id=t.id),0)=?6)";
         let tracks = if q.album.is_some() {
             db::load_tracks(&conn)?
         } else {
@@ -252,7 +255,14 @@ impl Catalog {
         let total = conn
             .query_row(
                 &format!("SELECT COUNT(*) {filter}"),
-                params![pattern, q.favorite, q.playlist, album_ids, q.artist],
+                params![
+                    pattern,
+                    q.favorite,
+                    q.playlist,
+                    album_ids,
+                    q.artist,
+                    q.enrichment_ignored
+                ],
                 |r| r.get::<_, usize>(0),
             )
             .map_err(|e| e.to_string())?;
@@ -263,7 +273,7 @@ impl Catalog {
         };
         let mut stmt = conn
             .prepare(&format!(
-                "SELECT {FIELDS} {filter} ORDER BY {order} LIMIT ?6 OFFSET ?7"
+                "SELECT {FIELDS} {filter} ORDER BY {order} LIMIT ?7 OFFSET ?8"
             ))
             .map_err(|e| e.to_string())?;
         let tracks = stmt
@@ -274,6 +284,7 @@ impl Catalog {
                     q.playlist,
                     album_ids,
                     q.artist,
+                    q.enrichment_ignored,
                     q.limit.clamp(1, 200),
                     q.offset.min(i64::MAX as usize)
                 ],

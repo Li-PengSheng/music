@@ -31,9 +31,11 @@
   let layout = $state('split');
   let container = $state<HTMLDivElement>();
   let trackId = $derived(snapshot?.track_id);
+  let metadataRevision = $derived(snapshot?.metadata_revision ?? 0);
   let audio = $state<AudioInfo | null>(null);
   $effect(() => {
     const path = trackId;
+    metadataRevision;
     let cancelled = false;
     audio = null;
     if (path)
@@ -61,6 +63,7 @@
   );
   $effect(() => {
     const path = ui.immersive ? trackId : null;
+    metadataRevision;
     let cancelled = false;
     lyrics = null;
     manual = false;

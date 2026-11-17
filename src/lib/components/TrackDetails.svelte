@@ -1,10 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { X, Copy, Play, ListEnd, ListPlus } from 'lucide-svelte';
+  import { X, Copy, Play, ListEnd, ListPlus, Wand2 } from 'lucide-svelte';
   import Artwork from './Artwork.svelte';
   import Select from './Select.svelte';
   import IconButton from './IconButton.svelte';
   import Modal from './Modal.svelte';
+  import { ui } from '../stores/ui.svelte';
+  import { go } from '../stores/nav.svelte';
   import {
     trackCover,
     audioInfo,
@@ -24,6 +26,12 @@
   let busy = $state(false);
   let feedback = $state('');
   let playlist = $state('');
+  function enrich() {
+    const trackId = track.id;
+    onclose();
+    ui.immersive = false;
+    go({ view: 'enrichment', trackId });
+  }
   onMount(() => {
     let disposed = false;
     void trackCover(track.id)
@@ -92,6 +100,9 @@
           run(async () => {
             if (await perform(() => queueAction('add', track.id))) feedback = '已加入播放队列';
           })}><ListEnd size={16} />加入队列</button
+      >
+      <button type="button" class="btn btn-secondary" onclick={enrich}
+        ><Wand2 size={16} />前往标签补全</button
       >
     </div>
     <section class="details-section">

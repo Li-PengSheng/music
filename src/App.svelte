@@ -42,6 +42,7 @@
   import SongsView from './lib/views/SongsView.svelte';
   import GridView from './lib/views/GridView.svelte';
   import SettingsView from './lib/views/SettingsView.svelte';
+  import EnrichmentView from './lib/views/EnrichmentView.svelte';
   import DesktopLyrics from './lib/views/DesktopLyrics.svelte';
   import { applyLyricsOverlay, syncLyricsOverlayOpen } from './lib/stores/lyrics-overlay';
 
@@ -55,12 +56,14 @@
   let artwork = $state<string | null>(null);
   let artworkRequest = 0;
   let artworkTrackId = $derived(snapshot?.track_id);
+  let metadataRevision = $derived(snapshot?.metadata_revision ?? 0);
   const lyricsShell =
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('window') === 'lyrics';
   $effect(() => {
     if (lyricsShell) return;
     const path = artworkTrackId;
+    metadataRevision;
     if (diagnostics) {
       diagnostics.trackChanges++;
       if (path && desktopAvailable) diagnostics.coverRequests++;
@@ -251,6 +254,7 @@
                 kind={route.view}
               />{/key}
           {:else if route.view === 'settings'}<SettingsView />
+          {:else if route.view === 'enrichment'}<EnrichmentView trackId={route.trackId} />
           {:else}<SongsView />{/if}
         </main>
       </div>

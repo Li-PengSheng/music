@@ -16,6 +16,7 @@ const tracks = Array.from({ length: TOTAL }, (_, i) => ({
   duration_ms: 180000 + i * 997,
   added_at: TOTAL - i,
   album_source: 'tag',
+  ...window.__mockTrackOverrides?.[i + 1],
 }));
 const playlists = [
   { id: 7, name: '本地', count: 0 },
@@ -25,6 +26,13 @@ const members = { 7: [], 8: [3, 5] };
 const playlistSize = Number(new URLSearchParams(location.search).get('playlistTracks'));
 if (playlistSize > 0) members[8] = tracks.slice(0, playlistSize).map((t) => t.id);
 const folders = ['C:\\Fixture'];
+const metadataCanvas = document.createElement('canvas');
+metadataCanvas.width = metadataCanvas.height = 8;
+const metadataContext = metadataCanvas.getContext('2d');
+metadataContext.fillStyle = '#52705a';
+metadataContext.fillRect(0, 0, 8, 8);
+const metadataPreview = metadataCanvas.toDataURL('image/png');
+const metadataCandidateCache = new Map();
 function groups(kind) {
   const map = new Map();
   for (const t of tracks) {
@@ -106,8 +114,14 @@ function page(q) {
   }
   if (q.artist) list = list.filter((t) => t.artist === q.artist);
   if (q.album) list = list.filter((t) => t.album === q.album);
+  if (q.enrichment_ignored != null)
+    list = list.filter(
+      (t) => !!window.__mockMetadataStatuses?.[t.id]?.enrichment_ignored === q.enrichment_ignored,
+    );
   if (q.playlist == null && q.sort === 'title')
     list = [...list].sort((a, b) => a.title.localeCompare(b.title) || a.id - b.id);
+  else if (q.playlist == null && (!q.sort || q.sort === 'added'))
+    list = [...list].sort((a, b) => b.added_at - a.added_at || b.id - a.id);
   const offset = q.offset ?? 0,
     limit = q.limit ?? 100;
   return { tracks: list.slice(offset, offset + limit), total: list.length, favorites: [] };
@@ -239,6 +253,8 @@ const handlers = {
       tracks.filter((t) => t.path.replaceAll('/', '\\').startsWith(prefix)).map((t) => t.id),
     );
     for (let i = tracks.length - 1; i >= 0; i--) if (deleted.has(tracks[i].id)) tracks.splice(i, 1);
+    for (const id of metadataCandidateCache.keys())
+      if (!tracks.some((track) => track.id === id)) metadataCandidateCache.delete(id);
     for (const id of Object.keys(members)) members[id] = members[id].filter((t) => !deleted.has(t));
     return null;
   },
@@ -251,6 +267,166 @@ const handlers = {
         .map((g) => [g.name, g.count]),
   }),
   library_cover: () => null,
+  metadata_track_statuses: ({ trackIds }) =>
+    trackIds.map((id) => ({
+      track_id: id,
+      enrichment_ignored: false,
+      missing_artist: id % 2 === 1,
+      missing_album: id % 2 === 1,
+      missing_cover: true,
+      missing_lyrics: true,
+      ...window.__mockMetadataStatuses?.[id],
+    })),
+  metadata_set_enrichment_ignored: ({ trackId, ignored }) => {
+    if (window.__mockMetadataIgnoreError) throw 'METADATA_DATABASE';
+    if (!Number.isInteger(trackId) || trackId <= 0) throw 'METADATA_IDS_INVALID';
+    if (!tracks.some((t) => t.id === trackId)) throw 'METADATA_TRACK_MISSING';
+    window.__mockMetadataStatuses ??= {};
+    window.__mockMetadataStatuses[trackId] = {
+      ...window.__mockMetadataStatuses[trackId],
+      enrichment_ignored: ignored,
+    };
+    return null;
+  },
+  metadata_search_candidates: async (a) => {
+    const title = a.titleQuery?.trim() || tracks.find((t) => t.id === a.trackId)?.title || '';
+    const artist = a.artistQuery?.trim() || tracks.find((t) => t.id === a.trackId)?.artist || '';
+    const key = JSON.stringify(
+      [title, artist].map((s) => s.toLocaleLowerCase().replace(/\s+/g, ' ')),
+    );
+    const cached = metadataCandidateCache.get(a.trackId);
+    if (
+      !a.forceRefresh &&
+      cached?.key === key &&
+      Date.now() - cached.time >= 0 &&
+      Date.now() - cached.time < 7 * 86400000
+    )
+      return structuredClone(cached.result);
+    const remember = (result) => {
+      if (!result.errors.length && tracks.some((track) => track.id === a.trackId))
+        metadataCandidateCache.set(a.trackId, {
+          key,
+          time: Date.now(),
+          result: structuredClone(result),
+        });
+      return result;
+    };
+    if (window.__mockMetadataDelay)
+      await new Promise((resolve) => setTimeout(resolve, window.__mockMetadataDelay));
+    if (window.__mockMetadataBackfill)
+      return remember({
+        title_query: '无情画',
+        artist_query: '王唯旖',
+        errors: [],
+        tags: [
+          {
+            source: 'LRCLIB',
+            title: '无情画',
+            artist: '王唯旖',
+            album: '无情画 - Single',
+            album_artist: '王唯旖',
+            year: null,
+            track_number: null,
+            release_mbid: null,
+            cover_preview_url: null,
+            cover_preview: null,
+            cover_url: null,
+            genre: null,
+          },
+        ],
+        lyrics: [
+          {
+            id: 7,
+            title: '无情画',
+            artist: '王唯旖',
+            album: '无情画 - Single',
+            preview: '[00:01.00]歌词',
+            synced_lyrics: '[00:01.00]歌词',
+          },
+        ],
+      });
+    return remember({
+      title_query: a.titleQuery?.trim() || tracks.find((t) => t.id === a.trackId)?.title || '',
+      artist_query: a.artistQuery?.trim() || tracks.find((t) => t.id === a.trackId)?.artist || '',
+      errors: [],
+      tags: window.__mockMetadataEmpty
+        ? []
+        : ['在线曲名', '另一候选'].map((title) => ({
+            source: window.__mockMetadataSource ?? 'MusicBrainz',
+            cover_url:
+              window.__mockMetadataSource === 'iTunes'
+                ? 'https://is1-ssl.mzstatic.com/image/thumb/Music/fixture/600x600bb.jpg'
+                : null,
+            genre: null,
+            title,
+            artist: '在线艺术家',
+            album: '在线专辑',
+            album_artist: '在线专辑艺术家',
+            year: 2025,
+            track_number: 3,
+            release_mbid: '12345678-1234-1234-1234-123456789abc',
+            cover_preview_url:
+              'https://coverartarchive.org/release/12345678-1234-1234-1234-123456789abc/front-250',
+            cover_preview: metadataPreview,
+          })),
+      lyrics: window.__mockMetadataEmpty
+        ? []
+        : [
+            {
+              id: 1,
+              title: '在线曲名',
+              artist: '在线艺术家',
+              album: '在线专辑',
+              preview: '[00:01.00]在线歌词第一行\n[00:02.00]在线歌词第二行',
+              synced_lyrics: '[00:01.00]在线歌词第一行\n[00:02.00]在线歌词第二行',
+            },
+            {
+              id: 2,
+              title: '另一歌词版本',
+              artist: '在线艺术家',
+              album: '另一专辑',
+              preview: '[00:03.00]另一歌词',
+              synced_lyrics: '[00:03.00]另一歌词',
+            },
+          ],
+    });
+  },
+  metadata_apply_enrichment: ({ payload: p }) => {
+    const track = tracks.find((t) => t.id === p.track_id);
+    if (!track) throw 'METADATA_TRACK_MISSING';
+    metadataCandidateCache.delete(p.track_id);
+    window.__mockMetadataStatuses ??= {};
+    window.__mockMetadataStatuses[p.track_id] = {
+      ...window.__mockMetadataStatuses[p.track_id],
+      ...(p.update_library_tags ? { missing_artist: false, missing_album: false } : {}),
+      ...(p.save_cover ? { missing_cover: false } : {}),
+      ...(p.save_lyrics ? { missing_lyrics: false } : {}),
+    };
+    if (p.update_library_tags && p.tags) {
+      for (const key of ['title', 'artist', 'album', 'album_artist', 'year', 'track_number'])
+        track[key] = p.tags[key];
+      track.album_source = 'Tag';
+    }
+    if (p.save_lyrics)
+      window.__mockLyrics = {
+        lines: [
+          { time_ms: 1000, text: '在线歌词第一行' },
+          { time_ms: 2000, text: '在线歌词第二行' },
+        ],
+        offset_ms: 0,
+        synced: true,
+        source: 'fixture.lrc',
+      };
+    if (snapshot.track_id === track.path)
+      snapshot = {
+        ...snapshot,
+        current_track: { ...track },
+        revision: snapshot.revision + 1,
+        metadata_revision: (snapshot.metadata_revision ?? 0) + 1,
+        queue: snapshot.queue.map((t) => (t.path === track.path ? { ...track } : t)),
+      };
+    return { ...track };
+  },
   library_thumb: () => window.__mockThumb ?? null,
   library_queue_thumb: () => null,
   library_track: (a) => tracks.find((t) => t.id === a.id),

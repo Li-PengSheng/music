@@ -14,7 +14,7 @@ export const library = $state({
   /** Bumped after any change to tracks or playlists so open lists (including the built-in “本地”) reload. */
   revision: 0,
   progress: null as ScanProgress | null,
-  /** Bumped only when a scan finishes, so visible covers reload without a theme or progress refresh. */
+  /** Bumped after scans or explicit metadata changes so visible covers reload. */
   coverEpoch: 0,
 });
 

@@ -125,7 +125,7 @@ pub fn read_track(path: &Path, id: i64) -> Option<Track> {
 
 /// Split a leading track number off a file name: "01 - Title", "02. Title",
 /// "03 Title" and "04_Title" all yield (title, Some(number)).
-fn split_track_number(stem: &str) -> (String, Option<u32>) {
+pub(super) fn split_track_number(stem: &str) -> (String, Option<u32>) {
     let s = stem.trim();
     let digits: String = s.chars().take_while(|c| c.is_ascii_digit()).collect();
     if digits.is_empty() || digits.len() > 3 {

@@ -55,6 +55,13 @@ SettingsView → AiSettings / ListenBrainzSettings → 专用配置 DTO（不含
 | `src/lib/components/Select.svelte` | Bits UI Select，保留项目 Props 和 tokens |
 | `src/lib/layout/Queue.svelte`、`src/lib/views/NowPlaying.svelte`、`src/lib/components/QueueCover.svelte` | 队列抽屉、正在播放和队列封面。宽屏队列覆盖页面，不把正在播放挤窄 |
 | `src/lib/components/Artwork.svelte`、`src/lib/components/Cover.svelte` | 正在播放和列表里的封面 |
+| `src/lib/components/TrackDetails.svelte` | 紧凑纯信息详情；前往标签补全按钮关闭弹窗并携带 trackId 跳转 |
+| `src/lib/views/EnrichmentView.svelte`、`src/lib/components/MetadataEnrichment.svelte`、`src/lib/utils/enrichment-workbench.ts` | 一级双栏工作台：本地完整度筛选、多选队列、来源标记、独立可编辑目标草稿（无候选也可手填）；串行限流检索/确认应用、取消/过期保护；默认不改原音频，独立 .cover.jpg |
+| `src-tauri/src/catalog/enrichment.rs`、`platform/metadata_http.rs`、`platform/atomic_files.rs` | 有界 MusicBrainz/iTunes/LRCLIB 检索、CAA/Apple CDN 图片；下载后进入 Catalog.operation；同目录临时文件、回滚副本、SQLite 事务；Windows 无覆盖原子重命名 |
+| 多源补全（TASK-28） | MB/iTunes/LRCLIB独立容错；CN→US、括号后缀空结果重试、标准化去重与LRCLIB反哺。Apple CDN600px图片单独允许列表；无新IPC命令、schema、依赖或CSP放宽 |
+| `src/lib/stores/enrichment.svelte.ts`（TASK-29） | WebView会话共享筛选/勾选/焦点/逐曲候选与草稿；library.revision增量同步并清除消失ID。返回页面不重置/重复批搜，明确重新检索才forceRefresh=true |
+| `catalog/db.rs`、`catalog/enrichment.rs`（TASK-29） | 增量enrichment_cache表；同曲目/归一化查询键、7天有效候选直接返回，force_refresh绕过；HTTP锁外执行，operation锁内重验再缓存，成功应用/删除目录事务清理缓存 |
+| 新入库补全（TASK-30） | 工作台added_at DESC/id DESC，默认近7天、无新歌回退四类缺失待办；cache.ignored增量标记，经显式IPC设置/恢复；待办隐藏、全部可恢复，候选刷新/失效保留标记，目录移除清理孤立行 |
 | `src/lib/utils/cover-loader.ts`、`row-visibility.ts` | 封面并发、取消和可见行 |
 | `src/lib/stores/player.svelte.ts` | `accept()` 丢掉更旧的 `revision`；`control()` 串行播放命令 |
 | `src/lib/services/music.ts` | 全部前端业务 IPC 类型和调用；窗口/事件 API 封装。WindowControls 直接使用官方窗口 API |
@@ -79,7 +86,7 @@ SettingsView → AiSettings / ListenBrainzSettings → 专用配置 DTO（不含
 
 ## 关键约定
 
-- `PlayerSnapshot` 在 `music.ts`：`revision`、`track_id`、`current_track`、`playback_state`、`position_ms`、`duration_ms`、`volume`、`playback_mode`、`lyrics_offset_ms`、`output_device_id`、`error`、`queue`。改字段时对照 Rust 的 serde 定义。
+- `PlayerSnapshot` 在 `music.ts`：`revision`、`metadata_revision`、`track_id`、`current_track`、`playback_state`、`position_ms`、`duration_ms`、`volume`、`playback_mode`、`lyrics_offset_ms`、`output_device_id`、`error`、`queue`。改字段时对照 Rust 的 serde 定义。metadata_revision 仅在显式补全当前曲目后递增，驱动封面/歌词重载；不推进进度，不重开播放。封面 Store 优先有效同名 .cover.jpg，其次共享 cover.jpg，再内嵌图；两个 sidecar 的 mtime/长度纳入缓存指纹。工作台只读完整度复用展示策略，不落缓存。
 - 进度显示快照里的 `position_ms`。拖动进度条可以有松开前的本地草稿。
 - 数据库用 `CREATE TABLE IF NOT EXISTS` 和 `ensure_column`。没有独立迁移框架。每个 `Catalog` 用实例级 `Mutex<bool>` 只迁移一次；`db::open` 执行 `init`，热路径随后走 `open_light`。旧版数据库导入命令、入口、副本/backup 路径均已删除；当前 schema 升级仍保留。
 - `Action::Open` 把 `prepare` 后的 `synchronize` 状态交给同一次 `execute` 的尾部。`Play` 仍单独做一次屏障。成功的 `Start` 仍是两次 `execute` 和两次 `persist` 调用。

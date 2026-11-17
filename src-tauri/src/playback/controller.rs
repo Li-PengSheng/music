@@ -16,6 +16,22 @@ pub struct Track {
 mod tests {
     use super::*;
     #[test]
+    fn metadata_refresh_preserves_transport_and_revises_current_text_and_queue() {
+        let mut c = Controller::new();
+        c.execute(Action::Open(fixture("tone.flac"))).unwrap();
+        let before = c.execute(Action::Seek(500.)).unwrap();
+        let mut track = before.current_track.clone().unwrap();
+        track.title = "Enriched title".into();
+        let next = c.execute(Action::RefreshMetadata(track)).unwrap();
+        assert_eq!(next.playback_state, before.playback_state);
+        assert_eq!(next.position_ms, before.position_ms);
+        assert_eq!(next.listen_session, before.listen_session);
+        assert_eq!(next.listen_seek, before.listen_seek);
+        assert_eq!(next.metadata_revision, before.metadata_revision + 1);
+        assert_eq!(next.current_track.unwrap().title, "Enriched title");
+        assert_eq!(next.queue[0].title, "Enriched title");
+    }
+    #[test]
     fn output_device_action_keeps_queue_track_volume_and_transport() {
         if std::env::var_os("MUSIC_MINE_NULL_OUTPUT").is_none() {
             return;
@@ -237,6 +253,7 @@ pub struct PlayerSnapshot {
     #[serde(skip)]
     pub(crate) listen_seek: u64,
     revision: u64,
+    pub metadata_revision: u64,
     track_id: Option<String>,
     pub current_track: Option<Track>,
     pub playback_state: &'static str,
@@ -251,6 +268,8 @@ pub struct PlayerSnapshot {
 }
 pub enum Action {
     State,
+    /// Refresh catalog text without reopening the file, seeking or starting a listen session.
+    RefreshMetadata(Track),
     OutputDevice(Option<String>),
     Open(PathBuf),
     Start(PathBuf),
@@ -279,6 +298,7 @@ pub struct Controller {
     listen_seek: u64,
     engine: Player,
     track: Option<Track>,
+    metadata_revision: u64,
     revision: u64,
     queue: Vec<Track>,
     mode: String,
@@ -295,6 +315,7 @@ impl Controller {
             listen_seek: 0,
             engine: Player::new(None),
             track: None,
+            metadata_revision: 0,
             revision: 0,
             queue: Vec::new(),
             mode: "sequential".into(),
@@ -344,6 +365,21 @@ impl Controller {
 
         let mut prepared_status = None;
         match action {
+            Action::RefreshMetadata(track) => {
+                for item in &mut self.queue {
+                    if item.path == track.path {
+                        *item = track.clone();
+                    }
+                }
+                if self
+                    .track
+                    .as_ref()
+                    .is_some_and(|item| item.path == track.path)
+                {
+                    self.track = Some(track);
+                    self.metadata_revision = self.metadata_revision.wrapping_add(1);
+                }
+            }
             Action::Select(path) => {
                 if !self.queue.iter().any(|t| t.path == path) {
                     return Err("歌曲不在队列中".into());
@@ -521,6 +557,7 @@ impl Controller {
             listen_session: self.listen_session,
             listen_seek: self.listen_seek,
             revision: self.revision,
+            metadata_revision: self.metadata_revision,
             track_id: self.track.as_ref().map(|t| t.path.clone()),
             current_track: self.track.clone(),
             playback_state: match status.state {

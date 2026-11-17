@@ -24,6 +24,8 @@
         return { parent: '音乐库', title: '专辑' };
       case 'artists':
         return { parent: '音乐库', title: '艺术家' };
+      case 'enrichment':
+        return { parent: '音乐库', title: '标签补全' };
       case 'album':
         return {
           parent: '专辑',

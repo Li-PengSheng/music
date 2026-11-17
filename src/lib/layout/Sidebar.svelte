@@ -10,6 +10,7 @@
     Settings2,
     HardDrive,
     Terminal,
+    Wand2,
   } from 'lucide-svelte';
   import { nav, go } from '../stores/nav.svelte';
   import { library } from '../stores/library.svelte';
@@ -24,7 +25,8 @@
       active === 'albums' ||
       active === 'artists' ||
       active === 'album' ||
-      active === 'artist',
+      active === 'artist' ||
+      active === 'enrichment',
   );
   const top = [
     { view: 'home', label: '音乐空间', icon: House },
@@ -46,6 +48,7 @@
       count: library.summary.artists.length,
       match: ['artists', 'artist'],
     },
+    { view: 'enrichment', label: '标签补全', icon: Wand2, count: null, match: ['enrichment'] },
   ] as const);
 </script>
 
@@ -97,7 +100,8 @@
             onclick={() => go({ view: item.view })}
           >
             <item.icon size={18} /><span class="nav-label">{item.label}</span
-            >{#if library.loaded}<span class="nav-count">{item.count}</span>{/if}
+            >{#if library.loaded && item.count !== null}<span class="nav-count">{item.count}</span
+              >{/if}
           </button>
         </li>
       {/each}

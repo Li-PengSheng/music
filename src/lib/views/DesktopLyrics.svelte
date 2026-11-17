@@ -52,7 +52,7 @@
         accept(next);
         player.connected = true;
         reported = false;
-        const key = next.track_id ?? '';
+        const key = next.track_id ? `${next.track_id}:${next.metadata_revision ?? 0}` : '';
         if (key !== lyricTrack) {
           lyricTrack = key;
           ++lyricTicket;

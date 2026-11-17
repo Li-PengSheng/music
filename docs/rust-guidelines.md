@@ -12,6 +12,7 @@
 - `catalog/library.rs`、`catalog/mod.rs`、`commands/catalog.rs`、`catalog/collections.rs`：曲库、扫描、歌单。
 - `catalog/db.rs`：SQLite 连接、`CREATE TABLE IF NOT EXISTS`、`ensure_column`。
 - `playback/lyrics.rs`、`catalog/metadata.rs`：歌词和标签。`artwork/covers.rs`：封面缩略图、内存和磁盘缓存。`infrastructure/logging.rs`：日志。
+- `catalog/enrichment.rs`：用户显式确认的候选解析与标签/封面/LRC 写入，Catalog.operation 串行保护、SQLite 事务和同目录副本/失败回滚；不直接改写音频。`platform/metadata_http.rs`：固定 MusicBrainz/LRCLIB/CAA 来源、有界 ureq/Rustls HTTP，网络不持 Catalog/Controller 锁；错误固定码。`platform/atomic_files.rs`：Windows 同目录无覆盖原子重命名，复用 windows 0.58 的 Win32_Storage_FileSystem feature，无新增 crate。覆盖已有文件必须有单独授权，断电/进程崩溃不是跨 SQLite/多文件原子事务。
 
 没有按 RFC 假设尚未存在的模块或 crate。
 

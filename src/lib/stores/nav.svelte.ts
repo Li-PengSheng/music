@@ -6,6 +6,7 @@ export type Route =
   | { view: 'recent' }
   | { view: 'albums' }
   | { view: 'artists' }
+  | { view: 'enrichment'; trackId?: number }
   | { view: 'album'; key: string }
   | { view: 'artist'; name: string }
   | { view: 'playlist'; id: number }

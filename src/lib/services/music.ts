@@ -19,6 +19,7 @@ export interface Track {
 }
 export interface PlayerSnapshot {
   revision: number;
+  metadata_revision?: number;
   track_id: string | null;
   current_track: Track | null;
   playback_state: 'idle' | 'playing' | 'paused';
@@ -92,6 +93,7 @@ export interface LibraryQuery {
   playlist?: number | null;
   album?: string | null;
   artist?: string | null;
+  enrichment_ignored?: boolean | null;
 }
 // Rust still returns stored favourite IDs for database compatibility; the UI no longer reads them.
 export interface LibraryPage {
@@ -128,6 +130,75 @@ export interface AudioInfo {
   file_size: number | null;
 }
 export const audioInfo = (id: number) => invoke<AudioInfo>('library_audio_info', { id });
+export interface TagCandidate {
+  source?: 'MusicBrainz' | 'iTunes' | 'LRCLIB' | 'Manual';
+  title: string;
+  artist: string;
+  album: string;
+  album_artist: string;
+  year: number | null;
+  track_number: number | null;
+  release_mbid: string | null;
+  cover_preview_url: string | null;
+  cover_preview: string | null;
+  cover_url?: string | null;
+  genre?: string | null;
+}
+export interface LyricsCandidate {
+  id: number;
+  title: string;
+  artist: string;
+  album: string;
+  preview: string;
+  synced_lyrics: string;
+}
+export interface EnrichmentCandidates {
+  title_query: string;
+  artist_query: string;
+  tags: TagCandidate[];
+  lyrics: LyricsCandidate[];
+  errors: string[];
+}
+export interface ApplyEnrichmentRequest {
+  track_id: number;
+  tags: TagCandidate | null;
+  update_library_tags: boolean;
+  synced_lyrics: string | null;
+  save_lyrics: boolean;
+  save_cover: boolean;
+  release_mbid: string | null;
+  write_audio_tags: boolean;
+  overwrite_cover: boolean;
+  overwrite_lyrics: boolean;
+  dedicated_cover?: boolean;
+  cover_url?: string | null;
+}
+export interface MetadataStatus {
+  track_id: number;
+  enrichment_ignored: boolean;
+  missing_artist: boolean;
+  missing_album: boolean;
+  missing_cover: boolean | null;
+  missing_lyrics: boolean | null;
+}
+export const metadataTrackStatuses = (trackIds: number[]) =>
+  invoke<MetadataStatus[]>('metadata_track_statuses', { trackIds });
+export const setEnrichmentIgnored = (trackId: number, ignored: boolean) =>
+  invoke<void>('metadata_set_enrichment_ignored', { trackId, ignored });
+export const searchMetadataCandidates = (
+  trackId: number,
+  titleQuery: string | null = null,
+  artistQuery: string | null = null,
+  forceRefresh = false,
+) =>
+  invoke<EnrichmentCandidates>('metadata_search_candidates', {
+    trackId,
+    titleQuery,
+    artistQuery,
+    forceRefresh,
+  });
+export const applyMetadataEnrichment = (payload: ApplyEnrichmentRequest) =>
+  invoke<LibraryTrack>('metadata_apply_enrichment', { payload });
 // Every library cover request goes through one bounded loader: null results mean "no cover" and are
 // kept; error codes (file missing or unreadable, IPC failure) get limited retries and are never kept as null.
 const covers = createCoverLoader({ terminal: (code) => code === 'cover-not-in-library' });

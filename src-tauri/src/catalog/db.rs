@@ -75,6 +75,12 @@ fn init(conn: &Connection) -> Result<(), String> {
             username TEXT NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_scrobble_owner ON scrobble_outbox(username,id);
+        CREATE TABLE IF NOT EXISTS enrichment_cache (
+            track_id INTEGER PRIMARY KEY,
+            query_key TEXT NOT NULL,
+            payload_json TEXT NOT NULL,
+            fetched_at INTEGER NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS folders (
             path TEXT PRIMARY KEY
         );
@@ -110,6 +116,12 @@ fn init(conn: &Connection) -> Result<(), String> {
         "TEXT NOT NULL DEFAULT 'tag'",
     )?;
     ensure_column(conn, "tracks", "added_at", "INTEGER NOT NULL DEFAULT 0")?;
+    ensure_column(
+        conn,
+        "enrichment_cache",
+        "ignored",
+        "INTEGER NOT NULL DEFAULT 0",
+    )?;
     // Existing libraries get a stable "added" time so sorting works.
     conn.execute(
         "UPDATE tracks SET added_at = strftime('%s','now') WHERE added_at = 0",
@@ -248,6 +260,11 @@ pub fn remove_folder(conn: &Connection, path: &str) -> Result<(), String> {
         "DELETE FROM tracks WHERE replace(path, '/', char(92)) = ?1 COLLATE NOCASE
          OR replace(path, '/', char(92)) LIKE ?2 ESCAPE '!'",
         rusqlite::params![normalized, format!("{prefix}%")],
+    )
+    .map_err(|e| e.to_string())?;
+    tx.execute(
+        "DELETE FROM enrichment_cache WHERE track_id NOT IN (SELECT id FROM tracks)",
+        [],
     )
     .map_err(|e| e.to_string())?;
     tx.commit().map_err(|e| e.to_string())

@@ -15,6 +15,14 @@ pub struct LogBuffer {
 }
 
 impl LogBuffer {
+    /// Redact credentials before stderr, disk and the Console buffer, not only at IPC.
+    pub fn push_redacted(&self, message: &str, secret: Option<&str>) {
+        let safe = match secret.filter(|s| !s.is_empty()) {
+            Some(secret) => message.replace(secret, "***"),
+            None => message.to_string(),
+        };
+        self.push(safe);
+    }
     pub fn new(path: Option<PathBuf>) -> LogBuffer {
         let file = path.and_then(|p| {
             if let Some(dir) = p.parent() {
@@ -139,6 +147,25 @@ fn timestamp() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn credentials_are_redacted_before_disk_and_console_storage() {
+        let path = std::env::temp_dir().join(format!("mm-token-log-{}.log", std::process::id()));
+        let logs = LogBuffer::new(Some(path.clone()));
+        logs.push_redacted(
+            "[listenbrainz] Authorization: Token private-token HTTP_401",
+            Some("private-token"),
+        );
+        let line = &logs.console_logs(false).unwrap()[0];
+        assert!(line.contains("Token *** HTTP_401"));
+        assert!(!line.contains("private-token"));
+        assert!(!logs.lines()[0].contains("private-token"));
+        drop(logs);
+        assert!(!std::fs::read_to_string(&path)
+            .unwrap()
+            .contains("private-token"));
+        std::fs::remove_file(path).unwrap();
+    }
 
     #[test]
     fn paths_cover_windows_unc_posix_and_unicode_without_losing_context() {

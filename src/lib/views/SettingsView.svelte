@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { FolderPlus, Database, X } from 'lucide-svelte';
   import Select from '../components/Select.svelte';
+  import ListenBrainzSettings from '../components/ListenBrainzSettings.svelte';
   import { shortcutHelp } from '../utils/shortcuts';
   import {
     desktopAvailable,
@@ -147,7 +148,7 @@
 <header class="page-header">
   <div>
     <h2 class="page-title">设置</h2>
-    <p class="page-meta">Music Mine v0.1.0 · 本地离线运行</p>
+    <p class="page-meta">Music Mine v0.1.0 · 本地音乐库</p>
   </div>
 </header>
 
@@ -310,6 +311,8 @@
       />
     </div>
   </section>
+
+  <ListenBrainzSettings />
 
   <section class="settings-card" aria-labelledby="set-keys">
     <h3 id="set-keys">键盘快捷键</h3>

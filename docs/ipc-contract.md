@@ -64,6 +64,17 @@ Rust 是播放位置的权威。界面显示 `position_ms`。拖动进度条只�
 - 命令结束后 Rust 发出 `lyrics-overlay` 事件，载荷为 `{ open, locked }`，主窗口用它同步按钮。主进程退出时关闭该窗口。
 - 悬浮窗只轮询播放状态和歌词，不挂载曲库、队列或封面加载。
 
+## ListenBrainz（默认关闭）
+
+- `listenbrainz_config(enabled?: boolean | null, username?: string | null, token?: string | null) -> Result<ListenBrainzConfig, string>`；返回 `{ enabled: boolean, username: string | null, token_configured: boolean, pending_count: number }`，不返回 Token。参数全空为本地查询；仅传 enabled 是本地开关，开启要求已有验证凭证；关闭立即停止新采集与新请求，已在途请求可能完成，队列保留。客户端使用 camelCase 参数（这三项同名）。
+- 修改 username/token 的保存请求在后台调用 `GET /1/validate-token`，使用 Authorization 头；核对服务返回的 user_name，不一致或验证失败不保存。null 保持原值；空 username 清除名字并允许验证后自动填入；空 token 清除凭证，必须同时禁用。并发设置使用版本防止旧验证响应重新启用。设置文件保存明文 Token，仅用于用户显式启用的服务；不写 localStorage、不经 desktop_preferences 或配置查询暴露。日志在 stderr/磁盘/Console 写入前以 `***` 脱敏。
+- `listenbrainz_recommendations() -> Result<LibraryTrack[], string>`：禁用返回空数组，不联网。启用后请求 `GET /1/cf/recommendation/user/{username}/recording?count=50`，再以 MBID 批量读取官方录音元数据；以标准化空白、忽略大小写的「艺术家 + 曲名」精确匹配本地 tracks，保持远端顺序并按本地 ID 去重。当前曲库无 MBID 列，不做只凭标题或模糊匹配。推荐未生成/无可用元数据时回退用户公开最近 50 次收听。远端候选缓存 10 分钟，失败冷却 30 秒，每次从当前 SQLite 重新匹配，避免已移除曲目残留。首页无结果或失败时不显示推荐架，现有本地功能保持可用。
+- Desktop 的 `desktop-v1.json` 增加 `listenbrainz_enabled`（旧文件默认 false）、`listenbrainz_username`、`listenbrainz_token`。desktop_preferences 返回中的 token 固定 null，其余配置保留；专用配置接口报告 token_configured。
+- SQLite 增量建立 `scrobble_outbox(id, artist, title, album, duration_ms, listened_at, created_at, username)`，username 绑定账户，切换账户后不把旧队列上传给新账户。成功确认才删除，失败保留；支持重启恢复，以开始播放时的 Unix 秒数作为 listened_at。服务端确认前进程退出可能导致同时间戳重传。
+- 后台采集每 200ms 读取 Rust 快照；内部不序列化的会话/Seek 序号用于识别同曲重播与跳跃。只累计同会话、无 Seek、连续 playing 的实际进度，且不超过单调时钟间隔。暂停/跳跃边界的采样区间保守不计，可能少计约 200ms；不把 Seek 距离算作收听。总长至少 30 秒、累计达到 `min(duration_ms / 2, 240000)` 时每次会话入队一次。UI 不参与计时。
+- 独立 observer 负责采集/持久化，network 线程统一 HTTP（ureq 2.12.1 + Rustls，无 OpenSSL）；Controller 锁释放后才执行数据库/日志/网络。开始播放发 playing_now（无 listened_at），正式记录单条 single、多条 import、每批最多 50 条。网络超时 10 秒，不跟随重定向，响应体上限 2MB；请求至少间隔 1.1 秒，遵守 X-RateLimit-Reset-In/Retry-After，队列失败指数退避到 15 分钟。错误只暴露固定码，不回传 HTTP 正文、头或带凭证 URL。
+- Last.fm 不是另一个已接入的 API；设置页说明用户可自行在 ListenBrainz 网站关联。
+
 ## 错误协议
 
 现有 `Result<T, String>` 保持不变。新的复杂命令可以在单独任务里使用可序列化的 `code`、`message`、可选 `details`。不在无关的 UI 任务里批量替换错误类型。
@@ -102,6 +113,8 @@ library_summary
 library_thumb
 library_track
 library_track_by_path
+listenbrainz_config
+listenbrainz_recommendations
 media_status
 player_artwork
 player_configure

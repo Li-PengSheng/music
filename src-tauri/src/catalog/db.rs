@@ -64,6 +64,17 @@ fn init(conn: &Connection) -> Result<(), String> {
             added_at INTEGER NOT NULL DEFAULT 0
         );
         CREATE TABLE IF NOT EXISTS listening_history (track_id INTEGER PRIMARY KEY REFERENCES tracks(id) ON DELETE CASCADE, last_played INTEGER NOT NULL, plays INTEGER NOT NULL);
+        CREATE TABLE IF NOT EXISTS scrobble_outbox (
+            id INTEGER PRIMARY KEY,
+            artist TEXT NOT NULL,
+            title TEXT NOT NULL,
+            album TEXT NOT NULL,
+            duration_ms INTEGER NOT NULL,
+            listened_at INTEGER NOT NULL,
+            created_at INTEGER NOT NULL,
+            username TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_scrobble_owner ON scrobble_outbox(username,id);
         CREATE TABLE IF NOT EXISTS folders (
             path TEXT PRIMARY KEY
         );

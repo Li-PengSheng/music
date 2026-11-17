@@ -279,6 +279,21 @@ export const mediaStatus = () => invoke<string>('media_status');
 /** Sanitized session logs; clear affects the in-memory buffer only. */
 export const appConsoleLogs = (clear = false) => invoke<string[]>('app_console_logs', { clear });
 
+export interface ListenBrainzConfig {
+  enabled: boolean;
+  username: string | null;
+  token_configured: boolean;
+  pending_count: number;
+}
+/** Omitted/null values keep credentials; empty token clears it. No token is returned. */
+export const listenbrainzConfig = (
+  enabled: boolean | null = null,
+  username: string | null = null,
+  token: string | null = null,
+) => invoke<ListenBrainzConfig>('listenbrainz_config', { enabled, username, token });
+export const listenbrainzRecommendations = () =>
+  invoke<LibraryTrack[]>('listenbrainz_recommendations');
+
 // Exact library path only. A path that is not a library row fails with `cover-not-in-library`.
 const queueKey = (path: string) => 'q:' + path + '@112';
 export const peekQueueCover = (path: string): CoverOutcome | undefined =>

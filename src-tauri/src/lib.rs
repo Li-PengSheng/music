@@ -214,6 +214,7 @@ pub fn run() {
                 }
             }
             platform::media::setup(app);
+            platform::scrobble::setup(app)?;
             let handle = app.handle().clone();
             // Queue progression follows engine EOF on Rust's worker even with the UI hidden.
             let player = app.state::<Shared>().inner().clone();
@@ -263,6 +264,8 @@ pub fn run() {
         .manage(Arc::new(Mutex::new(Controller::new())))
         .invoke_handler(tauri::generate_handler![
             app_console_logs,
+            platform::scrobble::listenbrainz_config,
+            platform::scrobble::listenbrainz_recommendations,
             player_output_devices,
             player_set_output_device,
             platform::desktop::desktop_preferences,

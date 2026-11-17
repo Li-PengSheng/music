@@ -75,6 +75,13 @@ const prefs = {
 if (window.__lyricsFixture) Object.assign(snapshot, window.__lyricsFixture);
 window.__mockOutputDevices = ['Fixture output', 'Headphones'];
 const log = [];
+let listenBrainz = {
+  enabled: false,
+  username: null,
+  token_configured: false,
+  pending_count: 0,
+  ...window.__mockListenBrainz,
+};
 let consoleLines = ['[12:00:00] [audio] fixture paused', '[12:00:01] [smtc] Fixture'];
 window.__mockLog = log;
 window.__mockSnapshot = () => snapshot;
@@ -95,6 +102,19 @@ function page(q) {
   return { tracks: list.slice(offset, offset + limit), total: list.length, favorites: [] };
 }
 const handlers = {
+  listenbrainz_config: ({ enabled, username, token }) => {
+    if (token === 'invalid') throw 'Token 无效，设置未保存';
+    if (enabled === true && !listenBrainz.token_configured) throw '启用前请填写 ListenBrainz Token';
+    if (token != null) listenBrainz.token_configured = token !== '';
+    if (username != null) listenBrainz.username = username || null;
+    if (enabled != null) listenBrainz.enabled = enabled;
+    return { ...listenBrainz };
+  },
+  listenbrainz_recommendations: () => {
+    if (!listenBrainz.enabled) return [];
+    if (window.__mockListenBrainzFailure) throw 'NETWORK';
+    return window.__mockListenBrainzEmpty ? [] : tracks.slice(3, 7);
+  },
   bridge_probe: (a) => ({ nonce: a.nonce, backend: 'rust', snapshot }),
   player_get_state: () => snapshot,
   player_output_devices: () => window.__mockOutputDevices,
@@ -220,7 +240,20 @@ const handlers = {
     return null;
   },
   library_queue_tracks: () => snapshot,
-  library_play: () => snapshot,
+  library_play: ({ id }) => {
+    const track = tracks.find((t) => t.id === id);
+    if (track)
+      snapshot = {
+        ...snapshot,
+        revision: snapshot.revision + 1,
+        track_id: track.path,
+        current_track: track,
+        duration_ms: track.duration_ms,
+        position_ms: 0,
+        playback_state: 'playing',
+      };
+    return snapshot;
+  },
   library_queue: () => snapshot,
   player_lyrics: () =>
     window.__mockLyrics === undefined
@@ -279,7 +312,13 @@ window.__TAURI_INTERNALS__ = {
     delete window['_' + id];
   },
   invoke: async (cmd, args = {}) => {
-    log.push({ cmd, args });
+    log.push({
+      cmd,
+      args:
+        cmd === 'listenbrainz_config'
+          ? { ...args, token: args.token == null ? null : '***' }
+          : args,
+    });
     if (window.__mockFailures?.[cmd]) throw window.__mockFailures[cmd];
     if (cmd === 'plugin:event|listen') {
       const id = ++eventId;

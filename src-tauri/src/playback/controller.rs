@@ -232,11 +232,15 @@ mod tests {
 }
 #[derive(Clone, Serialize)]
 pub struct PlayerSnapshot {
+    #[serde(skip)]
+    pub(crate) listen_session: u64,
+    #[serde(skip)]
+    pub(crate) listen_seek: u64,
     revision: u64,
     track_id: Option<String>,
     pub current_track: Option<Track>,
     pub playback_state: &'static str,
-    position_ms: u64,
+    pub(crate) position_ms: u64,
     duration_ms: u64,
     volume: f32,
     pub playback_mode: String,
@@ -271,6 +275,8 @@ pub enum Action {
     Offset(i64),
 }
 pub struct Controller {
+    listen_session: u64,
+    listen_seek: u64,
     engine: Player,
     track: Option<Track>,
     revision: u64,
@@ -285,6 +291,8 @@ pub struct Controller {
 impl Controller {
     pub fn new() -> Self {
         Self {
+            listen_session: 0,
+            listen_seek: 0,
             engine: Player::new(None),
             track: None,
             revision: 0,
@@ -465,14 +473,17 @@ impl Controller {
                     None
                 };
                 prepared_status = Some(status);
+                self.listen_session = self.listen_session.wrapping_add(1);
             }
             Action::Play => {
                 let track = self.track.as_ref().ok_or("请先添加真实音频文件")?;
                 match self.engine.status().state {
                     PlaybackState::Paused => self.engine.resume(),
-                    PlaybackState::Stopped => self
-                        .engine
-                        .play(PathBuf::from(&track.path), track.duration_ms),
+                    PlaybackState::Stopped => {
+                        self.listen_session = self.listen_session.wrapping_add(1);
+                        self.engine
+                            .play(PathBuf::from(&track.path), track.duration_ms);
+                    }
                     PlaybackState::Playing => {}
                 }
             }
@@ -487,6 +498,7 @@ impl Controller {
                     return Err("请先播放歌曲再跳转".into());
                 }
                 self.engine.seek(ms / 1000.0);
+                self.listen_seek = self.listen_seek.wrapping_add(1);
             }
             Action::Volume(value) => {
                 if !value.is_finite() || !(0.0..=1.0).contains(&value) {
@@ -506,6 +518,8 @@ impl Controller {
         }
         self.revision += 1;
         let snapshot = PlayerSnapshot {
+            listen_session: self.listen_session,
+            listen_seek: self.listen_seek,
             revision: self.revision,
             track_id: self.track.as_ref().map(|t| t.path.clone()),
             current_track: self.track.clone(),

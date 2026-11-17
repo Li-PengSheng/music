@@ -7,6 +7,7 @@
   import {
     desktopAvailable,
     homeData,
+    listenbrainzRecommendations,
     queryLibrary,
     playTrack,
     play,
@@ -35,6 +36,22 @@
   let added = $state<LibraryTrack[]>([]);
   let artists = $state<[string, number][]>([]);
   let loading = $state(true);
+  let recommendations = $state<LibraryTrack[]>([]);
+  $effect(() => {
+    library.revision;
+    let alive = true;
+    if (desktopAvailable)
+      void listenbrainzRecommendations()
+        .then((tracks) => {
+          if (alive) recommendations = tracks;
+        })
+        .catch(() => {
+          if (alive) recommendations = [];
+        });
+    return () => {
+      alive = false;
+    };
+  });
 
   async function load() {
     if (!desktopAvailable) {
@@ -205,6 +222,10 @@
     {#if added.length}{@render shelf('home-added', '最近添加', added, () =>
         go({ view: 'recent' }),
       )}{/if}
+
+    {#if recommendations.length}
+      {@render shelf('home-listenbrainz', 'ListenBrainz 口味推荐（本地曲库）', recommendations)}
+    {/if}
 
     {#if artists.length}
       <section class="home-section" aria-labelledby="home-artists">

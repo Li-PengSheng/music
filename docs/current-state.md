@@ -9,18 +9,18 @@
 
 ## 核验基线
 
-- 核验 Commit：HEAD `ef60136108699cd30a7cb1d00057b3fa1ee0bada`，分支 `main`。两轮 TASK-18、TASK-19 与本次 TASK-20 均未提交；保留原有根目录两张图标、repomix-output.md、Android/iOS 图标删除。
-- 工作区指纹：`10772dec321f8ea34658cf04d195ab8e5b9f066568a38839280fcd1d0b570cb8`。命令 `pwsh -File scripts/worktree-fingerprint.ps1 -Exclude docs/tasks/TASK-20-SHARPEN-AND-LAYOUT-CLEANUP.md,docs/tasks/done/TASK-20-SHARPEN-AND-LAYOUT-CLEANUP.md,docs/current-state.md`，最终验收前后及归档后相同。
-- 工作区内容：body 移除 antialiased，启用 optical sizing auto，保留 synthesis none/optimizeLegibility；标题与歌词使用正向微字距及行高 token。正在播放文字分组，在窄窗封面右侧有序排列，歌名间距收紧，规格改为单行 11px 胶囊、保留完整 title。正在播放/详情移除次数，AudioInfo 仅六个文件技术字段，专用次数事件/订阅已清理；首页艺术家显示库内歌曲数，零数量无副标题。内部收听历史/最近播放/排行规则与 schema 不变。此前字体切换、侧栏 Console 全部保留，未访问真实用户数据。
-- 自动测试：`pnpm format` 与 `pwsh -File scripts/check.ps1` 退出 0。Prettier、Svelte 0 error / 0 warning、前端 85/85（新增字体单元，相关 8/8）、Rust fmt / clippy、Rust 单元 98 passed / 1 ignored、音频集成 3/3 与歌词集成 6/6。检查使用空音频输出。既有 Cargo PDB 文件名冲突警告仍在。`Cargo.lock` 未变。
-- 浏览器验证：`pnpm test:ui` 49/49，退出 0。新增 4 项锐化设置/首页数量/长文本布局测试，删除已无功能的次数事件测试；此前字体与 Console 用例保留。1280×800 / 900×640、鸿蒙浅色/宋体深色、封面与歌词/纯封面、零/非零曲目数均通过。首轮仅 5 个截图用例因变化失败；查看布局后更新 9 张基线，普通复跑零像素差异。
-- Windows Tauri 实机：限定范围 PASS。按 docs/isolation.md 构建并核对哈希的隔离 exe，在临时三首仓库 fixture 库确认真实 AudioInfo 六项展示、无次数、单行技术胶囊，以及内部 9001 次收听的艺术家显示 3 首歌曲；WebView2 的 smoothing/optical sizing 为 auto，synthesis 为 none。1280×850 / 100%，空音频输出，实例已关闭。exe SHA-256 `31E9EF93EC566A7535C685999F981694ACDB9840142860A0F2F5348CB0DB3B6D`；来源与产物见 TASK-20。ClearType 主观锐度、125%/150% DPI、实际硬件出声仍 NOT RUN，不把 CSS 属性测试说成这些已通过。
+- 核验 Commit：HEAD `2af3b3c66d6449edf6d48e482f042a9b3d31cc67`，分支 `main`。TASK-21 开工时工作区干净，本轮改动未提交；此前文档的未提交状态已落后于当前 HEAD。
+- 工作区指纹：`84ba08ac6188cb4e2c5f56b443babd2fbeb82bfb5cb9cc2b1dd324065870b295`。命令 `pwsh -File scripts/worktree-fingerprint.ps1 -Exclude docs/tasks/TASK-21-LISTENBRAINZ.md,docs/tasks/done/TASK-21-LISTENBRAINZ.md,docs/current-state.md`，最终门禁前后、隔离实机后及归档后相同。
+- 工作区内容：ListenBrainz 默认关闭，设置页可保存验证凭证、开启/关闭、清除凭证；开关走本地持久化，关闭停止新采集和新请求，已在途请求可能完成。Token 只保存在后端设置文件，不经配置查询或 desktop_preferences 返回明文，日志写入前脱敏。独立采集/网络线程，暂停与 Seek 不计，半首/4分钟达标入 SQLite outbox，按用户名隔离、成功删除、失败退避、重启恢复。ureq 2.12.1 + Rustls，无 OpenSSL，Cargo.lock 已更新。统一限流 1.1 秒并遵守 Reset-In/Retry-After；同会话重复保存/切换开关保持去重。推荐 MBID 经官方元数据解析后按艺术家+曲名匹配当前本地库，候选缓存 10 分钟，未生成时回退公开近期收听；仅命中时显示可播放/右键操作的推荐架。此前字体、技术参数、Console 均保留，未访问真实用户数据。
+- 自动测试：`pnpm format` 与 `pwsh -File scripts/check.ps1` 退出 0。Prettier、Svelte 0 error / 0 warning、前端 85/85、Rust fmt / clippy、Rust 单元 109 passed / 1 ignored（本轮新增 10 项 Scrobble 与 1 项日志测试）、音频集成 3/3、歌词集成 6/6。检查使用空音频输出，不发真实 ListenBrainz 请求；既有 Cargo PDB 文件名冲突警告仍在。只读复审无未解决 Critical/Important。
+- 浏览器验证：`pnpm test:ui` 53/53，退出 0。新增 4 项 ListenBrainz 默认关闭、凭证错误/保存、键盘开关、推荐播放/右键菜单、空/失败状态用例；字段和推荐架在 1280×800 / 900×640 检查无挤压。首轮 51/52 仅 settings-dark 副标题文字差异，查看后只更新这一张快照，最终普通复跑零差异；此前字体、Console 与布局用例全部通过。
+- Windows Tauri 实机：限定范围 PASS。CLI 合并隔离配置、核对 exe 哈希与来源，临时旧 schema/旧偏好和三首仓库 fixture 上验证新增 outbox、默认关闭、真实配置查询/禁用/清除持久化、缺凭证不能启用、非法 Token 在 HTTP 前拒绝、禁用推荐为空、Console 无测试凭证，以及密码框。1280×850 / 100%，Null 输出，实例已关闭。exe SHA-256 `C259D4FDC8FD7451435EAE0E180B75CBD947A3DE2D07A587EE51C1B2188C8C30`，来源和产物见 TASK-21。真实账户验证、外网上传与在线推荐命中 NOT RUN；本轮不声称真实服务成功。
 
 历史任务 09.5.3、09.5.5 的指纹仍为“未记录，无法重建”。更早任务的指纹不回填。
 
 ## 当前任务
 
-TASK-20 已完成并按要求归档：[TASK-20-SHARPEN-AND-LAYOUT-CLEANUP](tasks/done/TASK-20-SHARPEN-AND-LAYOUT-CLEANUP.md)。无自动提交，任务完成后停止。此前 TASK-18 两轮和 TASK-19 仍保留原记录与未提交工作；播放次数字段/事件由本轮明确移除，不再沿用其旧展示验收。TASK-17 已在当前 HEAD 中。
+TASK-21 已完成并按要求归档：[TASK-21-LISTENBRAINZ](tasks/done/TASK-21-LISTENBRAINZ.md)。无自动提交，任务完成后停止。真实账户/外网端到端验收仍未覆盖；不把模拟上传与浏览器夹具成功称为真实 ListenBrainz 服务成功。此前任务保留原历史记录，旧未提交说明不能代替当前 HEAD 基线。
 
 封面加载单元已经提交：
 
@@ -43,7 +43,7 @@ NOT RUN 放在这里。它不是已知缺陷，也不表示可以放行。
 
 - 库外 `player_open_file`、WAV 经界面打开：09.5.5 写明未做。保持 NOT RUN。
 - 托盘菜单和任务栏缩略图按钮已有代码和单元测试。真实托盘、任务栏按钮、DPI 和系统媒体键仍是 NOT RUN。
-- 当前工作区自动检查、浏览器和 TASK-20 隔离 exe 的限定 IPC/展示验收已记在核验基线。ClearType 主观锐度、跨 WebView2 字体实时同步、真实硬件音频、原生选择/扫描与 DPI 仍 NOT RUN；本轮实机没有覆盖这些项目。标题栏颜色不随色系改变。历史无指纹记录不作为当前验收。
+- 当前工作区自动检查、浏览器和 TASK-21 隔离 exe 的限定配置/迁移验收已记在核验基线。ListenBrainz 真实账户验证、真实 TLS/上传/限流与在线推荐命中、ClearType 主观锐度、跨 WebView2 字体实时同步、硬件音频、原生选择/扫描与 DPI 仍 NOT RUN；本轮实机没有覆盖这些项目。标题栏颜色不随色系改变。历史无指纹记录不作为当前验收。
 - 浏览器 harness 不是 Rust 播放。
 
 ## 发布决定
@@ -63,6 +63,7 @@ NOT RUN 放在这里。它不是已知缺陷，也不表示可以放行。
 | 源码可见 | `package.json` 有 `@playwright/test` 和 `bits-ui`。没有 shadcn-svelte、Vitest、WebdriverIO、tauri-specta、TanStack Virtual |
 | 源码可见 | Symphonia feature 为 mp3、flac、wav、pcm |
 | 源码可见 | 数据库演进是 `db.rs` 的建表和 `ensure_column` |
+| 源码可见 | ListenBrainz 默认关闭；desktop 偏好保存凭证；scrobble_outbox 按用户名持久化待传记录；后台采集与网络调度位于 platform/scrobble.rs |
 | 源码可见 | 队列用 `retainQueue`。宽屏队列覆盖页面 |
 | 源码可见 | 桌面歌词窗口标签 `lyrics-overlay`，地址带 `?window=lyrics`。主窗口 capability 未扩大 |
 | 源码可见 | 配色 `palette` 与明暗 `theme` 分开。默认 `celadon`。首屏脚本设置 `data-palette` |

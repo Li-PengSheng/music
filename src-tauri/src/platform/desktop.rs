@@ -32,6 +32,9 @@ pub struct Preferences {
     pub lyrics_overlay_bounds: Option<(i32, i32, u32, u32)>,
     /// Pointer events pass through the lyrics window while this is true.
     pub lyrics_overlay_locked: bool,
+    pub listenbrainz_token: Option<String>,
+    pub listenbrainz_username: Option<String>,
+    pub listenbrainz_enabled: bool,
 }
 /// Native title bar theme; `None` lets Windows follow the system setting.
 fn window_theme(theme: &str) -> Option<tauri::Theme> {
@@ -54,6 +57,30 @@ pub struct Desktop {
     pub exiting: AtomicBool,
 }
 impl Desktop {
+    pub(crate) fn scrobble_preferences(&self) -> Result<Preferences, String> {
+        self.preferences
+            .lock()
+            .map(|p| p.clone())
+            .map_err(|_| "偏好不可用".into())
+    }
+
+    pub(crate) fn save_scrobble(
+        &self,
+        enabled: bool,
+        username: Option<String>,
+        token: Option<String>,
+    ) -> Result<(), String> {
+        let mut guard = self.preferences.lock().map_err(|_| "偏好不可用")?;
+        let mut next = guard.clone();
+        next.listenbrainz_enabled = enabled;
+        next.listenbrainz_username = username;
+        next.listenbrainz_token = token;
+        // Never include serialization or filesystem contents in an IPC error.
+        self.save(&next)
+            .map_err(|_| "ListenBrainz 设置保存失败".to_string())?;
+        *guard = next;
+        Ok(())
+    }
     pub fn configure_output(
         &self,
         controller: &mut crate::playback::controller::Controller,
@@ -104,6 +131,7 @@ pub fn desktop_preferences(
     }
     state.save(&next)?;
     *guard = next.clone();
+    next.listenbrainz_token = None;
     Ok(next)
 }
 
@@ -1183,6 +1211,7 @@ mod tests {
             maximized: true,
             lyrics_overlay_locked: true,
             lyrics_overlay_bounds: Some((40, 80, 760, 136)),
+            ..Preferences::default()
         };
         let q: Preferences = serde_json::from_slice(&serde_json::to_vec(&p).unwrap()).unwrap();
         assert_eq!(p.bounds, q.bounds);

@@ -156,6 +156,10 @@ impl Player {
         self.logs.lines()
     }
 
+    pub fn log_buffer(&self) -> Arc<LogBuffer> {
+        self.logs.clone()
+    }
+
     pub fn play(&self, path: PathBuf, duration_ms: u64) {
         let _ = self.cmd_tx.send(Cmd::Play { path, duration_ms });
     }

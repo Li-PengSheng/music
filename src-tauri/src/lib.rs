@@ -15,6 +15,13 @@ use playback::controller::{Action, Controller, PlayerSnapshot};
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
 type Shared = Arc<Mutex<Controller>>;
+#[tauri::command]
+fn app_console_logs(
+    clear: Option<bool>,
+    logs: tauri::State<'_, Arc<infrastructure::logging::LogBuffer>>,
+) -> Result<Vec<String>, String> {
+    logs.console_logs(clear.unwrap_or(false))
+}
 async fn execute(state: Shared, action: Action) -> Result<PlayerSnapshot, String> {
     tauri::async_runtime::spawn_blocking(move || {
         state
@@ -181,6 +188,12 @@ pub fn run() {
     }
     match tauri::Builder::default()
         .setup(|app| {
+            let logs = app
+                .state::<Shared>()
+                .lock()
+                .map_err(|_| std::io::Error::other("播放器控制器不可用"))?
+                .log_buffer();
+            app.manage(logs);
             let directory = app.path().app_data_dir()?;
             let cache = app.path().app_cache_dir()?;
             let log = app.path().app_log_dir()?;
@@ -249,6 +262,7 @@ pub fn run() {
         .on_window_event(platform::desktop::window_event)
         .manage(Arc::new(Mutex::new(Controller::new())))
         .invoke_handler(tauri::generate_handler![
+            app_console_logs,
             player_output_devices,
             player_set_output_device,
             platform::desktop::desktop_preferences,
@@ -272,6 +286,7 @@ pub fn run() {
             commands::catalog::library_progress,
             commands::catalog::library_cancel,
             commands::catalog::library_track,
+            commands::catalog::library_track_by_path,
             commands::catalog::library_audio_info,
             commands::catalog::library_cover,
             commands::catalog::library_thumb,

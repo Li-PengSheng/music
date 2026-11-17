@@ -1,6 +1,15 @@
 <script lang="ts">
   import Select from '../components/Select.svelte';
-  import { getLyrics, setLyricsOffset, seek, type Lyrics } from '../services/music';
+  import {
+    getLyrics,
+    setLyricsOffset,
+    seek,
+    trackByPath,
+    audioInfo,
+    type AudioInfo,
+    type Lyrics,
+  } from '../services/music';
+  import { fileSize, channelLayout } from '../utils/format';
   import { tick, onMount } from 'svelte';
   import { groupLines, activeLine, scrollTarget } from '../utils/lyrics-view';
   import Artwork from '../components/Artwork.svelte';
@@ -23,6 +32,34 @@
   let container = $state<HTMLDivElement>();
   let request = 0;
   let trackId = $derived(snapshot?.track_id);
+  let audio = $state<AudioInfo | null>(null);
+  $effect(() => {
+    const path = trackId;
+    let cancelled = false;
+    audio = null;
+    if (path)
+      void trackByPath(path)
+        .then((track) => (!cancelled && track ? audioInfo(track.id) : null))
+        .then((info) => {
+          if (!cancelled) audio = info;
+        })
+        .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  });
+  let specs = $derived(
+    audio
+      ? [
+          audio.format,
+          audio.channels ? channelLayout(audio.channels) : null,
+          audio.sample_rate ? `${audio.sample_rate / 1000} kHz` : null,
+          audio.bit_depth ? `${audio.bit_depth} bit` : null,
+          audio.bitrate ? `${audio.bitrate} kbps` : null,
+          audio.file_size !== null ? fileSize(audio.file_size) : null,
+        ].filter((value): value is string => value !== null)
+      : [],
+  );
   $effect(() => {
     const path = trackId;
     const ticket = ++request;
@@ -185,13 +222,24 @@
   >
     {#if layout !== 'lyrics'}<div class="artwork-panel">
         <div class="large-artwork"><Artwork src={artwork} alt="当前专辑封面" /></div>
-        <h1 title={snapshot?.current_track?.title}>
-          {snapshot?.current_track?.title ?? '未在播放'}
-        </h1>
-        <p>{snapshot?.current_track?.artist ?? '从音乐库选择一首歌曲'}</p>
-        {#if snapshot?.current_track?.album}<small title={snapshot.current_track.album}
-            >{snapshot.current_track.album}</small
-          >{/if}
+        <div class="artwork-meta">
+          <h1 title={snapshot?.current_track?.title}>
+            {snapshot?.current_track?.title ?? '未在播放'}
+          </h1>
+          <p title={snapshot?.current_track?.artist}>
+            {snapshot?.current_track?.artist ?? '从音乐库选择一首歌曲'}
+          </p>
+          {#if snapshot?.current_track?.album}<small title={snapshot.current_track.album}
+              >{snapshot.current_track.album}</small
+            >{/if}
+          {#if specs.length}<div
+              class="audio-specs num"
+              aria-label="专业音频参数"
+              title={specs.join(' · ')}
+            >
+              {specs.join(' · ')}
+            </div>{/if}
+        </div>
       </div>{/if}
     {#if layout !== 'cover'}<div class="lyrics-panel">
         <div class="lyric-tools">
@@ -269,6 +317,20 @@
 </section>
 
 <style>
+  .audio-specs {
+    min-width: 0;
+    max-width: 100%;
+    margin-top: 8px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: rgb(var(--ink) / 0.05);
+    color: var(--text-3);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   :global {
     /* ============================================================ now playing */
     .immersive-layer {
@@ -364,15 +426,27 @@
       border-radius: var(--radius-xl);
       overflow: hidden;
       box-shadow: var(--shadow-art);
+      flex-shrink: 0;
+    }
+
+    .artwork-meta {
+      min-width: 0;
+      width: 100%;
+      max-width: 100%;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
 
     .artwork-panel h1 {
-      margin-top: var(--space-6);
+      margin-top: var(--space-4);
       max-width: 100%;
       font-family: var(--font-display);
       font-size: clamp(20px, 2vw, 28px);
       font-weight: 700;
-      line-height: 1.3;
+      line-height: var(--leading-title);
+      letter-spacing: var(--tracking-title);
       overflow-wrap: anywhere;
       display: -webkit-box;
       -webkit-line-clamp: 2;
@@ -385,6 +459,10 @@
       margin-top: 6px;
       color: var(--text-2);
       font-size: 15px;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .artwork-panel small {
@@ -464,7 +542,8 @@
       font-family: var(--font-display);
       font-size: clamp(16px, calc(var(--lyric-size) * 0.7 + 0.5vw), 32px);
       font-weight: 600;
-      line-height: 1.5;
+      line-height: var(--leading-lyrics);
+      letter-spacing: var(--tracking-lyrics);
       color: rgb(var(--ink) / var(--lyric-dim));
       white-space: pre-wrap;
       overflow-wrap: anywhere;

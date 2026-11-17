@@ -21,7 +21,12 @@
   import { library, refreshSummary, watchScans } from './lib/stores/library.svelte';
   import { nav, routeKey, memory } from './lib/stores/nav.svelte';
   import { ui, dismissToast, notifyError } from './lib/stores/ui.svelte';
-  import { loadPreferences, watchSystemTheme, motionMs } from './lib/stores/preferences';
+  import {
+    loadPreferences,
+    watchSystemTheme,
+    watchFontPreference,
+    motionMs,
+  } from './lib/stores/preferences';
   import { installNativeMenuGuard } from './lib/utils/native-menu';
   import { escapeLayer } from './lib/utils/layers';
   import Sidebar from './lib/layout/Sidebar.svelte';
@@ -30,6 +35,7 @@
   import Queue from './lib/layout/Queue.svelte';
   import NowPlaying from './lib/views/NowPlaying.svelte';
   import TrackDetails from './lib/components/TrackDetails.svelte';
+  import ConsoleModal from './lib/components/ConsoleModal.svelte';
   import ContextMenu from './lib/components/ContextMenu.svelte';
   import Dialog from './lib/components/Dialog.svelte';
   import HomeView from './lib/views/HomeView.svelte';
@@ -158,11 +164,13 @@
     if (lyricsShell) return;
     loadPreferences();
     const stopTheme = watchSystemTheme();
+    const stopFont = watchFontPreference();
     const removeGuard = installNativeMenuGuard(import.meta.env.DEV);
     if (!desktopAvailable) {
       player.connection = '浏览器预览';
       return () => {
         stopTheme();
+        stopFont();
         removeGuard();
       };
     }
@@ -205,6 +213,7 @@
       clearTimeout(timer);
       stopScans();
       stopTheme();
+      stopFont();
       removeGuard();
       void stopOverlay.then((unlisten) => unlisten());
     };
@@ -267,6 +276,7 @@
 
     <ContextMenu />
     <Dialog />
+    {#if ui.consoleOpen}<ConsoleModal onclose={() => (ui.consoleOpen = false)} />{/if}
     {#if ui.details}{#key ui.details.id}<TrackDetails
           track={ui.details}
           onclose={() => (ui.details = null)}

@@ -17,8 +17,8 @@
   import { library, refreshSummary } from '../stores/library.svelte';
   import { ui, notify, notifyError, confirmAction } from '../stores/ui.svelte';
   import { importFolder, importLegacyDatabase } from '../actions';
-  import { setReduceMotion, setTheme, setPalette } from '../stores/preferences';
-  import { parseTheme, parsePalette, PALETTES } from '../utils/theme';
+  import { setReduceMotion, setTheme, setPalette, setFont } from '../stores/preferences';
+  import { parseTheme, parsePalette, PALETTES, parseFont, FONTS } from '../utils/theme';
 
   let media = $state('尚未连接桌面');
   let closeToTray = $state(false);
@@ -263,6 +263,18 @@
         options={PALETTES}
       />
     </div>
+    <div class="settings-row font-row">
+      <div>
+        <strong>字体风格</strong>
+        <p>即时切换本机字体，应用于界面和歌词；未安装的字体自动回退。</p>
+      </div>
+      <Select
+        label="字体风格"
+        value={ui.font}
+        onchange={(value) => setFont(parseFont(value))}
+        options={FONTS}
+      />
+    </div>
     <div class="settings-row">
       <div>
         <strong>减少动态效果</strong>
@@ -330,6 +342,23 @@
 </div>
 
 <style>
+  .font-row {
+    flex-wrap: wrap;
+  }
+  .font-row > div {
+    flex: 1 1 180px;
+  }
+  .font-row :global(.select-trigger) {
+    min-width: 0;
+    height: auto;
+    min-height: var(--control-h);
+    padding-block: 6px;
+  }
+  .font-row :global(.select-trigger > span) {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: left;
+  }
   /* Retain the compact actual-device readout. Hover or keyboard focus reveals
      the existing Select at the same position without changing the row height. */
   .output-picker {

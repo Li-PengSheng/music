@@ -117,11 +117,15 @@ export const scanFolder = () => {
 export const scanProgress = () => invoke<ScanProgress>('library_progress');
 export const cancelScan = () => invoke<void>('library_cancel');
 export const trackDetails = (id: number) => invoke<LibraryTrack>('library_track', { id });
+export const trackByPath = (path: string) =>
+  invoke<LibraryTrack | null>('library_track_by_path', { path });
 export interface AudioInfo {
   format: string;
   sample_rate: number | null;
   channels: number | null;
   bitrate: number | null;
+  bit_depth: number | null;
+  file_size: number | null;
 }
 export const audioInfo = (id: number) => invoke<AudioInfo>('library_audio_info', { id });
 // Every library cover request goes through one bounded loader: null results mean "no cover" and are
@@ -272,6 +276,8 @@ export const onWindowThemeChanged = (handler: (theme: Theme) => void) =>
   getCurrentWindow().onThemeChanged(({ payload }) => handler(payload));
 
 export const mediaStatus = () => invoke<string>('media_status');
+/** Sanitized session logs; clear affects the in-memory buffer only. */
+export const appConsoleLogs = (clear = false) => invoke<string[]>('app_console_logs', { clear });
 
 // Exact library path only. A path that is not a library row fails with `cover-not-in-library`.
 const queueKey = (path: string) => 'q:' + path + '@112';

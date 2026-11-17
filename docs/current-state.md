@@ -9,18 +9,18 @@
 
 ## 核验基线
 
-- 核验 Commit：HEAD `f7cdaf4055eec1160dfed55d8a303094bd8869e8`，分支 `main`。工作区还有未提交的 TASK-16 图标与侧栏标记，以及本次 TASK-17。都未提交。
-- 工作区指纹：`c9ba3bae8e94dad90d0b1f1f024dd95daaf26b2f54dbc95868175f29b5bcaa49`。命令为 `pwsh -File scripts/worktree-fingerprint.ps1 -Exclude docs/current-state.md,docs/tasks/TASK-17-TRAY-AND-THUMBBAR.md,docs/tasks/done/TASK-17-TRAY-AND-THUMBBAR.md`。开工时的另一枚指纹还排除了架构文档，不能与这一枚直接对比。
-- 工作区内容：托盘右键菜单按曲目、播放状态、播放模式和桌面歌词状态更新。左键在显示与隐藏之间切换，隐藏不退出进程。Windows 任务栏缩略图有上一首、播放/暂停、停止、下一首，按钮 ID 为 1001–1004。`playback_mode` 改为公开字段，JSON 字段名不变。未访问用户真实数据。
-- 自动测试：`pnpm format` 与 `pwsh -File scripts/check.ps1` 退出 0。Prettier 通过，Svelte 0 error / 0 warning，前端 83/83，Rust fmt / clippy 通过，Rust 单元 93 通过、1 ignored，音频/歌词集成 3/6 通过。既有 Cargo PDB 文件名冲突警告仍在。`Cargo.lock` 未变。
-- 浏览器验证：`pnpm test:ui` 34/34，退出 0。本次没有改前端，既有快照零像素差异。
-- Windows Tauri 实机：NOT RUN。没有启动构建出的 exe，没有在真实任务栏上看见托盘菜单或缩略图按钮。
+- 核验 Commit：HEAD `ef60136108699cd30a7cb1d00057b3fa1ee0bada`，分支 `main`。两轮 TASK-18、TASK-19 与本次 TASK-20 均未提交；保留原有根目录两张图标、repomix-output.md、Android/iOS 图标删除。
+- 工作区指纹：`10772dec321f8ea34658cf04d195ab8e5b9f066568a38839280fcd1d0b570cb8`。命令 `pwsh -File scripts/worktree-fingerprint.ps1 -Exclude docs/tasks/TASK-20-SHARPEN-AND-LAYOUT-CLEANUP.md,docs/tasks/done/TASK-20-SHARPEN-AND-LAYOUT-CLEANUP.md,docs/current-state.md`，最终验收前后及归档后相同。
+- 工作区内容：body 移除 antialiased，启用 optical sizing auto，保留 synthesis none/optimizeLegibility；标题与歌词使用正向微字距及行高 token。正在播放文字分组，在窄窗封面右侧有序排列，歌名间距收紧，规格改为单行 11px 胶囊、保留完整 title。正在播放/详情移除次数，AudioInfo 仅六个文件技术字段，专用次数事件/订阅已清理；首页艺术家显示库内歌曲数，零数量无副标题。内部收听历史/最近播放/排行规则与 schema 不变。此前字体切换、侧栏 Console 全部保留，未访问真实用户数据。
+- 自动测试：`pnpm format` 与 `pwsh -File scripts/check.ps1` 退出 0。Prettier、Svelte 0 error / 0 warning、前端 85/85（新增字体单元，相关 8/8）、Rust fmt / clippy、Rust 单元 98 passed / 1 ignored、音频集成 3/3 与歌词集成 6/6。检查使用空音频输出。既有 Cargo PDB 文件名冲突警告仍在。`Cargo.lock` 未变。
+- 浏览器验证：`pnpm test:ui` 49/49，退出 0。新增 4 项锐化设置/首页数量/长文本布局测试，删除已无功能的次数事件测试；此前字体与 Console 用例保留。1280×800 / 900×640、鸿蒙浅色/宋体深色、封面与歌词/纯封面、零/非零曲目数均通过。首轮仅 5 个截图用例因变化失败；查看布局后更新 9 张基线，普通复跑零像素差异。
+- Windows Tauri 实机：限定范围 PASS。按 docs/isolation.md 构建并核对哈希的隔离 exe，在临时三首仓库 fixture 库确认真实 AudioInfo 六项展示、无次数、单行技术胶囊，以及内部 9001 次收听的艺术家显示 3 首歌曲；WebView2 的 smoothing/optical sizing 为 auto，synthesis 为 none。1280×850 / 100%，空音频输出，实例已关闭。exe SHA-256 `31E9EF93EC566A7535C685999F981694ACDB9840142860A0F2F5348CB0DB3B6D`；来源与产物见 TASK-20。ClearType 主观锐度、125%/150% DPI、实际硬件出声仍 NOT RUN，不把 CSS 属性测试说成这些已通过。
 
 历史任务 09.5.3、09.5.5 的指纹仍为“未记录，无法重建”。更早任务的指纹不回填。
 
 ## 当前任务
 
-TASK-17 已完成并归档：[TASK-17-TRAY-AND-THUMBBAR](tasks/done/TASK-17-TRAY-AND-THUMBBAR.md)。未提交，等待检视。TASK-16 的图标和侧栏标记仍在同一份未提交工作区。
+TASK-20 已完成并按要求归档：[TASK-20-SHARPEN-AND-LAYOUT-CLEANUP](tasks/done/TASK-20-SHARPEN-AND-LAYOUT-CLEANUP.md)。无自动提交，任务完成后停止。此前 TASK-18 两轮和 TASK-19 仍保留原记录与未提交工作；播放次数字段/事件由本轮明确移除，不再沿用其旧展示验收。TASK-17 已在当前 HEAD 中。
 
 封面加载单元已经提交：
 
@@ -43,7 +43,7 @@ NOT RUN 放在这里。它不是已知缺陷，也不表示可以放行。
 
 - 库外 `player_open_file`、WAV 经界面打开：09.5.5 写明未做。保持 NOT RUN。
 - 托盘菜单和任务栏缩略图按钮已有代码和单元测试。真实托盘、任务栏按钮、DPI 和系统媒体键仍是 NOT RUN。
-- 当前工作区的 Rust 自动检查和浏览器 harness 已记在核验基线。真实音频、扫描和构建出的 exe 仍是 NOT RUN。标题栏颜色不随色系改变。历史无指纹记录不作为当前验收。
+- 当前工作区自动检查、浏览器和 TASK-20 隔离 exe 的限定 IPC/展示验收已记在核验基线。ClearType 主观锐度、跨 WebView2 字体实时同步、真实硬件音频、原生选择/扫描与 DPI 仍 NOT RUN；本轮实机没有覆盖这些项目。标题栏颜色不随色系改变。历史无指纹记录不作为当前验收。
 - 浏览器 harness 不是 Rust 播放。
 
 ## 发布决定
@@ -59,13 +59,14 @@ NOT RUN 放在这里。它不是已知缺陷，也不表示可以放行。
 | 源码可见 | Svelte 5、TypeScript、Vite、Tailwind v4、Tauri v2、Rust |
 | 源码可见 | 产品版本 `0.1.0`。`docs/tasks/done/` 里的 V0.9.x 是任务编号，不是安装包版本 |
 | 源码可见 | IPC 在 `src/lib/services/music.ts`。播放快照有 `revision` |
-| 源码可见 | `src/app.css` 1455 行。Select / ContextMenu / Modal 使用 Bits UI，Slider 使用原生 range |
+| 源码可见 | `src/app.css` 1461 行。Select / ContextMenu / Modal 使用 Bits UI，Slider 使用原生 range |
 | 源码可见 | `package.json` 有 `@playwright/test` 和 `bits-ui`。没有 shadcn-svelte、Vitest、WebdriverIO、tauri-specta、TanStack Virtual |
 | 源码可见 | Symphonia feature 为 mp3、flac、wav、pcm |
 | 源码可见 | 数据库演进是 `db.rs` 的建表和 `ensure_column` |
 | 源码可见 | 队列用 `retainQueue`。宽屏队列覆盖页面 |
 | 源码可见 | 桌面歌词窗口标签 `lyrics-overlay`，地址带 `?window=lyrics`。主窗口 capability 未扩大 |
 | 源码可见 | 配色 `palette` 与明暗 `theme` 分开。默认 `celadon`。首屏脚本设置 `data-palette` |
+| 源码可见 | 字体 `font` 与主题/配色独立，默认 `harmony`。`music-mine-font` 保存本机字体预设，首屏设置 `data-font`，已打开歌词窗口监听 storage 更新 |
 | 源码可见 | 未保存主题时默认浅色；初始音量为 20%。已有主题选择和播放会话音量继续恢复 |
 | 源码可见 | 托盘菜单含曲目、播放控制、桌面歌词和播放模式。Windows 任务栏缩略图按钮 ID 为 1001–1004 |
 

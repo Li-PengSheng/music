@@ -1,6 +1,7 @@
 use crate::catalog::{collections, metadata, *};
 use crate::{execute, Action, PlayerSnapshot, Shared};
 use base64::Engine;
+use metadata::{read_audio_info, AudioInfo};
 use std::sync::{atomic::Ordering, Arc};
 type State<'a> = tauri::State<'a, Arc<Catalog>>;
 async fn work<T: Send + 'static>(
@@ -44,6 +45,7 @@ pub fn library_cancel(state: State<'_>) {
 pub async fn library_scan(
     state: State<'_>,
     covers: tauri::State<'_, Arc<crate::artwork::covers::Store>>,
+    logs: tauri::State<'_, Arc<crate::infrastructure::logging::LogBuffer>>,
 ) -> Result<(), String> {
     let folder = tauri::async_runtime::spawn_blocking(|| rfd::FileDialog::new().pick_folder())
         .await
@@ -65,6 +67,8 @@ pub async fn library_scan(
     }
     catalog.cancel.store(false, Ordering::Relaxed);
     covers.clear_memory();
+    let logs = logs.inner().clone();
+    logs.push("[scan] started");
     tauri::async_runtime::spawn_blocking(move || {
         let result = catalog.scan(folder);
         let mut p = catalog.progress.lock().unwrap();
@@ -72,6 +76,13 @@ pub async fn library_scan(
         if let Err(e) = result {
             p.errors.push(e);
         }
+        logs.push(format!(
+            "[scan] finished visited={} imported={} cancelled={} errors={}",
+            p.visited,
+            p.imported,
+            p.cancelled,
+            p.errors.len()
+        ));
     });
     Ok(())
 }
@@ -82,32 +93,21 @@ pub async fn library_track(
 ) -> Result<crate::catalog::library::Track, String> {
     work(state.inner().clone(), move |s| s.track(id)).await
 }
-#[derive(serde::Serialize)]
-pub struct AudioInfo {
-    format: String,
-    sample_rate: Option<u32>,
-    channels: Option<u8>,
-    bitrate: Option<u32>,
+#[tauri::command]
+pub async fn library_track_by_path(
+    path: String,
+    state: State<'_>,
+) -> Result<Option<crate::catalog::library::Track>, String> {
+    work(state.inner().clone(), move |s| s.track_by_path(&path)).await
 }
 /// Read-only file inspection; no library schema changes or audio engine work.
 #[tauri::command]
 pub async fn library_audio_info(id: i64, state: State<'_>) -> Result<AudioInfo, String> {
-    work(state.inner().clone(), move |s| {
-        let track = s.track(id)?;
-        read_audio_info(std::path::Path::new(&track.path))
-    })
-    .await
+    work(state.inner().clone(), move |s| catalog_audio_info(s, id)).await
 }
-fn read_audio_info(path: &std::path::Path) -> Result<AudioInfo, String> {
-    use lofty::file::{AudioFile, TaggedFileExt};
-    let file = lofty::read_from_path(path).map_err(|e| e.to_string())?;
-    let properties = file.properties();
-    Ok(AudioInfo {
-        format: format!("{:?}", file.file_type()),
-        sample_rate: properties.sample_rate().filter(|v| *v > 0),
-        channels: properties.channels().filter(|v| *v > 0),
-        bitrate: properties.audio_bitrate().filter(|v| *v > 0),
-    })
+fn catalog_audio_info(s: &Catalog, id: i64) -> Result<AudioInfo, String> {
+    let track = s.track(id)?;
+    read_audio_info(std::path::Path::new(&track.path))
 }
 #[cfg(test)]
 mod audio_info_tests {
@@ -117,13 +117,46 @@ mod audio_info_tests {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/tone.wav");
         let before = std::fs::read(&path).unwrap();
         let info = read_audio_info(&path).unwrap();
-        assert_eq!(info.format, "Wav");
+        assert_eq!(info.format, "WAV");
         let rate = u32::from_le_bytes(before[24..28].try_into().unwrap());
         let channels = u16::from_le_bytes(before[22..24].try_into().unwrap());
         assert_eq!(info.sample_rate, Some(rate));
         assert_eq!(info.channels, Some(channels as u8));
+        let json = serde_json::to_value(&info).unwrap();
+        assert_eq!(
+            json["bit_depth"],
+            u16::from_le_bytes(before[34..36].try_into().unwrap())
+        );
+        assert_eq!(json["file_size"], before.len() as u64);
+        assert!(!json.as_object().unwrap().contains_key("play_count"));
+        assert_eq!(json.as_object().unwrap().len(), 6);
         assert_eq!(std::fs::read(&path).unwrap(), before);
         assert!(read_audio_info(&path.with_extension("missing")).is_err());
+    }
+
+    #[test]
+    fn audio_info_returns_only_file_specs_and_validates_library_ids() {
+        let dir = std::env::temp_dir().join(format!("mm-audio-info-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let s = Catalog::new(dir.join("library.db"));
+        let path =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/tone.flac");
+        let track = metadata::read_track(&path, 0).unwrap();
+        db::upsert_tracks(&s.connection().unwrap(), &[track]).unwrap();
+        let track = s.query(Query::default()).unwrap().tracks.remove(0);
+        s.record_listen(&track.path).unwrap();
+        s.record_listen(&track.path).unwrap();
+        let reopened = Catalog::new(s.path.clone());
+        let info = catalog_audio_info(&reopened, track.id).unwrap();
+        assert!(!serde_json::to_value(&info)
+            .unwrap()
+            .as_object()
+            .unwrap()
+            .contains_key("play_count"));
+        assert_eq!(info.bit_depth, Some(24));
+        assert_eq!(info.file_size, Some(std::fs::metadata(path).unwrap().len()));
+        assert!(catalog_audio_info(&s, -1).is_err());
+        std::fs::remove_dir_all(dir).unwrap();
     }
 }
 #[tauri::command]

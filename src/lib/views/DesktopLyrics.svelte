@@ -13,7 +13,7 @@
   } from '../services/music';
   import { accept, control, player } from '../stores/player.svelte';
   import { notifyError, ui } from '../stores/ui.svelte';
-  import { loadLocalPreferences } from '../stores/preferences';
+  import { loadLocalPreferences, watchFontPreference } from '../stores/preferences';
   import { activeLine, groupLines } from '../utils/lyrics-view';
   import { hideDesktopLyrics, lockDesktopLyrics } from '../stores/lyrics-overlay';
 
@@ -32,9 +32,10 @@
 
   onMount(() => {
     loadLocalPreferences();
+    const stopFont = watchFontPreference();
     if (!desktopAvailable) {
       player.connection = '浏览器预览';
-      return;
+      return stopFont;
     }
     let disposed = false;
     let timer: ReturnType<typeof setTimeout>;
@@ -95,6 +96,7 @@
     return () => {
       disposed = true;
       clearTimeout(timer);
+      stopFont();
     };
   });
 </script>
@@ -241,6 +243,7 @@
   }
 
   :global(.desktop-lyrics .lyric-secondary) {
+    font-family: var(--font-display);
     font-size: 14px;
     font-weight: 500;
     line-height: 1.35;

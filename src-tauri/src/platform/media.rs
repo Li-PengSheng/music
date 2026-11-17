@@ -173,6 +173,8 @@ pub fn setup(app: &mut tauri::App) {
     };
     #[cfg(not(windows))]
     let status = "仅支持 Windows SMTC".to_string();
+    app.state::<std::sync::Arc<crate::infrastructure::logging::LogBuffer>>()
+        .push(format!("[smtc] {status}"));
     app.manage(Media {
         stopped: AtomicBool::new(false),
         #[cfg(windows)]

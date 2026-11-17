@@ -32,6 +32,15 @@ Rust 是播放位置的权威。界面显示 `position_ms`。拖动进度条只�
 
 这三个封面命令的返回值：`null` 表示确定没有可用封面（无图片、格式不支持、超出尺寸限制、图片损坏），会缓存到文件变化为止；错误字符串是不含路径的代码，表示这次拿不到、稍后可能成功，不缓存：`cover-file-missing`、`cover-unreadable`，`library_queue_thumb` 另有 `cover-not-in-library`。前端经 `src/lib/utils/cover-loader.ts` 限并发、按优先级（当前曲目、可见行、预取）排队，可取消，暂时性错误最多重试两次。`library_cover_stats` 返回封面缓存计数和耗时（只有数字），用于诊断。
 
+## 运行控制台与音频文件参数
+
+- `app_console_logs({ clear?: boolean | null }) -> string[]`：省略、null 或 false 时返回本次进程的日志快照（最多 1000 行）；true 时在同一锁内清空内存并返回空数组，不删除磁盘日志。锁不可用时返回错误。每行保留 UTC 时间戳、操作、音频设备、SMTC 状态和扫描统计；返回前将本地盘符、UNC 和 POSIX 绝对目录前缀替换成 `<path>/`，保留文件名。Console 的“复制摘要”使用这份脱敏结果。
+- `library_audio_info({ id: number }) -> AudioInfo` 只返回六个文件技术字段：`format: string`（大写）、`sample_rate / channels / bitrate: number | null`、`bit_depth: number | null`（Lofty properties）、`file_size: number | null`（磁盘字节数）。TASK-20 移除播放次数字段及专用历史查询，所有消费者（music.ts、TrackDetails、NowPlaying、mock）同时更新；没有播放次数兼容字段。无法识别的位深为 null；读取失败返回错误。
+- `library_track_by_path({ path: string }) -> LibraryTrack | null`：复用现有完整路径查找，不按标题匹配，不在曲库时返回 null；数据库失败返回错误。供正在播放页切歌时先取得曲库 ID 再请求 audioInfo。库外文件不展示库内参数。旧 library_track(id) 调用保持兼容。
+- 调用点：`music.ts` 封装全部 invoke；`ConsoleModal.svelte` 打开期间每两秒读取日志、coverStats、mediaStatus、librarySummary，关闭清理计时器并忽略旧响应。`TrackDetails.svelte` 与 `NowPlaying.svelte` 展示 AudioInfo，后者仅切换曲目时请求并丢弃过期结果。
+- Console 内置 play / pause / next / prev / vol 0–100 复用 control()/accept()；theme、palette 复用本地偏好；scan 复用扫描命令并反馈启动或选择结束。无 shell、无远端 AI 服务。原有能力权限不变。
+- 收听历史仍按原有后台 200ms 检查时序记录，用于最近播放与常听艺术家排序；TASK-20 不更改写入规则或数据库 schema。没有面向 UI 的播放次数事件/订阅。`library_home` 的艺术家元组形状保留，界面只用姓名，并从 `library_summary.artists[].count` 显示库内歌曲数；数量为 0 时不展示副标题。
+
 ## 音频输出设备
 
 - `player_output_devices()` 返回按名称排序、去重的可用输出设备名称；枚举不打开输出流。`MUSIC_MINE_NULL_OUTPUT` 存在时只返回 `['null']`，不访问系统设备。
@@ -68,6 +77,7 @@ Rust 是播放位置的权威。界面显示 `position_ms`。拖动进度条只�
 已注册但前端没有封装的命令必须写进例外清单。例外清单必须等于「已注册命令减去前端封装」。命令被删除、后来补了前端封装，或新注册了一个前端未使用的命令时，过时或缺漏的名字都会让 `tests/ipc-surface.test.mjs` 失败。当前例外只有 `library_cover` 和 `library_favorite`。
 
 ```ipc-commands
+app_console_logs
 bridge_probe
 desktop_lyrics_window
 desktop_preferences
@@ -91,6 +101,7 @@ library_scan
 library_summary
 library_thumb
 library_track
+library_track_by_path
 media_status
 player_artwork
 player_configure

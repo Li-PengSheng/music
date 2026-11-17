@@ -215,7 +215,7 @@
           >
         </div>
         <div class="artist-row">
-          {#each artists as [name, plays] (name)}
+          {#each artists as [name] (name)}
             <button
               type="button"
               class="artist-pill"
@@ -230,7 +230,9 @@
                 {/if}
               </span>
               <span class="artist-pill-text"
-                ><strong>{name || '未知艺术家'}</strong><small>{plays} 次播放</small></span
+                ><strong>{name || '未知艺术家'}</strong>{#if artistGroup(name).count > 0}<small
+                    >{artistGroup(name).count} 首歌曲</small
+                  >{/if}</span
               >
             </button>
           {/each}
@@ -453,6 +455,7 @@
       min-width: 0;
       display: flex;
       flex-direction: column;
+      justify-content: center;
     }
 
     .artist-pill-text strong,

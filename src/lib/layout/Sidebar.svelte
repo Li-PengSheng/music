@@ -9,10 +9,11 @@
     Plus,
     Settings2,
     HardDrive,
+    Terminal,
   } from 'lucide-svelte';
   import { nav, go } from '../stores/nav.svelte';
   import { library } from '../stores/library.svelte';
-  import { openMenu } from '../stores/ui.svelte';
+  import { ui, openMenu } from '../stores/ui.svelte';
   import { playlistMenu, localMenu, newPlaylist } from '../actions';
   import { tooltip } from '../components/tooltip';
   import { LOCAL_COLLECTION, shadowsBuiltIn } from '../utils/collections';
@@ -162,6 +163,16 @@
   </nav>
 
   <div class="sidebar-footer">
+    <button
+      type="button"
+      class="nav-item"
+      class:active={ui.consoleOpen}
+      aria-haspopup="dialog"
+      aria-expanded={ui.consoleOpen}
+      onclick={() => (ui.consoleOpen = true)}
+    >
+      <Terminal size={18} /><span class="nav-label">控制台</span>
+    </button>
     <button
       type="button"
       class="nav-item"

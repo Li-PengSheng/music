@@ -6,6 +6,23 @@ export function duration(ms: number) {
   return h ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`;
 }
 
+/** Decimal file units, matching audio file property panels. */
+export function fileSize(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes < 0) return '—';
+  if (bytes < 1000) return `${bytes} B`;
+  const units = ['KB', 'MB', 'GB', 'TB'];
+  let n = bytes / 1000,
+    i = 0;
+  while (n >= 1000 && i < units.length - 1) {
+    n /= 1000;
+    i++;
+  }
+  return `${n.toFixed(1)} ${units[i]}`;
+}
+
+export const channelLayout = (n: number) =>
+  n === 1 ? '1.0 单声道' : n === 2 ? '2.0 立体声' : `${n} 声道`;
+
 /** First visible character for artist placeholders (works for CJK and emoji). */
 export function initial(name: string) {
   return Array.from(name.trim())[0]?.toUpperCase() ?? '?';

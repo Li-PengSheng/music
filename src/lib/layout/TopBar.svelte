@@ -103,9 +103,17 @@
       >
     {:else}<kbd aria-hidden="true">Ctrl F</kbd>{/if}
   </div>
-  <span class="local-status" class:offline={!player.connected} use:tooltip={player.connection}>
+  <button
+    type="button"
+    class="local-status"
+    class:offline={!player.connected}
+    aria-label="本地模式 · 运行控制台"
+    aria-haspopup="dialog"
+    use:tooltip={'点击打开运行控制台与状态诊断'}
+    onclick={() => (ui.consoleOpen = true)}
+  >
     <span class="status-dot" aria-hidden="true"></span><span class="local-label">本地模式</span>
-  </span>
+  </button>
   <WindowControls />
 </header>
 
@@ -231,6 +239,13 @@
       flex-shrink: 0;
       color: var(--text-3);
       font-size: var(--fs-small);
+      min-height: 32px;
+      padding: 0 6px;
+      border-radius: var(--radius);
+    }
+    .local-status:hover {
+      background: var(--surface-hover);
+      color: var(--text);
     }
 
     .status-dot {

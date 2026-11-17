@@ -16,7 +16,7 @@
   } from '../services/music';
   import { perform } from '../stores/player.svelte';
   import { library, refreshSummary } from '../stores/library.svelte';
-  import { errorText, duration } from '../utils/format';
+  import { errorText, duration, fileSize, channelLayout } from '../utils/format';
   let { track, onclose }: { track: LibraryTrack; onclose: () => void } = $props();
   let cover = $state<string | null>(null);
   let audio = $state<AudioInfo | null>(null);
@@ -58,7 +58,6 @@
     await navigator.clipboard.writeText(track.path);
     feedback = '已复制文件路径';
   }
-  const channels = (n: number) => (n === 1 ? '单声道' : n === 2 ? '立体声' : n + ' 声道');
 </script>
 
 <Modal class="dialog-wide" aria-labelledby="song-detail-title" {onclose}>
@@ -127,9 +126,13 @@
               {(audio.sample_rate / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })} kHz
             </dd>{/if}
           {#if audio.channels}<dt>声道</dt>
-            <dd>{channels(audio.channels)}</dd>{/if}
+            <dd>{channelLayout(audio.channels)}</dd>{/if}
+          {#if audio.bit_depth}<dt>位深</dt>
+            <dd class="num">{audio.bit_depth} bit</dd>{/if}
           {#if audio.bitrate}<dt>码率</dt>
             <dd class="num">{audio.bitrate} kbps</dd>{/if}
+          {#if audio.file_size !== null}<dt>文件大小</dt>
+            <dd class="num">{fileSize(audio.file_size)}</dd>{/if}
         {:else}<dt>音频参数</dt>
           <dd>{audioError ? '暂时无法读取' : '正在读取…'}</dd>{/if}
       </dl>

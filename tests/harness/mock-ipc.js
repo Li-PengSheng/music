@@ -75,6 +75,7 @@ const prefs = {
 if (window.__lyricsFixture) Object.assign(snapshot, window.__lyricsFixture);
 window.__mockOutputDevices = ['Fixture output', 'Headphones'];
 const log = [];
+let consoleLines = ['[12:00:00] [audio] fixture paused', '[12:00:01] [smtc] Fixture'];
 window.__mockLog = log;
 window.__mockSnapshot = () => snapshot;
 function page(q) {
@@ -118,6 +119,10 @@ const handlers = {
     return lyricsOpen;
   },
   media_status: () => 'Fixture',
+  app_console_logs: ({ clear }) => {
+    if (clear) consoleLines = [];
+    return consoleLines;
+  },
   library_progress: () => ({
     running: false,
     visited: 0,
@@ -148,15 +153,31 @@ const handlers = {
   },
   library_home: () => ({
     recent: tracks.slice(0, 6),
-    artists: groups('artist')
-      .slice(0, 8)
-      .map((g) => [g.name, g.count]),
+    artists:
+      window.__mockHomeArtists ??
+      groups('artist')
+        .slice(0, 8)
+        .map((g) => [g.name, g.count]),
   }),
   library_cover: () => null,
   library_thumb: () => window.__mockThumb ?? null,
   library_queue_thumb: () => null,
   library_track: (a) => tracks.find((t) => t.id === a.id),
-  library_audio_info: () => ({ format: 'Flac', sample_rate: 44100, channels: 2, bitrate: 900 }),
+  library_track_by_path: (a) => tracks.find((t) => t.path === a.path) ?? null,
+  library_audio_info: async (a) => {
+    const custom = window.__mockAudioInfo?.[a.id];
+    if (custom?.delay) await new Promise((r) => setTimeout(r, custom.delay));
+    return (
+      custom?.info ?? {
+        format: 'FLAC',
+        sample_rate: 44100,
+        channels: 2,
+        bitrate: 872,
+        bit_depth: 16,
+        file_size: 27800000,
+      }
+    );
+  },
   library_playlist: (a) => {
     if (a.name) {
       if (playlists.some((p) => p.name === a.name.trim()))
@@ -231,10 +252,17 @@ const handlers = {
   },
   library_scan: () => null,
   library_cancel: () => null,
-  library_cover_stats: () => ({}),
+  library_cover_stats: () => ({ requests: 12, memoryHits: 8, diskHits: 2 }),
   library_import: () => null,
 };
 let callbackId = 0;
+const eventHandlers = new Map();
+let eventId = 0;
+window.__mockEmit = (event, payload) => {
+  for (const [id, entry] of eventHandlers) {
+    if (entry.event === event) window['_' + entry.handler]?.({ event, id, payload });
+  }
+};
 let maximized = false;
 window.isTauri = true;
 window.__TAURI_INTERNALS__ = {
@@ -253,6 +281,15 @@ window.__TAURI_INTERNALS__ = {
   invoke: async (cmd, args = {}) => {
     log.push({ cmd, args });
     if (window.__mockFailures?.[cmd]) throw window.__mockFailures[cmd];
+    if (cmd === 'plugin:event|listen') {
+      const id = ++eventId;
+      eventHandlers.set(id, { event: args.event, handler: args.handler });
+      return id;
+    }
+    if (cmd === 'plugin:event|unlisten') {
+      eventHandlers.delete(args.eventId);
+      return null;
+    }
     if (cmd === 'plugin:window|is_maximized') return maximized;
     if (cmd === 'plugin:window|toggle_maximize') {
       maximized = !maximized;

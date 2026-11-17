@@ -5,6 +5,30 @@ use lofty::tag::{Accessor, ItemKey};
 
 use super::library::{AlbumSource, Track};
 
+#[derive(serde::Serialize)]
+pub struct AudioInfo {
+    pub format: String,
+    pub sample_rate: Option<u32>,
+    pub channels: Option<u8>,
+    pub bitrate: Option<u32>,
+    pub bit_depth: Option<u8>,
+    pub file_size: Option<u64>,
+}
+
+/// File inspection only; listening history is not part of the audio format contract.
+pub fn read_audio_info(path: &Path) -> Result<AudioInfo, String> {
+    let file = lofty::read_from_path(path).map_err(|_| "无法读取音频参数".to_string())?;
+    let properties = file.properties();
+    Ok(AudioInfo {
+        format: format!("{:?}", file.file_type()).to_uppercase(),
+        sample_rate: properties.sample_rate().filter(|v| *v > 0),
+        channels: properties.channels().filter(|v| *v > 0),
+        bitrate: properties.audio_bitrate().filter(|v| *v > 0),
+        bit_depth: properties.bit_depth().filter(|v| *v > 0),
+        file_size: std::fs::metadata(path).ok().map(|m| m.len()),
+    })
+}
+
 fn clean<S: Into<String>>(value: Option<S>) -> Option<String> {
     value
         .map(|s| s.into().trim().to_string())

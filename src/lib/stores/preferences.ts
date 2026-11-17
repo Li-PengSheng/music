@@ -10,6 +10,9 @@ import {
   THEME_KEY,
   THEME_COLOR,
   PALETTE_KEY,
+  FONT_KEY,
+  parseFont,
+  type FontPreset,
   parsePalette,
   type Palette,
   parseTheme,
@@ -29,6 +32,7 @@ function paint(system?: Theme) {
   const root = document.documentElement;
   root.dataset.theme = theme;
   root.dataset.palette = ui.palette;
+  root.dataset.font = ui.font;
   root.style.colorScheme = theme;
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', THEME_COLOR[theme]);
 }
@@ -46,6 +50,7 @@ export function loadLocalPreferences() {
     ui.reduceMotion = localStorage.getItem(KEY) === '1';
     ui.theme = parseTheme(localStorage.getItem(THEME_KEY));
     ui.palette = parsePalette(localStorage.getItem(PALETTE_KEY));
+    ui.font = parseFont(localStorage.getItem(FONT_KEY));
   } catch {
     /* storage unavailable: keep defaults */
   }
@@ -79,6 +84,27 @@ export function setPalette(value: Palette) {
   }
   // Preserve the resolved Windows mode; palette changes never issue playback or native IPC.
   document.documentElement.dataset.palette = ui.palette;
+}
+
+export function setFont(value: FontPreset) {
+  ui.font = parseFont(value);
+  try {
+    localStorage.setItem(FONT_KEY, ui.font);
+  } catch {
+    /* keep for this session */
+  }
+  document.documentElement.dataset.font = ui.font;
+}
+
+/** Keep other same-origin windows (including desktop lyrics) in sync without native IPC. */
+export function watchFontPreference() {
+  const onStorage = (event: StorageEvent) => {
+    if (event.key !== FONT_KEY && event.key !== null) return;
+    ui.font = parseFont(event.newValue);
+    document.documentElement.dataset.font = ui.font;
+  };
+  window.addEventListener('storage', onStorage);
+  return () => window.removeEventListener('storage', onStorage);
 }
 
 /** Follow Windows light/dark changes while the user has chosen `system`. Returns a cleanup function. */

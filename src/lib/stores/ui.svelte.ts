@@ -1,7 +1,7 @@
 import type { Play } from 'lucide-svelte';
 import { errorText } from '../utils/format';
 import type { LibraryTrack } from '../services/music';
-import type { ThemeChoice, Palette } from '../utils/theme';
+import type { ThemeChoice, Palette, FontPreset } from '../utils/theme';
 
 /** Any Lucide icon component (lucide-svelte ships class-style component types). */
 export type IconComponent = typeof Play;
@@ -59,9 +59,11 @@ export const ui = $state({
   lyricsOverlayOpen: false,
   lyricsOverlayLocked: false,
   immersive: false,
+  consoleOpen: false,
   reduceMotion: false,
   theme: 'light' as ThemeChoice,
   palette: 'celadon' as Palette,
+  font: 'harmony' as FontPreset,
   /** Track whose details dialog is open. */
   details: null as LibraryTrack | null,
 });

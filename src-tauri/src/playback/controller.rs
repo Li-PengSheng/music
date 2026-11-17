@@ -629,4 +629,7 @@ impl Controller {
     pub fn current_path(&self) -> Option<PathBuf> {
         self.track.as_ref().map(|t| t.path.clone().into())
     }
+    pub fn log_buffer(&self) -> std::sync::Arc<crate::infrastructure::logging::LogBuffer> {
+        self.engine.log_buffer()
+    }
 }

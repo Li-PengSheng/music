@@ -3,6 +3,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import ts from 'typescript';
+import * as theme from '../src/lib/utils/theme.ts';
 import {
   parseTheme,
   resolveTheme,
@@ -15,10 +17,11 @@ import {
 const read = (f) => readFileSync(f, 'utf8');
 
 /** Run public/theme-init.js against a fake document, as WebView2 does before the bundle loads. */
-function boot(stored, systemLight, palette) {
+function boot(stored, systemLight, palette, font) {
   const root = { dataset: {}, style: {} };
   const store = stored === undefined ? {} : { [THEME_KEY]: stored };
   store[PALETTE_KEY] = palette;
+  store['music-mine-font'] = font;
   const context = {
     localStorage: { getItem: (k) => (k in store ? store[k] : null) },
     matchMedia: (q) => ({
@@ -58,6 +61,79 @@ test('palette boot matches the parser for every mode, including old and invalid 
   });
   assert.equal(root.dataset.palette, 'celadon');
   assert.equal(root.dataset.theme, 'light');
+  assert.equal(root.dataset.font, 'harmony');
+});
+
+test('font presets default to harmony and match first-paint parsing independently of theme/palette', () => {
+  const { parseFont, FONT_KEY, FONTS } = theme;
+  assert.equal(typeof parseFont, 'function');
+  assert.equal(FONT_KEY, 'music-mine-font');
+  assert.deepEqual(
+    FONTS.map((item) => item.value),
+    ['harmony', 'puhuiti', 'serif', 'kaiti', 'system'],
+  );
+  assert.deepEqual(
+    FONTS.map((item) => item.label),
+    [
+      '鸿蒙黑体（HarmonyOS Sans · 默认现代）',
+      '阿里普惠体 3.0（现代清晰）',
+      '思源宋体 VF（中式书卷 · 歌词与标题衬线）',
+      '传统楷书（华文楷体 · 温润手书）',
+      'Windows 原生（Segoe UI Variable + 微软雅黑）',
+    ],
+  );
+  const invalid = [null, undefined, '', 'Harmony', 'unknown', 'serif; color:red', {}];
+  for (const value of invalid) assert.equal(parseFont(value), 'harmony');
+  for (const value of [...invalid, ...FONTS.map((item) => item.value)]) {
+    for (const mode of ['light', 'dark', 'system']) {
+      const root = boot(mode, true, 'cinnabar', value);
+      assert.equal(root.dataset.font, parseFont(value));
+      assert.equal(root.dataset.theme, resolveTheme(mode, false));
+      assert.equal(root.dataset.palette, 'cinnabar');
+    }
+  }
+});
+
+test('setFont updates UI, data-font and local persistence without native/playback APIs, even when storage fails', () => {
+  const source = read('src/lib/stores/preferences.ts');
+  const ast = ts.createSourceFile('preferences.ts', source, ts.ScriptTarget.Latest, true);
+  const declaration = ast.statements.find(
+    (node) => ts.isFunctionDeclaration(node) && node.name?.text === 'setFont',
+  );
+  assert.ok(declaration, 'preferences exports the real setFont function');
+  const code = ts.transpile(declaration.getText(ast), { module: ts.ModuleKind.CommonJS });
+  const ui = { font: 'harmony', theme: 'dark', palette: 'cinnabar' };
+  const root = { dataset: { font: 'harmony', theme: 'dark', palette: 'cinnabar' } };
+  const storage = new Map();
+  let denied = false;
+  const context = {
+    exports: {},
+    ui,
+    document: { documentElement: root },
+    FONT_KEY: theme.FONT_KEY,
+    parseFont: theme.parseFont,
+    localStorage: {
+      setItem: (key, value) => {
+        if (denied) throw Error('denied');
+        storage.set(key, value);
+      },
+    },
+    desktopPreferences: () => assert.fail('font must not change native settings'),
+    setWindowTheme: () => assert.fail('font must not change window theme'),
+  };
+  vm.runInNewContext(code, context);
+  for (const { value } of theme.FONTS) {
+    context.exports.setFont(value);
+    assert.equal(ui.font, value);
+    assert.equal(root.dataset.font, value);
+    assert.equal(storage.get(theme.FONT_KEY), value);
+    assert.equal(root.dataset.theme, 'dark');
+    assert.equal(root.dataset.palette, 'cinnabar');
+  }
+  denied = true;
+  context.exports.setFont('kaiti');
+  assert.equal(ui.font, 'kaiti');
+  assert.equal(root.dataset.font, 'kaiti');
 });
 
 test('resolved theme follows the choice, and the system only for 跟随系统', () => {

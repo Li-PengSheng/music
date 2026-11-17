@@ -1,8 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { FolderPlus, Database, X } from 'lucide-svelte';
+  import { FolderPlus, X } from 'lucide-svelte';
   import Select from '../components/Select.svelte';
   import ListenBrainzSettings from '../components/ListenBrainzSettings.svelte';
+  import AiSettings from '../components/AiSettings.svelte';
   import { shortcutHelp } from '../utils/shortcuts';
   import {
     desktopAvailable,
@@ -17,7 +18,7 @@
   import { player, control } from '../stores/player.svelte';
   import { library, refreshSummary } from '../stores/library.svelte';
   import { ui, notify, notifyError, confirmAction } from '../stores/ui.svelte';
-  import { importFolder, importLegacyDatabase } from '../actions';
+  import { importFolder } from '../actions';
   import { setReduceMotion, setTheme, setPalette, setFont } from '../stores/preferences';
   import { parseTheme, parsePalette, PALETTES, parseFont, FONTS } from '../utils/theme';
 
@@ -25,7 +26,6 @@
   let closeToTray = $state(false);
   let desktopReady = $state(false);
   let saving = $state(false);
-  let importing = $state(false);
   let removing = $state<string | null>(null);
   let confirming = false;
   let devices = $state<string[]>([]);
@@ -132,14 +132,6 @@
       notifyError(e);
     } finally {
       saving = false;
-    }
-  }
-  async function legacy() {
-    importing = true;
-    try {
-      await importLegacyDatabase();
-    } finally {
-      importing = false;
     }
   }
   let scanning = $derived(!!library.progress?.running);
@@ -313,6 +305,7 @@
   </section>
 
   <ListenBrainzSettings />
+  <AiSettings />
 
   <section class="settings-card" aria-labelledby="set-keys">
     <h3 id="set-keys">键盘快捷键</h3>
@@ -325,22 +318,6 @@
     <p class="settings-note">
       仅在窗口内生效，不占用其他应用的全局快捷键。输入文字时保留编辑操作。
     </p>
-  </section>
-
-  <section class="settings-card" aria-labelledby="set-legacy">
-    <h3 id="set-legacy">从旧版迁移</h3>
-    <p class="settings-note">
-      选择旧版数据库，制作一致性副本后导入。仅支持空音乐库；旧数据库与音乐文件保持只读。
-    </p>
-    <div class="settings-actions">
-      <button
-        type="button"
-        class="btn btn-secondary"
-        onclick={legacy}
-        disabled={importing || scanning || !desktopAvailable}
-        ><Database size={16} />{importing ? '正在备份与校验…' : '导入旧版数据库'}</button
-      >
-    </div>
   </section>
 </div>
 

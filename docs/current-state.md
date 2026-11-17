@@ -9,18 +9,18 @@
 
 ## 核验基线
 
-- 核验 Commit：HEAD `2af3b3c66d6449edf6d48e482f042a9b3d31cc67`，分支 `main`。TASK-21 开工时工作区干净，本轮改动未提交；此前文档的未提交状态已落后于当前 HEAD。
-- 工作区指纹：`84ba08ac6188cb4e2c5f56b443babd2fbeb82bfb5cb9cc2b1dd324065870b295`。命令 `pwsh -File scripts/worktree-fingerprint.ps1 -Exclude docs/tasks/TASK-21-LISTENBRAINZ.md,docs/tasks/done/TASK-21-LISTENBRAINZ.md,docs/current-state.md`，最终门禁前后、隔离实机后及归档后相同。
-- 工作区内容：ListenBrainz 默认关闭，设置页可保存验证凭证、开启/关闭、清除凭证；开关走本地持久化，关闭停止新采集和新请求，已在途请求可能完成。Token 只保存在后端设置文件，不经配置查询或 desktop_preferences 返回明文，日志写入前脱敏。独立采集/网络线程，暂停与 Seek 不计，半首/4分钟达标入 SQLite outbox，按用户名隔离、成功删除、失败退避、重启恢复。ureq 2.12.1 + Rustls，无 OpenSSL，Cargo.lock 已更新。统一限流 1.1 秒并遵守 Reset-In/Retry-After；同会话重复保存/切换开关保持去重。推荐 MBID 经官方元数据解析后按艺术家+曲名匹配当前本地库，候选缓存 10 分钟，未生成时回退公开近期收听；仅命中时显示可播放/右键操作的推荐架。此前字体、技术参数、Console 均保留，未访问真实用户数据。
-- 自动测试：`pnpm format` 与 `pwsh -File scripts/check.ps1` 退出 0。Prettier、Svelte 0 error / 0 warning、前端 85/85、Rust fmt / clippy、Rust 单元 109 passed / 1 ignored（本轮新增 10 项 Scrobble 与 1 项日志测试）、音频集成 3/3、歌词集成 6/6。检查使用空音频输出，不发真实 ListenBrainz 请求；既有 Cargo PDB 文件名冲突警告仍在。只读复审无未解决 Critical/Important。
-- 浏览器验证：`pnpm test:ui` 53/53，退出 0。新增 4 项 ListenBrainz 默认关闭、凭证错误/保存、键盘开关、推荐播放/右键菜单、空/失败状态用例；字段和推荐架在 1280×800 / 900×640 检查无挤压。首轮 51/52 仅 settings-dark 副标题文字差异，查看后只更新这一张快照，最终普通复跑零差异；此前字体、Console 与布局用例全部通过。
-- Windows Tauri 实机：限定范围 PASS。CLI 合并隔离配置、核对 exe 哈希与来源，临时旧 schema/旧偏好和三首仓库 fixture 上验证新增 outbox、默认关闭、真实配置查询/禁用/清除持久化、缺凭证不能启用、非法 Token 在 HTTP 前拒绝、禁用推荐为空、Console 无测试凭证，以及密码框。1280×850 / 100%，Null 输出，实例已关闭。exe SHA-256 `C259D4FDC8FD7451435EAE0E180B75CBD947A3DE2D07A587EE51C1B2188C8C30`，来源和产物见 TASK-21。真实账户验证、外网上传与在线推荐命中 NOT RUN；本轮不声称真实服务成功。
+- 核验 Commit：HEAD `b2c35e73d6814677639ac413cdb4370ccac26716`，分支 `main`。TASK-24在此前未提交工作上增量修改Console输入区；TASK-22/23源码/测试/归档及npm.cmd删除均保留，无自动提交。
+- 工作区指纹：`6d653ca07fc2f456548f4223e11f1b77298c36101feacf128a2e594b203d6b7d`。命令 `pwsh -File scripts/worktree-fingerprint.ps1 -Exclude docs/tasks/TASK-24-CONSOLE-INPUT-DISTINCTION.md,docs/tasks/done/TASK-24-CONSOLE-INPUT-DISTINCTION.md,docs/current-state.md`，最终验收前后及归档前后相同。
+- 工作区内容：Console日志页显示Terminal/本地短命令/说明、等宽输入与执行次按钮；AI页显示Sparkles/AI对话指令/当前模型或未启用徽章、正文输入与accent-line边框、发送/发送中主按钮。长模型名截断并保留完整title。复用2秒诊断轮询只读AI配置，关闭后忽略响应；日志自然语言自动切AI，AI页统一发送对话。旧短命令执行、工具闭环和取消机制保留。Rust/数据库/权限/依赖/主配置未改，未访问真实用户数据；此前旧版导入全链路删除和AI/ListenBrainz实现均保留。
+- 自动测试：pnpm format、pwsh -File scripts/check.ps1均退出0。Svelte 0 errors/0 warnings，前端95/95，Rust fmt/clippy、单元114 passed/1 ignored、音频集成3/3、歌词集成6/6，Null输出。本轮未重现TASK-23记录的暂停时钟单次失败，未改音频代码/断言，不称为已修复。既有Cargo PDB警告保留。
+- 浏览器验证：pnpm test:ui 62/62退出0，既有快照零像素差异，无更新。新增3项输入区回归先失败再通过，覆盖标签/占位符/字体/边框/按钮/模型和未启用状态、发送中/自动切AI及工具执行；1280×800/900×640、浅深主题和超长模型名均通过，窄窗截图已查看。原AI/Console定向14/14，其他既有用例全部通过。
+- Windows Tauri 实机：本轮NOT RUN，纯前端变更未运行构建exe；不使用旧来源产物验证当前修改。TASK-23已记录debug exe占用导致隔离构建失败，当前仍保留该验收缺口，不打扰已有进程。此前TASK-22的较早指纹模拟验收不能代替本轮；真实WebView2/DPI/硬件和外部服务未验证。
 
 历史任务 09.5.3、09.5.5 的指纹仍为“未记录，无法重建”。更早任务的指纹不回填。
 
 ## 当前任务
 
-TASK-21 已完成并按要求归档：[TASK-21-LISTENBRAINZ](tasks/done/TASK-21-LISTENBRAINZ.md)。无自动提交，任务完成后停止。真实账户/外网端到端验收仍未覆盖；不把模拟上传与浏览器夹具成功称为真实 ListenBrainz 服务成功。此前任务保留原历史记录，旧未提交说明不能代替当前 HEAD 基线。
+TASK-24已完成并归档：[TASK-24-CONSOLE-INPUT-DISTINCTION](tasks/done/TASK-24-CONSOLE-INPUT-DISTINCTION.md)。三项指定门禁全部0、既有快照未改，无自动提交；当前无后续指定任务。Windows实机和此前未覆盖项继续保留为NOT RUN。
 
 封面加载单元已经提交：
 
@@ -43,7 +43,7 @@ NOT RUN 放在这里。它不是已知缺陷，也不表示可以放行。
 
 - 库外 `player_open_file`、WAV 经界面打开：09.5.5 写明未做。保持 NOT RUN。
 - 托盘菜单和任务栏缩略图按钮已有代码和单元测试。真实托盘、任务栏按钮、DPI 和系统媒体键仍是 NOT RUN。
-- 当前工作区自动检查、浏览器和 TASK-21 隔离 exe 的限定配置/迁移验收已记在核验基线。ListenBrainz 真实账户验证、真实 TLS/上传/限流与在线推荐命中、ClearType 主观锐度、跨 WebView2 字体实时同步、硬件音频、原生选择/扫描与 DPI 仍 NOT RUN；本轮实机没有覆盖这些项目。标题栏颜色不随色系改变。历史无指纹记录不作为当前验收。
+- 当前工作区自动检查和浏览器已通过；TASK-23 Windows实机因已有debug进程占用无法构建，旧入口/IPC移除尚未在隔离exe确认。首轮Null暂停时钟单次失败根因未定位，后续复跑通过不等同修复。AI真实厂商/Key/外网TLS/非标准扩展、ListenBrainz真实账户/TLS/上传/限流/推荐、ClearType主观锐度、跨WebView2字体同步、硬件音频、原生选择/扫描与DPI仍NOT RUN。标题栏颜色不随色系改变；历史无指纹记录不作为当前验收。
 - 浏览器 harness 不是 Rust 播放。
 
 ## 发布决定
@@ -63,7 +63,9 @@ NOT RUN 放在这里。它不是已知缺陷，也不表示可以放行。
 | 源码可见 | `package.json` 有 `@playwright/test` 和 `bits-ui`。没有 shadcn-svelte、Vitest、WebdriverIO、tauri-specta、TanStack Virtual |
 | 源码可见 | Symphonia feature 为 mp3、flac、wav、pcm |
 | 源码可见 | 数据库演进是 `db.rs` 的建表和 `ensure_column` |
+| 源码可见 | 设置页旧版迁移与library_import全链路已删除；当前库schema升级保留；rusqlite仅启用bundled，未保留backup feature |
 | 源码可见 | ListenBrainz 默认关闭；desktop 偏好保存凭证；scrobble_outbox 按用户名持久化待传记录；后台采集与网络调度位于 platform/scrobble.rs |
+| 源码可见 | AI助手默认关闭，Rust platform/ai_agent.rs代理单轮Chat Completions，Console前端最多5轮执行六类允许工具；凭证不返回WebView，AI上下文不含本地路径 |
 | 源码可见 | 队列用 `retainQueue`。宽屏队列覆盖页面 |
 | 源码可见 | 桌面歌词窗口标签 `lyrics-overlay`，地址带 `?window=lyrics`。主窗口 capability 未扩大 |
 | 源码可见 | 配色 `palette` 与明暗 `theme` 分开。默认 `celadon`。首屏脚本设置 `data-palette` |

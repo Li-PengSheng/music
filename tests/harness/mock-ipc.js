@@ -82,6 +82,14 @@ let listenBrainz = {
   pending_count: 0,
   ...window.__mockListenBrainz,
 };
+let ai = {
+  enabled: false,
+  base_url: 'https://api.openai.com/v1',
+  model: 'gpt-4o-mini',
+  has_key: false,
+  revision: 0,
+  ...window.__mockAiConfig,
+};
 let consoleLines = ['[12:00:00] [audio] fixture paused', '[12:00:01] [smtc] Fixture'];
 window.__mockLog = log;
 window.__mockSnapshot = () => snapshot;
@@ -102,6 +110,54 @@ function page(q) {
   return { tracks: list.slice(offset, offset + limit), total: list.length, favorites: [] };
 }
 const handlers = {
+  ai_config: ({ enabled, baseUrl, apiKey, model }) => {
+    let next = { ...ai };
+    if (baseUrl != null) {
+      let u;
+      try {
+        u = new URL(baseUrl);
+      } catch {
+        throw 'AI_URL_INVALID';
+      }
+      if (
+        !['http:', 'https:'].includes(u.protocol) ||
+        u.username ||
+        u.password ||
+        u.search ||
+        u.hash
+      )
+        throw 'AI_URL_INVALID';
+      next.base_url = baseUrl.replace(/\/+$/, '');
+    }
+    if (model != null) {
+      if (!model.trim()) throw 'AI_MODEL_INVALID';
+      next.model = model.trim();
+    }
+    if (enabled != null) next.enabled = enabled;
+    if (apiKey != null) {
+      next.has_key = !!apiKey.trim();
+      if (!next.has_key) next.enabled = false;
+    }
+    if ([enabled, baseUrl, apiKey, model].some((v) => v != null)) next.revision++;
+    ai = next;
+    return { ...ai };
+  },
+  ai_chat_turn: async ({ messages }) => {
+    if (!ai.enabled) throw 'AI_DISABLED';
+    if (!ai.has_key) throw 'AI_KEY_MISSING';
+    if (window.__mockAiDelay) await new Promise((r) => setTimeout(r, window.__mockAiDelay));
+    window.__mockAiLastToolIds = messages
+      .filter((m) => m.role === 'tool')
+      .map((m) => m.tool_call_id);
+    const next = window.__mockAiTurns?.shift();
+    if (next?.error) throw next.error;
+    return (
+      next ?? {
+        message: { role: 'assistant', content: '你好，我可以帮助你管理本地音乐。' },
+        finish_reason: 'stop',
+      }
+    );
+  },
   listenbrainz_config: ({ enabled, username, token }) => {
     if (token === 'invalid') throw 'Token 无效，设置未保存';
     if (enabled === true && !listenBrainz.token_configured) throw '启用前请填写 ListenBrainz Token';
@@ -286,7 +342,6 @@ const handlers = {
   library_scan: () => null,
   library_cancel: () => null,
   library_cover_stats: () => ({ requests: 12, memoryHits: 8, diskHits: 2 }),
-  library_import: () => null,
 };
 let callbackId = 0;
 const eventHandlers = new Map();
@@ -315,9 +370,13 @@ window.__TAURI_INTERNALS__ = {
     log.push({
       cmd,
       args:
-        cmd === 'listenbrainz_config'
-          ? { ...args, token: args.token == null ? null : '***' }
-          : args,
+        cmd === 'ai_config'
+          ? { ...args, apiKey: args.apiKey == null ? null : '***' }
+          : cmd === 'ai_chat_turn'
+            ? { messageCount: args.messages?.length, toolCount: args.tools?.length }
+            : cmd === 'listenbrainz_config'
+              ? { ...args, token: args.token == null ? null : '***' }
+              : args,
     });
     if (window.__mockFailures?.[cmd]) throw window.__mockFailures[cmd];
     if (cmd === 'plugin:event|listen') {

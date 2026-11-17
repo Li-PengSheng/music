@@ -253,6 +253,7 @@ pub fn remove_folder(conn: &Connection, path: &str) -> Result<(), String> {
     tx.commit().map_err(|e| e.to_string())
 }
 
+#[cfg(test)]
 pub fn get_setting(conn: &Connection, key: &str) -> Option<String> {
     conn.query_row("SELECT value FROM settings WHERE key = ?1", [key], |r| {
         r.get::<_, String>(0)

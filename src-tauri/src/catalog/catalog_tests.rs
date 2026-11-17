@@ -1,4 +1,5 @@
 use super::*;
+use std::path::Path;
 
 #[test]
 fn scan_real_formats_search_and_cancel() {
@@ -40,60 +41,6 @@ fn scan_real_formats_search_and_cancel() {
     state.scan(PathBuf::from("missing")).unwrap();
     assert!(state.progress.lock().unwrap().cancelled);
     assert_eq!(state.query(Query::default()).unwrap().total, 3);
-    std::fs::remove_dir_all(dir).unwrap();
-}
-
-#[test]
-fn wal_backup_preserves_ids_collections_and_settings() {
-    let dir = std::env::temp_dir().join(format!("mm-backup-{}", std::process::id()));
-    std::fs::create_dir_all(&dir).unwrap();
-    let source = dir.join("old.db");
-    let conn = db::open(&source).unwrap();
-    conn.execute_batch("PRAGMA journal_mode=WAL;").unwrap();
-    let track = metadata::read_track(
-        &Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/tone.flac"),
-        0,
-    )
-    .unwrap();
-    db::upsert_tracks(&conn, &[track]).unwrap();
-    let second = metadata::read_track(
-        &Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/tone.mp3"),
-        0,
-    )
-    .unwrap();
-    db::upsert_tracks(&conn, &[second]).unwrap();
-    let id = db::load_tracks(&conn).unwrap()[0].id;
-    let second_id = db::load_tracks(&conn).unwrap()[1].id;
-    collections::set_favorite(&conn, id, true).unwrap();
-    let playlist = collections::create_playlist(&conn, "保留歌单").unwrap();
-    collections::add_to_playlist(&conn, playlist, id).unwrap();
-    collections::add_to_playlist(&conn, playlist, second_id).unwrap();
-    collections::move_in_playlist(&conn, playlist, 0, 1).unwrap();
-    db::add_folder(&conn, "C:/legacy-music").unwrap();
-    db::set_setting(&conn, "session_v2", "{\"queue\":[]}").unwrap();
-    let dest = Catalog::new(dir.join("new.db"));
-    let report = dest.import_copy(&source).unwrap();
-    assert_eq!(
-        (report.tracks, report.favorites, report.playlists),
-        (2, 1, 1)
-    );
-    assert!(*dest.initialized.lock().unwrap());
-    assert_eq!(dest.summary().unwrap().tracks, 2);
-    assert_eq!(dest.initialization_count.load(Ordering::SeqCst), 1);
-    let copied = db::open(&dest.path).unwrap();
-    assert_eq!(
-        collections::playlist_track_ids(&copied, playlist),
-        vec![second_id, id]
-    );
-    assert_eq!(db::load_folders(&copied).unwrap(), vec!["C:/legacy-music"]);
-    assert_eq!(
-        db::get_setting(&copied, "session_v2"),
-        Some("{\"queue\":[]}".into())
-    );
-    assert!(dest.import_copy(&source).is_err());
-    assert_eq!(db::load_tracks(&conn).unwrap().len(), 2);
-    drop(copied);
-    drop(conn);
     std::fs::remove_dir_all(dir).unwrap();
 }
 

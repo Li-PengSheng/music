@@ -20,7 +20,7 @@ test('sidebar opens Console directly and commands apply authoritative snapshots'
   await expect(dialog).toContainText('Fixture output');
   await expect(dialog).toContainText('471 首');
   await expect(dialog).toContainText('内存 8 · 磁盘 2 / 请求 12');
-  const input = dialog.getByRole('textbox', { name: '快捷命令' });
+  const input = dialog.locator('#console-command');
   await input.fill('vol 30');
   await input.press('Enter');
   await expect(dialog.getByRole('status')).toContainText('30%');
@@ -85,7 +85,7 @@ test('local status opens Console, errors stay visible and refresh stops on close
   await dialog.getByRole('button', { name: '刷新', exact: true }).click();
   await expect(dialog).toContainText('日志：日志读取失败');
   await expect(logs).toContainText('[audio] fixture paused');
-  const input = dialog.getByRole('textbox', { name: '快捷命令' });
+  const input = dialog.locator('#console-command');
   await input.fill('vol 30');
   await input.press('Enter');
   await expect(dialog.getByRole('status')).toContainText('命令未完成');
@@ -184,7 +184,7 @@ test('minimal top bar and sidebar Console fit both sizes with keyboard focus res
     await page.keyboard.press('Enter');
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByRole('textbox', { name: '快捷命令' })).toBeInViewport();
+    await expect(dialog.locator('#console-command')).toBeInViewport();
     await page.screenshot({
       path: testInfo.outputPath(`console-${size.width}.png`),
       animations: 'disabled',

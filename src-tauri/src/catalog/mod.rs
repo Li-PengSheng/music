@@ -21,57 +21,10 @@ fn row_track(r: &rusqlite::Row<'_>) -> rusqlite::Result<Track> {
         added_at: r.get(12)?,
     })
 }
-// Compare stable legacy data before/after migrating the backup, including membership order.
-fn legacy_snapshot(conn: &Connection) -> Result<Vec<Vec<Vec<String>>>, String> {
-    let mut snapshot = Vec::new();
-    for (table, fields) in [
-        (
-            "tracks",
-            "id,path,title,artist,album,album_artist,genre,year,track_number,duration_ms",
-        ),
-        ("favorites", "*"),
-        ("playlists", "*"),
-        ("playlist_tracks", "*"),
-        ("folders", "*"),
-        ("settings", "*"),
-    ] {
-        let exists: bool = conn
-            .query_row(
-                "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name=?1)",
-                [table],
-                |r| r.get(0),
-            )
-            .map_err(|e| e.to_string())?;
-        if !exists {
-            if table == "tracks" {
-                return Err("所选文件不是支持的旧版音乐库".into());
-            }
-            snapshot.push(vec![]);
-            continue;
-        }
-        let mut statement = conn
-            .prepare(&format!("SELECT {fields} FROM {table} ORDER BY 1"))
-            .map_err(|e| e.to_string())?;
-        let columns = statement.column_count();
-        let mut rows = statement.query([]).map_err(|e| e.to_string())?;
-        let mut values = Vec::new();
-        while let Some(row) = rows.next().map_err(|e| e.to_string())? {
-            values.push(
-                (0..columns)
-                    .map(|i| row.get_ref(i).map(|v| format!("{v:?}")))
-                    .collect::<Result<Vec<_>, _>>()
-                    .map_err(|e| e.to_string())?,
-            );
-        }
-        values.sort();
-        snapshot.push(values);
-    }
-    Ok(snapshot)
-}
-use rusqlite::{params, Connection, OpenFlags};
+use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use std::{
-    path::{Path, PathBuf},
+    path::PathBuf,
     sync::{
         atomic::{AtomicBool, Ordering},
         Mutex,
@@ -154,14 +107,6 @@ pub struct Playlist {
     pub id: i64,
     pub name: String,
     pub count: usize,
-}
-#[derive(Serialize, PartialEq, Debug)]
-pub struct ImportReport {
-    pub tracks: i64,
-    pub favorites: i64,
-    pub playlists: i64,
-    pub entries: i64,
-    pub warnings: Vec<String>,
 }
 impl Catalog {
     pub fn new(path: PathBuf) -> Self {
@@ -456,87 +401,6 @@ impl Catalog {
             self.progress.lock().unwrap().imported += batch.len();
         }
         Ok(())
-    }
-    pub fn import_copy(&self, source: &Path) -> Result<ImportReport, String> {
-        let _guard = self
-            .operation
-            .try_lock()
-            .map_err(|_| "扫描或导入正在进行")?;
-        let conn = self.connection()?;
-        for table in ["tracks", "favorites", "playlists", "settings", "folders"] {
-            let count: i64 = conn
-                .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |r| r.get(0))
-                .map_err(|e| e.to_string())?;
-            if count > 0 {
-                return Err("仅可导入到空曲库；现有新版数据不会被覆盖".into());
-            }
-        }
-        drop(conn);
-        let src = Connection::open_with_flags(source, OpenFlags::SQLITE_OPEN_READ_ONLY)
-            .map_err(|e| e.to_string())?;
-        let temp = self.path.with_extension("importing.db");
-        if temp.exists() {
-            return Err("存在未完成的导入副本，请先检查 importing.db".into());
-        }
-        let result = (|| {
-            let mut dest = Connection::open(&temp).map_err(|e| e.to_string())?;
-            {
-                let backup =
-                    rusqlite::backup::Backup::new(&src, &mut dest).map_err(|e| e.to_string())?;
-                backup
-                    .run_to_completion(128, std::time::Duration::from_millis(5), None)
-                    .map_err(|e| e.to_string())?;
-            }
-            let integrity: String = dest
-                .query_row("PRAGMA integrity_check", [], |r| r.get(0))
-                .map_err(|e| e.to_string())?;
-            if integrity != "ok" {
-                return Err(format!("旧库完整性检查失败：{integrity}"));
-            }
-            let before = legacy_snapshot(&dest)?;
-            drop(dest);
-            // Only the consistent backup is migrated, never the source connection.
-            let dest = db::open(&temp)?;
-            if legacy_snapshot(&dest)? != before {
-                return Err("迁移前后歌曲、收藏、歌单顺序或设置不一致，已拒绝导入".into());
-            }
-            let count = |table: &str| {
-                dest.query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |r| {
-                    r.get::<_, i64>(0)
-                })
-                .map_err(|e| e.to_string())
-            };
-            let mut report = ImportReport {
-                tracks: count("tracks")?,
-                favorites: count("favorites")?,
-                playlists: count("playlists")?,
-                entries: count("playlist_tracks")?,
-                warnings: vec![],
-            };
-            db::load_tracks(&dest)?;
-            let bad: i64 = dest
-                .query_row("SELECT COUNT(*) FROM pragma_foreign_key_check", [], |r| {
-                    r.get(0)
-                })
-                .map_err(|e| e.to_string())?;
-            if bad != 0 {
-                return Err(format!(
-                    "旧库有 {bad} 个无效关联，副本已拒绝导入；原库保持不变"
-                ));
-            }
-            if db::get_setting(&dest, "session_v2").is_some() {
-                report.warnings.push("旧版播放队列、循环/随机模式和上次播放位置已原样保留在 session_v2，尚未自动恢复；不会静默丢弃。".into());
-            }
-            dest.execute_batch("PRAGMA wal_checkpoint(TRUNCATE); PRAGMA journal_mode=DELETE;")
-                .map_err(|e| e.to_string())?;
-            drop(dest);
-            std::fs::rename(&temp, &self.path).map_err(|e| e.to_string())?;
-            Ok(report)
-        })();
-        if result.is_err() {
-            let _ = std::fs::remove_file(&temp);
-        }
-        result
     }
 }
 #[cfg(test)]

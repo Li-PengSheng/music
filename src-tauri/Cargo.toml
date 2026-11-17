@@ -22,7 +22,7 @@ symphonia = { version = "0.5", features = ["mp3", "flac", "wav", "pcm"] }
 cpal = "0.15"
 lofty = "0.21"
 rfd = "0.15"
-rusqlite = { version = "0.32", features = ["bundled", "backup"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
 base64 = "0.22"
 # JPEG decoding is not in the `image` crate already pulled in by Tauri's PNG feature.
 image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }

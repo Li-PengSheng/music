@@ -195,10 +195,6 @@ export const removeFromPlaylist = (playlistId: number, trackId: number) =>
   });
 export const reorderPlaylist = (playlistId: number, from: number, to: number) =>
   invoke<void>('library_playlist_edit', { action: 'reorder', playlistId, from, to });
-export const importLegacy = () =>
-  invoke<{ tracks: number; playlists: number; entries: number; warnings: string[] } | null>(
-    'library_import',
-  );
 export const queueAction = (
   action: 'add' | 'play_next' | 'remove' | 'next' | 'previous' | 'clear',
   id: number | null = null,
@@ -293,6 +289,38 @@ export const listenbrainzConfig = (
 ) => invoke<ListenBrainzConfig>('listenbrainz_config', { enabled, username, token });
 export const listenbrainzRecommendations = () =>
   invoke<LibraryTrack[]>('listenbrainz_recommendations');
+
+export interface AiConfig {
+  enabled: boolean;
+  base_url: string;
+  model: string;
+  has_key: boolean;
+  revision: number;
+}
+/** null keeps each setting; empty apiKey clears it and disables AI. Key is never returned. */
+export const aiConfig = (
+  enabled: boolean | null = null,
+  baseUrl: string | null = null,
+  apiKey: string | null = null,
+  model: string | null = null,
+) => invoke<AiConfig>('ai_config', { enabled, baseUrl, apiKey, model });
+export interface AiToolCall {
+  id: string;
+  type: 'function';
+  function: { name: string; arguments: string };
+}
+export interface AiMessage {
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content: string | null;
+  tool_calls?: AiToolCall[];
+  tool_call_id?: string;
+}
+export interface AiTurnResponse {
+  message: AiMessage;
+  finish_reason: string;
+}
+export const aiChatTurn = (messages: AiMessage[], tools: unknown[]) =>
+  invoke<AiTurnResponse>('ai_chat_turn', { messages, tools });
 
 // Exact library path only. A path that is not a library row fails with `cover-not-in-library`.
 const queueKey = (path: string) => 'q:' + path + '@112';

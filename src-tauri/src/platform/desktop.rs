@@ -19,7 +19,7 @@ const LYRICS_ENTRY: &str = "index.html?window=lyrics";
 const LYRICS_MIN_WIDTH: u32 = 360;
 const LYRICS_MIN_HEIGHT: u32 = 92;
 
-#[derive(Clone, Default, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Preferences {
     pub output_device: Option<String>,
@@ -35,6 +35,31 @@ pub struct Preferences {
     pub listenbrainz_token: Option<String>,
     pub listenbrainz_username: Option<String>,
     pub listenbrainz_enabled: bool,
+    pub ai_enabled: bool,
+    pub ai_base_url: Option<String>,
+    pub ai_api_key: Option<String>,
+    pub ai_model: Option<String>,
+}
+impl Default for Preferences {
+    fn default() -> Self {
+        Self {
+            output_device: None,
+            close_to_tray: false,
+            queue_open: false,
+            theme: String::new(),
+            bounds: None,
+            maximized: false,
+            lyrics_overlay_bounds: None,
+            lyrics_overlay_locked: false,
+            listenbrainz_token: None,
+            listenbrainz_username: None,
+            listenbrainz_enabled: false,
+            ai_enabled: false,
+            ai_base_url: Some("https://api.openai.com/v1".into()),
+            ai_api_key: None,
+            ai_model: Some("gpt-4o-mini".into()),
+        }
+    }
 }
 /// Native title bar theme; `None` lets Windows follow the system setting.
 fn window_theme(theme: &str) -> Option<tauri::Theme> {
@@ -57,6 +82,16 @@ pub struct Desktop {
     pub exiting: AtomicBool,
 }
 impl Desktop {
+    pub(crate) fn configure_ai(
+        &self,
+        patch: super::ai_agent::ConfigPatch,
+    ) -> Result<Preferences, String> {
+        let mut guard = self.preferences.lock().map_err(|_| "AI_CONFIG_LOCK")?;
+        let next = super::ai_agent::apply_config(&guard, patch)?;
+        self.save(&next).map_err(|_| "AI_CONFIG_SAVE".to_string())?;
+        *guard = next.clone();
+        Ok(next)
+    }
     pub(crate) fn scrobble_preferences(&self) -> Result<Preferences, String> {
         self.preferences
             .lock()
@@ -132,6 +167,7 @@ pub fn desktop_preferences(
     state.save(&next)?;
     *guard = next.clone();
     next.listenbrainz_token = None;
+    next.ai_api_key = None;
     Ok(next)
 }
 
@@ -1148,6 +1184,72 @@ mod tests {
             serde_json::from_slice(&std::fs::read(&state.path).unwrap()).unwrap();
         assert!(restored.close_to_tray && restored.queue_open);
         std::fs::remove_dir_all(directory).unwrap();
+    }
+    #[test]
+    fn ai_configuration_persists_and_rejects_invalid_changes_without_overwriting_other_preferences()
+    {
+        use super::super::ai_agent::ConfigPatch;
+        let path = std::env::temp_dir().join(format!(
+            "mm-ai-config-{}-{}.json",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let p = Preferences {
+            listenbrainz_username: Some("fixture-user".into()),
+            ..Preferences::default()
+        };
+        let state = Desktop {
+            lyrics_operation: Mutex::new(()),
+            preferences: Mutex::new(p),
+            path: path.clone(),
+            exiting: AtomicBool::new(false),
+        };
+        state
+            .configure_ai(ConfigPatch {
+                enabled: Some(true),
+                base_url: Some("http://localhost:11434/v1".into()),
+                api_key: Some("fixture-secret-key".into()),
+                model: Some("fixture-model".into()),
+            })
+            .unwrap();
+        let restored: Preferences = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        assert!(restored.ai_enabled);
+        assert_eq!(restored.ai_api_key.as_deref(), Some("fixture-secret-key"));
+        assert_eq!(
+            restored.listenbrainz_username.as_deref(),
+            Some("fixture-user")
+        );
+        let before = std::fs::read(&path).unwrap();
+        assert!(state
+            .configure_ai(ConfigPatch {
+                base_url: Some("file:///secret".into()),
+                ..Default::default()
+            })
+            .is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+        state
+            .configure_ai(ConfigPatch {
+                model: Some("another-model".into()),
+                ..Default::default()
+            })
+            .unwrap();
+        assert_eq!(
+            state.scrobble_preferences().unwrap().ai_api_key.as_deref(),
+            Some("fixture-secret-key")
+        );
+        state
+            .configure_ai(ConfigPatch {
+                api_key: Some(String::new()),
+                ..Default::default()
+            })
+            .unwrap();
+        let cleared: Preferences = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        assert!(cleared.ai_api_key.is_none());
+        assert!(!cleared.ai_enabled);
+        std::fs::remove_file(path).unwrap();
     }
     #[test]
     fn output_preference_saves_and_rolls_back_on_write_failure() {

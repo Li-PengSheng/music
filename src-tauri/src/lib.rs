@@ -208,6 +208,7 @@ pub fn run() {
             )));
             app.manage(Arc::new(artwork::covers::Store::new(cache.join("covers"))));
             platform::desktop::setup(app)?;
+            app.manage(platform::ai_agent::Agent::new());
             if let Ok(mut controller) = app.state::<Shared>().lock() {
                 if let Err(error) = controller.attach_session(directory.join("playback-v1.json")) {
                     eprintln!("{error}");
@@ -264,6 +265,8 @@ pub fn run() {
         .manage(Arc::new(Mutex::new(Controller::new())))
         .invoke_handler(tauri::generate_handler![
             app_console_logs,
+            platform::ai_agent::ai_config,
+            platform::ai_agent::ai_chat_turn,
             platform::scrobble::listenbrainz_config,
             platform::scrobble::listenbrainz_recommendations,
             player_output_devices,
@@ -300,7 +303,6 @@ pub fn run() {
             commands::catalog::library_playlist,
             commands::catalog::library_playlist_edit,
             commands::catalog::library_remove_folder,
-            commands::catalog::library_import,
             commands::catalog::library_queue,
             commands::catalog::library_queue_tracks
         ])

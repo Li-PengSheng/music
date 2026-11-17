@@ -5,6 +5,20 @@ export type { LyricsOverlayState };
 
 let request = 0;
 
+/** Explicit state for an AI command, returning Rust's result instead of toggling stale UI state. */
+export async function setDesktopLyricsOpen(open: boolean) {
+  if (!desktopAvailable) throw new Error('desktop_unavailable');
+  const id = ++request;
+  const actual = await desktopLyricsWindow(open, null);
+  // Rust publishes its own state event before the command resolves. Accept that
+  // matching event, while preserving a newer conflicting state from the tray/UI.
+  if (id !== request && ui.lyricsOverlayOpen !== actual)
+    throw new Error('lyrics_request_superseded');
+  if (id === request) ui.lyricsOverlayOpen = actual;
+  if (actual !== open) throw new Error('lyrics_state_mismatch');
+  return actual;
+}
+
 /** Rust is the authority when a window, the tray, or another call changes the overlay. */
 export function applyLyricsOverlay(state: LyricsOverlayState) {
   request += 1;

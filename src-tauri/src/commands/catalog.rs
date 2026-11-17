@@ -387,27 +387,6 @@ fn edit_playlist(
     }
 }
 #[tauri::command]
-pub async fn library_import(state: State<'_>) -> Result<Option<ImportReport>, String> {
-    let file = tauri::async_runtime::spawn_blocking(|| {
-        rfd::FileDialog::new()
-            .set_title("选择旧版 SQLite 数据库（只读安全备份）")
-            .add_filter("SQLite", &["db", "sqlite", "sqlite3"])
-            .pick_file()
-    })
-    .await
-    .map_err(|e| e.to_string())?;
-    match file {
-        Some(file) => {
-            work(state.inner().clone(), move |s| {
-                s.import_copy(&file).map(Some)
-            })
-            .await
-        }
-        None => Ok(None),
-    }
-}
-
-#[tauri::command]
 pub async fn library_home(state: State<'_>) -> Result<Home, String> {
     work(state.inner().clone(), |s| s.home()).await
 }

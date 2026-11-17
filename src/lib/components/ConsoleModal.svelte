@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
-  import { X, RefreshCw, Copy, Trash2, Terminal } from 'lucide-svelte';
+  import { X, RefreshCw, Copy, Trash2, Terminal, Sparkles } from 'lucide-svelte';
   import Modal from './Modal.svelte';
   import IconButton from './IconButton.svelte';
   import {
@@ -16,12 +16,17 @@
     scanProgress,
     desktopAvailable,
     type PlayerSnapshot,
+    type AiMessage,
+    aiConfig,
+    type AiConfig,
   } from '../services/music';
   import { player, control } from '../stores/player.svelte';
   import { library, refreshSummary } from '../stores/library.svelte';
   import { setTheme, setPalette } from '../stores/preferences';
   import { PALETTES, type Palette, type ThemeChoice } from '../utils/theme';
   import { errorText } from '../utils/format';
+  import { runAiConversation, type AiEvent } from '../utils/ai-conversation';
+  import { go } from '../stores/nav.svelte';
 
   let { onclose }: { onclose: () => void } = $props();
   let logs = $state<string[]>([]);
@@ -34,6 +39,26 @@
   let busy = $state(false);
   let refreshing = $state(false);
   let logHost = $state<HTMLDivElement>();
+  let view = $state<'logs' | 'ai'>('logs');
+  let aiPreferences = $state<AiConfig | null>(null);
+  let aiConfigError = $state(false);
+  const modelLabel = $derived(
+    !desktopAvailable
+      ? '桌面不可用'
+      : aiConfigError
+        ? '配置不可用'
+        : !aiPreferences
+          ? '读取中…'
+          : aiPreferences.enabled
+            ? aiPreferences.model
+            : '未启用',
+  );
+  let events = $state<AiEvent[]>([]);
+  let history: AiMessage[] = [];
+  let historyRevision: number | undefined;
+  let chatGeneration = 0;
+  let chatHost = $state<HTMLDivElement>();
+  let aiRequest = $state<AbortController | null>(null);
   let disposed = false;
   let snapshot = $derived(player.snapshot);
   const engineNames = { idle: '空闲', paused: '已暂停', playing: '播放中' };
@@ -63,9 +88,10 @@
       coverStats(),
       mediaStatus(),
       librarySummary(),
+      aiConfig(),
     ]);
     if (disposed) return;
-    const [logResult, coverResult, mediaResult, libraryResult] = results;
+    const [logResult, coverResult, mediaResult, libraryResult, aiResult] = results;
     const errors: string[] = [];
     if (logResult.status === 'fulfilled') logs = logResult.value;
     else errors.push(`日志：${errorText(logResult.reason)}`);
@@ -84,6 +110,11 @@
       tracks = null;
       errors.push(`曲库：${errorText(libraryResult.reason)}`);
     }
+    aiConfigError = aiResult.status === 'rejected';
+    if (aiResult.status === 'fulfilled') {
+      if (!aiPreferences || aiResult.value.revision >= aiPreferences.revision)
+        aiPreferences = aiResult.value;
+    } else errors.push(`AI 配置：${errorText(aiResult.reason)}`);
     refreshError = errors.join('；');
     refreshing = false;
     if (follow) {
@@ -103,6 +134,7 @@
     void poll();
     return () => {
       disposed = true;
+      aiRequest?.abort();
       clearTimeout(timer);
     };
   });
@@ -135,6 +167,62 @@
     if (!(await control(action))) throw new Error('命令未完成，请查看错误提示或稍后重试');
     if (player.snapshot?.error) throw new Error(player.snapshot.error);
   }
+  function openSettings() {
+    onclose();
+    go({ view: 'settings' });
+  }
+  function clearChat() {
+    chatGeneration++;
+    aiRequest?.abort();
+    events = [];
+    history = [];
+    historyRevision = undefined;
+    feedback = '已清空本次对话';
+  }
+  async function natural(text: string) {
+    const request = new AbortController();
+    aiRequest = request;
+    const generation = ++chatGeneration;
+    view = 'ai';
+    let revision: number | undefined;
+    try {
+      const result = await runAiConversation(history, text, {
+        signal: request.signal,
+        historyRevision,
+        onConfig: (value) => {
+          revision = value;
+        },
+        onCheckpoint: (messages, value) => {
+          if (!disposed && generation === chatGeneration) {
+            history = messages;
+            historyRevision = value;
+          }
+        },
+        onEvent: (event) => {
+          if (
+            disposed ||
+            generation !== chatGeneration ||
+            (request.signal.aborted && event.role !== 'tool')
+          )
+            return;
+          const follow =
+            !chatHost || chatHost.scrollHeight - chatHost.scrollTop - chatHost.clientHeight < 32;
+          events = [...events, event].slice(-200);
+          if (follow)
+            void tick().then(() => {
+              if (chatHost && !disposed) chatHost.scrollTop = chatHost.scrollHeight;
+            });
+        },
+      });
+      if (!disposed && !request.signal.aborted) {
+        history = result;
+        historyRevision = revision;
+        feedback = 'AI 对话已完成';
+      }
+    } finally {
+      if (aiRequest === request) aiRequest = null;
+    }
+  }
   async function execute() {
     if (busy) return;
     const text = command.trim();
@@ -143,7 +231,9 @@
     feedback = '';
     const [name, ...args] = text.toLowerCase().split(/\s+/);
     try {
-      if (['play', 'pause', 'next', 'prev'].includes(name) && !args.length) {
+      if (view === 'ai') {
+        await natural(text);
+      } else if (['play', 'pause', 'next', 'prev'].includes(name) && !args.length) {
         await runPlayer(
           name === 'play'
             ? play
@@ -180,10 +270,14 @@
         feedback = library.progress.running
           ? '扫描已启动，可在主窗口查看进度'
           : '文件夹选择已结束，扫描状态已刷新';
-      } else {
+      } else if (
+        ['play', 'pause', 'next', 'prev', 'vol', 'theme', 'palette', 'scan'].includes(name)
+      ) {
         throw new Error(
           '可用指令：play / pause / next / prev / vol 30 / theme dark|light|system / palette celadon|cinnabar|azure|amber / scan',
         );
+      } else {
+        await natural(text);
       }
       command = '';
       void refresh();
@@ -230,7 +324,19 @@
       </div>
     </dl>
     <div class="console-toolbar">
-      <span>运行日志 · 每 2 秒刷新</span>
+      <div class="console-views" role="group" aria-label="控制台视图">
+        <button
+          class="btn btn-ghost btn-sm"
+          aria-pressed={view === 'logs'}
+          onclick={() => (view = 'logs')}>运行日志</button
+        >
+        <button
+          class="btn btn-ghost btn-sm"
+          aria-pressed={view === 'ai'}
+          onclick={() => (view = 'ai')}>AI 对话</button
+        >
+      </div>
+      <span>{view === 'logs' ? '每 2 秒刷新' : '最多 5 轮 · 本次会话'}</span>
       <button
         class="btn btn-ghost btn-sm"
         disabled={refreshing || !desktopAvailable}
@@ -243,9 +349,53 @@
         onclick={() => refresh(true)}><Trash2 size={14} />清空日志</button
       >
     </div>
-    <div class="console-logs mono" role="region" aria-label="运行日志" bind:this={logHost}>
-      {#each logs as line}<div>{line}</div>{:else}<p>暂无运行日志</p>{/each}
-    </div>
+    {#if view === 'logs'}<div
+        class="console-logs mono"
+        role="region"
+        aria-label="运行日志"
+        bind:this={logHost}
+      >
+        {#each logs as line}<div>{line}</div>{:else}<p>暂无运行日志</p>{/each}
+      </div>{:else}
+      <div
+        class="console-logs console-chat"
+        role="log"
+        aria-label="AI 对话"
+        aria-live="polite"
+        bind:this={chatHost}
+      >
+        {#each events as event}
+          <article class="chat-entry" class:chat-error={event.ok === false}>
+            <strong
+              >{event.role === 'user'
+                ? '你'
+                : event.role === 'assistant'
+                  ? 'AI'
+                  : `工具 · ${event.name}`}</strong
+            >
+            <div class:mono={event.role === 'tool'}>{event.content}</div>
+          </article>
+        {:else}<p>
+            可以直接输入：“找几首爵士乐并开始播放”或“切换到深色宋体”。对话和必要的曲库元数据会发送到设置中的服务地址。
+          </p>{/each}
+      </div>
+      <div class="console-chat-actions">
+        <button class="btn btn-ghost btn-sm" onclick={openSettings}>前往 AI 设置</button>
+        <button
+          class="btn btn-ghost btn-sm"
+          onclick={clearChat}
+          disabled={!events.length && !aiRequest}>清空对话</button
+        >
+        <button
+          class="btn btn-ghost btn-sm"
+          disabled={!aiRequest}
+          onclick={() => {
+            aiRequest?.abort();
+            feedback = 'AI 对话已停止，已完成的操作保留';
+          }}>停止对话</button
+        >
+      </div>
+    {/if}
     {#if refreshError}<p class="console-error">{refreshError}</p>{/if}
     <form
       class="console-command"
@@ -254,31 +404,79 @@
         void execute();
       }}
     >
-      <label for="console-command">快捷命令<span>仅执行本地内置指令</span></label>
-      <div>
+      <div class="console-input-heading">
+        <label for="console-command">
+          {#if view === 'logs'}<Terminal size={14} aria-hidden="true" />本地短命令
+          {:else}<Sparkles size={14} aria-hidden="true" />AI 对话指令{/if}
+        </label>
+        {#if view === 'logs'}<span class="console-input-note">仅执行内置控制指令</span>
+        {:else}<span class="console-model" title={modelLabel} aria-live="polite">{modelLabel}</span
+          >{/if}
+      </div>
+      <div class="console-input-row">
         <input
           id="console-command"
-          class="input mono"
+          class="input"
+          class:mono={view === 'logs'}
+          class:console-ai-input={view === 'ai'}
           bind:value={command}
-          placeholder="play · pause · next · prev · vol 30 · theme dark · palette cinnabar · scan"
+          placeholder={view === 'logs'
+            ? 'play · pause · next · prev · vol 30 · theme dark · scan'
+            : '直接输入需求，例如：“找几首适合深夜的歌建个歌单并播放”'}
           autocomplete="off"
           spellcheck="false"
+          maxlength="4000"
           aria-describedby="console-help"
           onkeydown={(event) => {
             if (event.key === 'Enter' && event.isComposing) event.preventDefault();
           }}
         />
-        <button class="btn btn-secondary" type="submit" disabled={busy || !command.trim()}
-          >执行</button
+        <button
+          class={view === 'logs' ? 'btn btn-secondary' : 'btn btn-primary'}
+          type="submit"
+          disabled={busy || !command.trim()}
+          >{view === 'logs' ? '执行' : busy ? '发送中…' : '发送'}</button
         >
       </div>
-      <p id="console-help">回车执行；scan 打开文件夹选择器。</p>
+      <p id="console-help">
+        {view === 'logs'
+          ? '回车执行；scan 打开文件夹选择器，自然语言自动切换到 AI 对话。'
+          : '回车发送；需在设置中启用 AI 并配置密钥。'}
+      </p>
     </form>
     <p class="console-feedback" role="status">{feedback}</p>
   </div>
 </Modal>
 
 <style>
+  .console-views {
+    display: flex;
+    gap: 4px;
+  }
+  .console-views [aria-pressed='true'] {
+    background: var(--selected);
+    color: var(--text);
+  }
+  .console-chat-actions {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .chat-entry + .chat-entry {
+    margin-top: 12px;
+  }
+  .chat-entry strong {
+    display: block;
+    color: var(--text-2);
+    font-size: var(--fs-small);
+  }
+  .chat-entry div {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .chat-error div {
+    color: var(--danger);
+  }
   .console-body {
     display: flex;
     flex-direction: column;
@@ -332,24 +530,47 @@
   }
   .console-command label {
     display: flex;
-    gap: 12px;
-    align-items: baseline;
+    gap: 6px;
+    align-items: center;
     font-size: var(--fs-meta);
     color: var(--text);
+  }
+  .console-input-heading {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
     margin-bottom: 6px;
   }
-  .console-command label span,
+  .console-model {
+    max-width: min(100%, 280px);
+    min-width: 0;
+    padding: 1px 8px;
+    border: 1px solid var(--accent-line);
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: var(--fs-small);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .console-input-note,
   .console-command p {
     font-size: var(--fs-small);
     color: var(--text-3);
   }
-  .console-command > div {
+  .console-input-row {
     display: flex;
     gap: 8px;
   }
   .console-command input {
     flex: 1;
     min-width: 0;
+  }
+  .console-command input.console-ai-input {
+    border-color: var(--accent-line);
+    font-family: var(--font-sans);
   }
   .console-command p {
     margin-top: 4px;

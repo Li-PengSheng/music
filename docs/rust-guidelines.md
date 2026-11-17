@@ -14,7 +14,7 @@
 
 没有按 RFC 假设尚未存在的模块或 crate。
 
-Catalog 每实例首次连接完成 schema 初始化；后续轻量连接不执行 DDL，每个连接仍设置 `foreign_keys=ON` 与 2 秒 `busy_timeout`，导入备份继续显式迁移。
+Catalog 每实例首次连接完成 schema 初始化；后续轻量连接不执行 DDL，每个连接仍设置 `foreign_keys=ON` 与 2 秒 `busy_timeout`。TASK-23 已删除旧版数据库导入及备份路径；当前库的 schema 升级与数据保留测试继续保留。
 
 ## 用户数据
 

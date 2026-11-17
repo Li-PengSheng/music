@@ -27,7 +27,6 @@ import {
   trackDetails,
   scanFolder,
   scanProgress,
-  importLegacy,
   desktopAvailable,
   type LibraryTrack,
   type LibraryQuery,
@@ -73,18 +72,6 @@ export async function importFolder() {
     await scanFolder();
     library.progress = await scanProgress();
     if (!library.progress.running) await refreshSummary();
-  } catch (e) {
-    notifyError(e);
-  }
-}
-
-export async function importLegacyDatabase() {
-  try {
-    const r = await importLegacy();
-    if (r) {
-      notify(`已安全导入 ${r.tracks} 首歌曲、${r.playlists} 个歌单。${r.warnings.join(' ')}`);
-      await refreshSummary();
-    }
   } catch (e) {
     notifyError(e);
   }

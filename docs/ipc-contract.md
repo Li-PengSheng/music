@@ -38,7 +38,7 @@ Rust 是播放位置的权威。界面显示 `position_ms`。拖动进度条只�
 - `library_audio_info({ id: number }) -> AudioInfo` 只返回六个文件技术字段：`format: string`（大写）、`sample_rate / channels / bitrate: number | null`、`bit_depth: number | null`（Lofty properties）、`file_size: number | null`（磁盘字节数）。TASK-20 移除播放次数字段及专用历史查询，所有消费者（music.ts、TrackDetails、NowPlaying、mock）同时更新；没有播放次数兼容字段。无法识别的位深为 null；读取失败返回错误。
 - `library_track_by_path({ path: string }) -> LibraryTrack | null`：复用现有完整路径查找，不按标题匹配，不在曲库时返回 null；数据库失败返回错误。供正在播放页切歌时先取得曲库 ID 再请求 audioInfo。库外文件不展示库内参数。旧 library_track(id) 调用保持兼容。
 - 调用点：`music.ts` 封装全部 invoke；`ConsoleModal.svelte` 打开期间每两秒读取日志、coverStats、mediaStatus、librarySummary，关闭清理计时器并忽略旧响应。`TrackDetails.svelte` 与 `NowPlaying.svelte` 展示 AudioInfo，后者仅切换曲目时请求并丢弃过期结果。
-- Console 内置 play / pause / next / prev / vol 0–100 复用 control()/accept()；theme、palette 复用本地偏好；scan 复用扫描命令并反馈启动或选择结束。无 shell、无远端 AI 服务。原有能力权限不变。
+- Console 内置 play / pause / next / prev / vol 0–100 复用 control()/accept()；theme、palette 复用本地偏好；scan 复用扫描命令并反馈启动或选择结束。TASK-22 明确授权增加默认关闭的 AI 对话，见下文；不提供 shell，原有能力权限不变。
 - 收听历史仍按原有后台 200ms 检查时序记录，用于最近播放与常听艺术家排序；TASK-20 不更改写入规则或数据库 schema。没有面向 UI 的播放次数事件/订阅。`library_home` 的艺术家元组形状保留，界面只用姓名，并从 `library_summary.artists[].count` 显示库内歌曲数；数量为 0 时不展示副标题。
 
 ## 音频输出设备
@@ -50,6 +50,8 @@ Rust 是播放位置的权威。界面显示 `position_ms`。拖动进度条只�
 - 设置页沿用实际输出名称的紧凑读数，鼠标悬停或键盘聚焦时显示现有 Select 控件；下拉框提供系统默认项和设备列表，切换后刷新列表与偏好。旧播放命令、volume 和 playback-v1.json 契约不变。
 
 ## 曲库文件夹与歌单管理
+
+- TASK-23 已移除旧版数据库导入：`library_import` 不再注册或封装，也不属于 ipc-unused 兼容例外；设置页没有旧库导入入口。现有曲库 schema 升级仍保留，不进行任何用户数据删除或格式重置。
 
 - `library_remove_folder` 接收 `{ path: string }`，只接受 summary 中已登记的目录。与扫描共用 `Catalog.operation` 锁，在事务内移除目录记录及该路径下的曲目数据库记录，清理外键关联；按路径分隔符边界匹配，`%` / `_` 按字面量处理。绝不删除或修改磁盘文件，不改变当前 Rust 播放快照或队列。前端二次确认后调用 `removeFolder`，刷新 summary、封面缓存和 `coverEpoch`。
 - `library_playlist_edit` 保留 rename/delete/remove_track，并新增 `action: 'reorder'`，参数 `{ playlistId: number, from: number, to: number }` 为零基完整歌单位置；其余 name/trackId 可省略。Rust 在同一操作锁内检查缺失参数、不存在的歌单、空歌单及越界位置，失败返回错误且不改变顺序；合法同位置为无操作。只更新歌单成员位置，不改变曲库歌曲和文件。旧调用不需要新增参数。
@@ -75,6 +77,16 @@ Rust 是播放位置的权威。界面显示 `position_ms`。拖动进度条只�
 - 独立 observer 负责采集/持久化，network 线程统一 HTTP（ureq 2.12.1 + Rustls，无 OpenSSL）；Controller 锁释放后才执行数据库/日志/网络。开始播放发 playing_now（无 listened_at），正式记录单条 single、多条 import、每批最多 50 条。网络超时 10 秒，不跟随重定向，响应体上限 2MB；请求至少间隔 1.1 秒，遵守 X-RateLimit-Reset-In/Retry-After，队列失败指数退避到 15 分钟。错误只暴露固定码，不回传 HTTP 正文、头或带凭证 URL。
 - Last.fm 不是另一个已接入的 API；设置页说明用户可自行在 ListenBrainz 网站关联。
 
+## AI Console（默认关闭，TASK-22）
+
+- `ai_config(enabled?: boolean | null, base_url?: string | null, api_key?: string | null, model?: string | null) -> Result<AiConfig, string>`，JS 参数 `{ enabled, baseUrl, apiKey, model }`。返回 `{ enabled: boolean, base_url: string, model: string, has_key: boolean, revision: number }`，永不回传 Key。参数全空为只读查询；null 保持原值；空 apiKey 清除密钥并禁用。设置和开关仅本地保存，不验证远端账户。旧 desktop-v1.json 默认 ai_enabled=false、ai_base_url=https://api.openai.com/v1、ai_model=gpt-4o-mini、ai_api_key=null。desktop_preferences 的 ai_api_key 固定 null；持久化文件保留密钥，其他偏好更新不覆盖它。revision 是进程内 AI 配置版本，每次保存递增，模型响应过期即拒绝执行。
+- `ai_chat_turn(messages: AiMessage[], tools: JSON[]) -> Result<AiTurnResponse, string>`，JS 参数同名。AiMessage 为 `{ role: 'system'|'user'|'assistant'|'tool', content: string|null, tool_calls?: AiToolCall[], tool_call_id?: string }`；AiToolCall 为 `{ id: string, type: 'function', function: { name: string, arguments: string } }`。返回 `{ message: AiMessage, finish_reason: string }`，只选取标准助手字段，不传透提供商扩展；finish_reason 使用允许列表。禁用/缺 Key 返回 AI_DISABLED / AI_KEY_MISSING，不发 HTTP。
+- Rust 复用 ureq 2.12.1/Rustls，spawn_blocking 发 POST `{base_url}/chat/completions`，Authorization: Bearer Key、MusicMine/0.1.0、stream=false；tools 非空时 tool_choice=auto。仅接受可解析的 HTTP(S)，拒绝 URL 内凭证/查询/片段/控制字符；本机 HTTP 服务可用。30 秒超时、不跟随重定向、不自动重试；请求体消息/工具部分最多 256KB，响应最多 1MB，消息最多100条、每条内容64KB，工具定义仅六种允许名称、每响应最多8次调用。API错误只返回固定码/HTTP状态，不返回 URL、响应正文或头。日志只记录请求/工具结果计数、工具允许名和固定码，写入 stderr/文件/Console 前脱敏 Key。HTTP 和响应体读取期间不持有 Controller 或偏好锁；同时最多一个模型请求。
+- 工具闭环由前端 ai-conversation.ts 驱动，每个用户提问最多5次模型请求。第5次仍要求工具则停止，不执行该轮工具。串行调用 ai-tools.ts 的允许列表；每次模型请求/工具执行前核对启用和配置版本。TASK-24将输入区与视图绑定：日志页的短命令在本地处理，格式错误仍给本地用法；自然语言自动切到AI页，AI页提交统一发送对话。未启用/缺Key提示前往设置。两页分别显示本地/AI标题、图标、字体、占位符和执行/发送按钮；AI模型徽章复用每2秒只读配置轮询，未启用明确标记，关闭后忽略旧响应。IPC参数/返回值不变。
+- 六种工具：get_library_overview（歌曲数、前30专辑/艺术家、前100歌单）；search_library（keyword、排序，最多50条，返回 ID/曲名/艺术家/专辑/时长）；create_playlist_with_tracks（先验证最多50个ID，再创建并添加，刷新侧栏；部分失败返回新歌单ID和已添加数，不声称回滚）；play_tracks（验证ID，control/accept应用模式和替换队列播放）；control_playback（播放/暂停/上一首/下一首/0–100音量）；set_appearance（受限主题/色系/字体、明确桌面歌词开关）。所有参数按允许字段、类型、范围校验；无任意 invoke、shell、扫描/删除文件或配置凭证工具。不发送歌曲路径、文件夹、封面、歌词或运行日志给模型；名称按100字符裁剪。用户输入、标签和工具结果均视作不可信数据。
+- Console 日志与 AI 对话分视图，显示用户问题、工具名/JSON结果和最终文本（按文本转义显示）。对话仅存本次弹窗内存，可清空/停止；关闭/停止不继续执行后续轮次或工具，已在途请求和本地操作可能完成。失败或停止时保留已完成工具记录，未执行调用补充 not_executed 结果，保持下一轮消息配对有效，避免重复创建。清空后的旧响应不能恢复历史；配置改变后开始新模型上下文。旧历史按完整用户轮次裁剪，不截断工具交换。
+- 只支持标准 Chat Completions 文本/function calling 格式；各服务的非标准鉴权/推理扩展不承诺兼容。密钥仍须由用户填写，无需鉴权的本机服务可用占位值。真实外网服务验收与模拟服务测试分别记录。
+
 ## 错误协议
 
 现有 `Result<T, String>` 保持不变。新的复杂命令可以在单独任务里使用可序列化的 `code`、`message`、可选 `details`。不在无关的 UI 任务里批量替换错误类型。
@@ -88,6 +100,8 @@ Rust 是播放位置的权威。界面显示 `position_ms`。拖动进度条只�
 已注册但前端没有封装的命令必须写进例外清单。例外清单必须等于「已注册命令减去前端封装」。命令被删除、后来补了前端封装，或新注册了一个前端未使用的命令时，过时或缺漏的名字都会让 `tests/ipc-surface.test.mjs` 失败。当前例外只有 `library_cover` 和 `library_favorite`。
 
 ```ipc-commands
+ai_config
+ai_chat_turn
 app_console_logs
 bridge_probe
 desktop_lyrics_window
@@ -98,7 +112,6 @@ library_cover
 library_cover_stats
 library_favorite
 library_home
-library_import
 library_play
 library_playlist
 library_playlist_edit

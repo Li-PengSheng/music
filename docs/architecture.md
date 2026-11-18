@@ -62,6 +62,7 @@ SettingsView → AiSettings / ListenBrainzSettings → 专用配置 DTO（不含
 | `src/lib/stores/enrichment.svelte.ts`（TASK-29） | WebView会话共享筛选/勾选/焦点/逐曲候选与草稿；library.revision增量同步并清除消失ID。返回页面不重置/重复批搜，明确重新检索才forceRefresh=true |
 | `catalog/db.rs`、`catalog/enrichment.rs`（TASK-29） | 增量enrichment_cache表；同曲目/归一化查询键、7天有效候选直接返回，force_refresh绕过；HTTP锁外执行，operation锁内重验再缓存，成功应用/删除目录事务清理缓存 |
 | 新入库补全（TASK-30） | 工作台added_at DESC/id DESC，默认近7天、无新歌回退四类缺失待办；cache.ignored增量标记，经显式IPC设置/恢复；待办隐藏、全部可恢复，候选刷新/失效保留标记，目录移除清理孤立行 |
+| 重扫保留补全（TASK-31） | tracks.tags_enriched增量列；显式补全写入库标签时置1；扫描UPSERT对该行保留title/artist/album/album_artist/genre/year/track_number/album_source，只刷新duration_ms/disc_number，tags_enriched与added_at不变；无新命令/参数 |
 | `src/lib/utils/cover-loader.ts`、`row-visibility.ts` | 封面并发、取消和可见行 |
 | `src/lib/stores/player.svelte.ts` | `accept()` 丢掉更旧的 `revision`；`control()` 串行播放命令 |
 | `src/lib/services/music.ts` | 全部前端业务 IPC 类型和调用；窗口/事件 API 封装。WindowControls 直接使用官方窗口 API |
@@ -89,6 +90,7 @@ SettingsView → AiSettings / ListenBrainzSettings → 专用配置 DTO（不含
 - `PlayerSnapshot` 在 `music.ts`：`revision`、`metadata_revision`、`track_id`、`current_track`、`playback_state`、`position_ms`、`duration_ms`、`volume`、`playback_mode`、`lyrics_offset_ms`、`output_device_id`、`error`、`queue`。改字段时对照 Rust 的 serde 定义。metadata_revision 仅在显式补全当前曲目后递增，驱动封面/歌词重载；不推进进度，不重开播放。封面 Store 优先有效同名 .cover.jpg，其次共享 cover.jpg，再内嵌图；两个 sidecar 的 mtime/长度纳入缓存指纹。工作台只读完整度复用展示策略，不落缓存。
 - 进度显示快照里的 `position_ms`。拖动进度条可以有松开前的本地草稿。
 - 数据库用 `CREATE TABLE IF NOT EXISTS` 和 `ensure_column`。没有独立迁移框架。每个 `Catalog` 用实例级 `Mutex<bool>` 只迁移一次；`db::open` 执行 `init`，热路径随后走 `open_light`。旧版数据库导入命令、入口、副本/backup 路径均已删除；当前 schema 升级仍保留。
+- 扫描的 `INSERT ... ON CONFLICT(path) DO UPDATE` 是唯一批量重扫入口。用户经显式补全改过库标签的行（`tracks.tags_enriched=1`）在重扫时保留文本标签与 `album_source`，只刷新 `duration_ms`、`disc_number` 等物理属性；`tags_enriched` 与首次入库的 `added_at` 不重置。未补全行仍按文件标签/文件名回退覆盖，旧库升级得到默认 0。音频文件本身不因重扫改写。
 - `Action::Open` 把 `prepare` 后的 `synchronize` 状态交给同一次 `execute` 的尾部。`Play` 仍单独做一次屏障。成功的 `Start` 仍是两次 `execute` 和两次 `persist` 调用。
 - `audio/player.rs` 里音频路径上的 `Mutex` 毒化用 `into_inner` 取出，避免二次 panic。这不证明锁内数据完整。
 - Symphonia 禁用默认 feature，显式启用 `mp3`、`flac`、`wav`、`pcm`、`adpcm`；ADPCM 保留此前默认集合带来的 WAV 能力，仅删除未提供入口的 Vorbis/MKV/Ogg。fixture 在 `src-tauri/tests/fixtures/`：`tone.mp3`、`tone.flac`、`tone.wav`。ADPCM 没有专用 fixture，不承诺所有 WAV 编码变体。

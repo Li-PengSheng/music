@@ -1134,7 +1134,7 @@ fn apply_prepared(
             file.publish()?;
         }
         if p.update_library_tags {
-            let changed = tx.execute("UPDATE tracks SET title=?1,artist=?2,album=?3,album_artist=?4,year=?5,track_number=?6,genre=?7,album_source='tag' WHERE id=?8", rusqlite::params![track.title, track.artist, track.album, track.album_artist, track.year, track.track_number, track.genre, track.id]).map_err(|_| err("METADATA_DATABASE"))?;
+            let changed = tx.execute("UPDATE tracks SET title=?1,artist=?2,album=?3,album_artist=?4,year=?5,track_number=?6,genre=?7,album_source='tag',tags_enriched=1 WHERE id=?8", rusqlite::params![track.title, track.artist, track.album, track.album_artist, track.year, track.track_number, track.genre, track.id]).map_err(|_| err("METADATA_DATABASE"))?;
             if changed != 1 {
                 return Err(err("METADATA_TRACK_MISSING"));
             }

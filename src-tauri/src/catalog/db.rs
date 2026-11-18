@@ -116,6 +116,13 @@ fn init(conn: &Connection) -> Result<(), String> {
         "TEXT NOT NULL DEFAULT 'tag'",
     )?;
     ensure_column(conn, "tracks", "added_at", "INTEGER NOT NULL DEFAULT 0")?;
+    // Set when the user applies enrichment tags to the library row.
+    ensure_column(
+        conn,
+        "tracks",
+        "tags_enriched",
+        "INTEGER NOT NULL DEFAULT 0",
+    )?;
     ensure_column(
         conn,
         "enrichment_cache",
@@ -189,13 +196,23 @@ pub fn upsert_tracks(conn: &Connection, tracks: &[Track]) -> Result<(), String> 
     let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
     for t in tracks {
         tx.execute(
+            // A rescan must not undo tags the user applied through enrichment. For an
+            // already-enriched row the stored text tags win; only physical properties are
+            // refreshed. `tags_enriched` and `added_at` are intentionally not in the SET
+            // list, so they keep their stored values.
             "INSERT INTO tracks (path, title, artist, album, album_artist, genre, year, track_number, duration_ms, disc_number, album_source, added_at)
              VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)
              ON CONFLICT(path) DO UPDATE SET
-               title=excluded.title, artist=excluded.artist, album=excluded.album,
-               album_artist=excluded.album_artist, genre=excluded.genre, year=excluded.year,
-               track_number=excluded.track_number, duration_ms=excluded.duration_ms,
-               disc_number=excluded.disc_number, album_source=excluded.album_source",
+               title=CASE WHEN tracks.tags_enriched<>0 THEN tracks.title ELSE excluded.title END,
+               artist=CASE WHEN tracks.tags_enriched<>0 THEN tracks.artist ELSE excluded.artist END,
+               album=CASE WHEN tracks.tags_enriched<>0 THEN tracks.album ELSE excluded.album END,
+               album_artist=CASE WHEN tracks.tags_enriched<>0 THEN tracks.album_artist ELSE excluded.album_artist END,
+               genre=CASE WHEN tracks.tags_enriched<>0 THEN tracks.genre ELSE excluded.genre END,
+               year=CASE WHEN tracks.tags_enriched<>0 THEN tracks.year ELSE excluded.year END,
+               track_number=CASE WHEN tracks.tags_enriched<>0 THEN tracks.track_number ELSE excluded.track_number END,
+               album_source=CASE WHEN tracks.tags_enriched<>0 THEN tracks.album_source ELSE excluded.album_source END,
+               duration_ms=excluded.duration_ms,
+               disc_number=excluded.disc_number",
             rusqlite::params![
                 t.path,
                 t.title,
@@ -422,6 +439,11 @@ mod migration_tests {
         assert_eq!(tracks.len(), 1, "existing library rows must survive");
         assert_eq!(tracks[0].title, "Song");
         assert!(tracks[0].added_at > 0, "migration assigns an added time");
+        // The enrichment marker column arrives with a safe default for old rows.
+        let enriched: i64 = conn
+            .query_row("SELECT tags_enriched FROM tracks", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(enriched, 0);
         assert_eq!(
             get_setting(&conn, "session_v2").as_deref(),
             Some("{\"queue\":[]}")

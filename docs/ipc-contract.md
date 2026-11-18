@@ -129,6 +129,13 @@ Rust 是播放位置的权威。界面显示 `position_ms`。拖动进度条只�
 - 工作台默认新入库（近7天），有效时间范围now-7天≤added_at≤now且added_at>0；无未忽略新歌时自动展示“信息不全（缺歌手/专辑/封面/歌词）”。回退不覆盖会话中的默认偏好，新歌扫描后可自动回到近7天；用户主动选的其他筛选保留。另有“新入库且缺信息”、缺歌手/专辑、缺封面、缺歌词、全部曲目。未知完整度null不算缺失，新歌徽标按同一时间规则。
 - ignored曲目从全部待办筛选隐藏，只在全部曲目显示已忽略并可一键恢复；设置成功才更新会话并清除勾选，失败保留原状态。全选/批搜/批应用跳过已忽略曲目；普通曲库/播放/歌单不受影响。详情显式跳转的目标若不符合当前筛选，切到全部以显示目标。
 
+### 重扫保留已补全标签（TASK-31）
+
+- `tracks` 通过 `ensure_column` 增量增加 `tags_enriched INTEGER NOT NULL DEFAULT 0`；旧库升级默认 0，命令与 DTO 不变（`Track` 不新增字段）。
+- `metadata_apply_enrichment` 在 `update_library_tags=true` 且成功提交时，同一 `UPDATE tracks` 一并写 `tags_enriched=1`；仅保存 sidecar 或只写音频时不改变该标记。
+- 目录扫描的 `ON CONFLICT(path) DO UPDATE`：现有行 `tags_enriched<>0` 时保留 `title`、`artist`、`album`、`album_artist`、`genre`、`year`、`track_number`、`album_source`，只刷新 `duration_ms`、`disc_number`；`tags_enriched` 与 `added_at` 保持原值。未补全行仍按新扫描值更新。
+- 重扫与重启不改变曲库中已补全的文本，也不改写音频字节；`library_scan` 参数/返回、前端封装和 mock 均未变化。重扫仍通过原生文件夹选择器触发，自动化验收需先确认选择器返回的是测试目录。
+
 ## 错误协议
 
 现有 `Result<T, String>` 保持不变。新的复杂命令可以在单独任务里使用可序列化的 `code`、`message`、可选 `details`。不在无关的 UI 任务里批量替换错误类型。
